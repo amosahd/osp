@@ -8,35 +8,43 @@ Copy-paste this to start the next session:
 
 Bu OSP (Open Service Protocol) projesi — AI agent'ların developer servislerini (database, hosting, auth, analytics) discover, provision ve manage etmesi için açık standart. Stripe Projects'in açık alternatifi.
 
-## Mevcut Durum
+## Mevcut Durum (Güncel)
 
-- **Repo:** `~/osp/` — temiz git repo, tek initial commit
-- **Spec:** `spec/osp-v1.0.md` — 6,264 satır, 14 section, 25+ endpoint
-- **Schemas:** `schemas/` — 6 JSON Schema + 14 provider manifest örneği
-- **SDKs:** Python (55 test) + TypeScript (32 test) — `reference-implementation/`
-- **Docs:** `docs/` — getting started, provider guide, agent guide
-- **Plan:** `docs/plans/2026-03-28-osp-master-plan-v2.md` — 5 phase, 43 atomic commit, 15 araştırma-bazlı yeni feature
-- **Kararlar:** İsim OSP, domain osp.sh, Rust core implementation, 4 SDK (TS/Python/Go/Rust), Sardis founding maintainer, 3 ay timeline
+- **Repo:** `~/osp/` — GitHub'da: https://github.com/EfeDurmaz16/osp
+- **Spec:** `spec/osp-v1.0.md` — ~9,660 satır, v1.1 draft, 15 yeni feature eklendi
+- **Schemas:** `schemas/` — 6 JSON Schema + 14 provider manifest örneği (v1.1 fields ile güncellendi)
+- **Rust Core:** `osp-core/` — 8 crate Cargo workspace (crypto, manifest, vault, cli, provider, registry, conformance, sdk) — 46 test, hepsi geçiyor
+- **TypeScript SDK:** `reference-implementation/typescript/` — v0.2.0, MCP server (5 tool), resolver, Next.js/Vite plugins — 139 test
+- **Python SDK:** `reference-implementation/python/` — v0.2.0, async client, FastAPI/Django integrations — 170 test
+- **Go SDK:** `osp-sdk-go/` — Full client + provider + crypto — 142 test
+- **Sardis Integration:** `sardis-integration/` — Payment rail, MCP extension (9 tool), CLI bridge — 79 test
+- **Skills:** `skills/` — 10 provider LLM skill (Supabase, Neon, Vercel, Clerk, Upstash, Resend, Cloudflare, PostHog, Turso, Railway)
+- **Website:** `website/` — Next.js + Tailwind scaffold (landing, spec viewer, provider directory, skill browser)
+- **CI/CD:** `.github/workflows/` — Schema validation, Python/TS/Rust test runners, deploy
+- **Conformance Tests:** `conformance-tests/python/` — Provider + agent conformance suites
+- **Examples:** `examples/` — nextjs-supabase-clerk, python-neon-resend
+- **Launch Materials:** `docs/launch/` — Show HN, Twitter thread, provider outreach emails, pitch deck outline
+- **IETF Draft:** `docs/ietf/draft-durmaz-osp-00.md` — Internet-Draft skeleton
+- **Toplam:** 58+ atomic commit, 497+ test (tümü geçiyor)
 
 ## Sardis İlişkisi
 
-OSP bağımsız protocol, Sardis founding maintainer. Sardis = rail-agnostic agentic payment platform (Stripe → Stripe Projects ilişkisi gibi Sardis → OSP). Sardis Protocol spec: `~/sardis/spec/Sardis_Complete_Protocol_v1.1.pdf` (53 sayfa). Key insight: "Reusable credential is the wrong primitive" — her iki protocol'ün ortak tezi. OSP adoption = Sardis adoption.
+OSP bağımsız protocol, Sardis founding maintainer. Sardis = rail-agnostic agentic payment platform. OSP adoption = Sardis adoption.
 
-## Yapılması Gereken (Phase 0)
+## Yapılması Gereken (Launch)
 
-Master planı oku: `docs/plans/2026-03-28-osp-master-plan-v2.md`
-
-Sırasıyla:
-1. **Spec'e 15 yeni feature ekle** (A2A delegation, NHI lifecycle/short-lived tokens, FinOps cost-as-code, dependency graph, scorecards, agent observability, MCP .well-known alignment, progressive deployment, SBOM, TypeScript IaC config, ephemeral envs, onboarding, unified billing, provider status, provider onboarding SDK)
-2. **Cross-validate** spec ↔ schemas ↔ Python types ↔ TS types
-3. **10 provider için LLM skills yaz** (Supabase, Neon, Vercel, Clerk, Upstash, Resend, Cloudflare, PostHog, Turso, Railway)
-4. **Rust core implementation başlat** (`osp-core/` workspace: osp-crypto, osp-manifest, osp-vault, osp-cli, osp-provider, osp-registry, osp-conformance)
+1. **Provider outreach** — Neon, Upstash, Turso, Resend'e mail at (`docs/launch/provider-outreach-email.md`)
+2. **osp.sh domain** al
+3. **Website deploy** — Vercel'e deploy et
+4. **Demo video** çek (script: `docs/demo-script.md`)
+5. **Show HN** post at (`docs/launch/show-hn.md`)
+6. **Twitter thread** at (`docs/launch/twitter-thread.md`)
+7. **IETF Internet-Draft** submit et
+8. **Security audit** başlat (`docs/security-audit-checklist.md`)
+9. `open-service-protocol` GitHub org kur, repoyu transfer et (opsiyonel)
 
 ## Kurallar
 
-- Memory'deki `feedback_agent_teams_mandatory.md`'yi oku — paralel görevlerde DAIMA Agent Teams kullan
-- Spec kapsamlı kalacak, bölünmeyecek
-- Sardis referansları dengeli ama gizlenmeyecek
+- Agent Teams kullan paralel görevlerde (CLAUDE.md'de zorunlu)
 - Her şey atomic commit'lerle
-
-Başla — önce planı oku, sonra agent team launch et Phase 0 için.
+- Spec kapsamlı kalacak, bölünmeyecek

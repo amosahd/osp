@@ -1,5 +1,8 @@
 # OSP (Open Service Protocol)
 
+## ZORUNLU: Agent Teams Kullan
+Paralel agentların gerektiği görevlerde DAİMA Agent Teams kullan (https://code.claude.com/docs/en/agent-teams). Subagent KULLANMA. Bu kullanıcının açık ve kesin talimatı — "asla ve katiyen başka bir şey kullanılmayacak." 3+ paralel görev, araştırma + implementasyon, birbirleriyle konuşması gereken agentlar → AGENT TEAMS zorunlu.
+
 ## Overview
 Open standard for AI agents to discover, provision, and manage developer services.
 

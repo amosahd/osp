@@ -1,22 +1,50 @@
 {
   "name": "@osp/client",
-  "version": "0.1.0",
-  "description": "OSP (Open Service Protocol) client SDK for TypeScript",
+  "version": "0.2.0",
+  "description": "OSP (Open Service Protocol) client SDK for TypeScript — discover, provision, and manage developer services",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" }
+    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" },
+    "./resolver": { "import": "./dist/resolver.js", "types": "./dist/resolver.d.ts" },
+    "./mcp-server": { "import": "./dist/mcp-server.js", "types": "./dist/mcp-server.d.ts" },
+    "./plugins/nextjs": { "import": "./dist/plugins/nextjs.js", "types": "./dist/plugins/nextjs.d.ts" },
+    "./plugins/vite": { "import": "./dist/plugins/vite.js", "types": "./dist/plugins/vite.d.ts" }
   },
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "tsc --noEmit"
   },
-  "keywords": ["osp", "agent", "provisioning", "open-service-protocol"],
+  "keywords": [
+    "osp",
+    "agent",
+    "provisioning",
+    "open-service-protocol",
+    "mcp",
+    "ai-agent",
+    "developer-services"
+  ],
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/open-service-protocol/osp"
+  },
   "devDependencies": {
     "typescript": "^5.4.0",
     "vitest": "^2.0.0"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/sdk": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

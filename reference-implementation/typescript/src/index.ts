@@ -15,9 +15,9 @@
 
 // Client
 export { OSPClient, OSPError } from "./client.js";
-export type { OSPClientOptions } from "./client.js";
+export type { OSPClientOptions, RetryOptions } from "./client.js";
 
-// Types
+// Types — core
 export type {
   ServiceManifest,
   ServiceOffering,
@@ -28,6 +28,8 @@ export type {
   ProviderEndpoints,
   ProvisionRequest,
   ProvisionResponse,
+  ProvisionError,
+  FulfillmentProof,
   CredentialBundle,
   ResourceStatus,
   UsageReport,
@@ -39,7 +41,48 @@ export type {
   ServiceCategory,
   FulfillmentProofType,
   ProvisionStatus,
+  ProvisionErrorCode,
+  EncryptionMethod,
+  CredentialType,
   OSPErrorBody,
+} from "./types.js";
+
+// Types — v1.1
+export type {
+  A2AAgentCard,
+  A2ACapability,
+  NHIConfig,
+  NHIToken,
+  NHITokenType,
+  NHITokenMode,
+  NHIFederationType,
+  FinOpsConfig,
+  BudgetConstraint,
+  BudgetStatus,
+  BurnRate,
+  DependencyGraph,
+  Scorecards,
+  ComplianceFramework,
+  ObservabilityConfig,
+  TracePropagationFormat,
+  MCPConfig,
+  CanaryConfig,
+  CanaryStrategy,
+  CostEstimate,
+  CostBreakdownItem,
+  WebhookEvent,
+  WebhookEventType,
+  WebhookEventData,
+  CredentialBundleRef,
+  WebhookEventError,
+  ResourceWarning,
+  WarningType,
+  UsageThresholdData,
+  PaymentDetails,
+  BudgetAlert,
+  NHIEvent,
+  DependencyEvent,
+  TTLEvent,
 } from "./types.js";
 
 // Manifest utilities
@@ -61,3 +104,20 @@ export {
   base64urlDecode,
   base64urlEncode,
 } from "./crypto.js";
+
+// Resolver
+export {
+  OSPResolver,
+  parseOSPUri,
+  buildOSPUri,
+  isOSPUri,
+} from "./resolver.js";
+export type { ParsedOSPUri, ResolverOptions } from "./resolver.js";
+
+// MCP Server
+export {
+  OSPMCPHandler,
+  createOSPMCPHandler,
+  OSP_TOOL_DEFINITIONS,
+} from "./mcp-server.js";
+export type { MCPToolDefinition, MCPToolResult } from "./mcp-server.js";

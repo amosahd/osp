@@ -1,162 +1,405 @@
-"""OSP protocol types as Pydantic models.
+"""OSP protocol types as Pydantic v2 models — v1.1.
 
 Every data structure exchanged over the Open Service Protocol is defined here.
-Models carry full field descriptions so tooling (and humans) can understand the
-protocol without reading prose documentation.
+Field names match the canonical JSON Schemas in schemas/ and the TypeScript
+SDK types verbatim so that cross-language round-trips are lossless.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
+
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+class Currency(str, Enum):
+    """ISO-4217 currency codes supported by OSP."""
+    USD = "USD"
+    EUR = "EUR"
+    GBP = "GBP"
+    USDC = "USDC"
+    EURC = "EURC"
+
+
+class ServiceCategory(str, Enum):
+    database = "database"
+    hosting = "hosting"
+    auth = "auth"
+    analytics = "analytics"
+    storage = "storage"
+    compute = "compute"
+    messaging = "messaging"
+    monitoring = "monitoring"
+    search = "search"
+    ai = "ai"
+    email = "email"
+    other = "other"
+
+
+class PaymentMethod(str, Enum):
+    free = "free"
+    sardis_wallet = "sardis_wallet"
+    stripe_spt = "stripe_spt"
+    x402 = "x402"
+    mpp = "mpp"
+    invoice = "invoice"
+    external = "external"
+
+
+class FulfillmentProofType(str, Enum):
+    api_key_delivery = "api_key_delivery"
+    health_check = "health_check"
+    signed_receipt = "signed_receipt"
+
+
+class ProvisionStatus(str, Enum):
+    provisioning = "provisioning"
+    active = "active"
+    failed = "failed"
+    pending_payment = "pending_payment"
+    deprovisioning = "deprovisioning"
+    deprovisioned = "deprovisioned"
+
+
+class EncryptionMethod(str, Enum):
+    x25519_xsalsa20_poly1305 = "x25519-xsalsa20-poly1305"
+    aes_256_gcm = "aes-256-gcm"
+
+
+class CredentialType(str, Enum):
+    api_key = "api_key"
+    connection_string = "connection_string"
+    oauth_token = "oauth_token"
+    certificate = "certificate"
+    composite = "composite"
+    short_lived_token = "short_lived_token"
+
+
+class ProvisionErrorCode(str, Enum):
+    insufficient_funds = "insufficient_funds"
+    payment_failed = "payment_failed"
+    region_unavailable = "region_unavailable"
+    quota_exceeded = "quota_exceeded"
+    invalid_config = "invalid_config"
+    trust_tier_insufficient = "trust_tier_insufficient"
+    offering_unavailable = "offering_unavailable"
+    provider_error = "provider_error"
+    rate_limited = "rate_limited"
+    budget_exceeded = "budget_exceeded"
+    delegation_unauthorized = "delegation_unauthorized"
+    nhi_federation_failed = "nhi_federation_failed"
+
+
+class NHITokenType(str, Enum):
+    bearer = "bearer"
+    dpop = "dpop"
+    mtls = "mtls"
+
+
+class NHITokenMode(str, Enum):
+    static = "static"
+    short_lived = "short_lived"
+    federated = "federated"
+
+
+class NHIFederationType(str, Enum):
+    oidc = "oidc"
+    spiffe = "spiffe"
+    mtls = "mtls"
+
+
+class A2ACapability(str, Enum):
+    provision = "provision"
+    deprovision = "deprovision"
+    rotate = "rotate"
+    monitor = "monitor"
+    delegate = "delegate"
+
+
+class ComplianceFramework(str, Enum):
+    soc2 = "soc2"
+    hipaa = "hipaa"
+    gdpr = "gdpr"
+    pci_dss = "pci_dss"
+    iso27001 = "iso27001"
+
+
+class TracePropagationFormat(str, Enum):
+    w3c = "w3c"
+    b3 = "b3"
+    jaeger = "jaeger"
+
+
+class CanaryStrategy(str, Enum):
+    percentage = "percentage"
+    blue_green = "blue_green"
+    rolling = "rolling"
+
+
+class WebhookEventType(str, Enum):
+    provision_started = "provision.started"
+    provision_completed = "provision.completed"
+    provision_failed = "provision.failed"
+    deprovision_started = "deprovision.started"
+    deprovision_completed = "deprovision.completed"
+    deprovision_failed = "deprovision.failed"
+    credentials_rotated = "credentials.rotated"
+    credentials_expiring = "credentials.expiring"
+    resource_warning = "resource.warning"
+    resource_suspended = "resource.suspended"
+    resource_resumed = "resource.resumed"
+    usage_threshold = "usage.threshold"
+    usage_report_ready = "usage.report_ready"
+    payment_required = "payment.required"
+    payment_confirmed = "payment.confirmed"
+    budget_alert = "budget.alert"
+    budget_exceeded = "budget.exceeded"
+    nhi_token_expiring = "nhi.token_expiring"
+    nhi_token_rotated = "nhi.token_rotated"
+    dependency_health_changed = "dependency.health_changed"
+    scorecard_updated = "scorecard.updated"
+    environment_ttl_expiring = "environment.ttl_expiring"
+    environment_ttl_expired = "environment.ttl_expired"
+
+
+class WarningType(str, Enum):
+    approaching_limit = "approaching_limit"
+    performance_degraded = "performance_degraded"
+    maintenance_scheduled = "maintenance_scheduled"
+    credential_expiring = "credential_expiring"
+    payment_overdue = "payment_overdue"
+    budget_threshold = "budget_threshold"
+    ttl_expiring = "ttl_expiring"
 
 
 # ---------------------------------------------------------------------------
 # Pricing
 # ---------------------------------------------------------------------------
 
-class BillingCycle(str, Enum):
-    """Supported billing periods."""
-
-    monthly = "monthly"
-    yearly = "yearly"
-    one_time = "one_time"
-    usage_based = "usage_based"
-
-
-class Currency(str, Enum):
-    """ISO-4217 currency codes supported by OSP."""
-
-    USD = "USD"
-    EUR = "EUR"
-    GBP = "GBP"
-
-
 class Price(BaseModel):
-    """A concrete price point for a service tier."""
-
-    amount: float = Field(
-        ...,
-        ge=0,
-        description="Monetary amount in the smallest major-currency unit (e.g. 9.99).",
-    )
-    currency: Currency = Field(
-        default=Currency.USD,
-        description="ISO-4217 currency code.",
-    )
-    billing_cycle: BillingCycle = Field(
-        default=BillingCycle.monthly,
-        description="How often the charge recurs.",
-    )
+    """Pricing with decimal string amount to avoid floating-point issues."""
+    amount: str = Field(..., description="Decimal string (e.g. '25.00').")
+    currency: Currency = Field(default=Currency.USD)
+    interval: str | None = Field(default=None, description="ISO 8601 duration (e.g. 'P1M') or null for one-time.")
 
 
 # ---------------------------------------------------------------------------
-# Service catalogue
+# Escrow & Metering
 # ---------------------------------------------------------------------------
+
+class EscrowProfile(BaseModel):
+    timeout_seconds: int | None = None
+    verification_window_seconds: int | None = None
+    dispute_window_seconds: int | None = None
+
+
+class UsageMetering(BaseModel):
+    dimensions: list[str] | None = None
+    reporting_window: str | None = None
+    countersignature_required: bool | None = None
+
+
+# ---------------------------------------------------------------------------
+# Service Catalogue
+# ---------------------------------------------------------------------------
+
+class CanaryConfig(BaseModel):
+    enabled: bool | None = None
+    strategies: list[CanaryStrategy] | None = None
+
 
 class ServiceTier(BaseModel):
-    """A specific plan / SKU within a service offering."""
-
-    id: str = Field(
-        ...,
-        min_length=1,
-        description="Machine-readable tier identifier (e.g. 'free', 'pro-v2').",
-    )
-    name: str = Field(
-        ...,
-        min_length=1,
-        description="Human-readable tier name.",
-    )
-    description: str = Field(
-        default="",
-        description="What is included in this tier.",
-    )
-    price: Price = Field(
-        ...,
-        description="Pricing details for this tier.",
-    )
-    limits: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Arbitrary key-value limits (e.g. {'max_rows': 100_000}).",
-    )
-    features: list[str] = Field(
-        default_factory=list,
-        description="Feature flags or short descriptions included in this tier.",
-    )
+    tier_id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    price: Price
+    limits: dict[str, Any] | None = None
+    features: list[str] | None = None
+    escrow_profile: EscrowProfile | None = None
+    rate_limit: str | None = None
+    usage_metering: UsageMetering | None = None
+    sla: str | None = None
+    ttl_seconds: int | None = None
 
 
 class ServiceOffering(BaseModel):
-    """A single service exposed by a provider (e.g. 'Managed PostgreSQL')."""
+    offering_id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    description: str | None = None
+    category: ServiceCategory | str = Field(default="other")
+    tiers: list[ServiceTier] = Field(..., min_length=1)
+    credentials_schema: dict[str, Any] | None = None
+    estimated_provision_seconds: int | None = None
+    fulfillment_proof_type: FulfillmentProofType | None = None
+    regions: list[str] | None = None
+    documentation_url: str | None = None
+    dependencies: list[str] | None = None
+    sbom_url: str | None = None
+    canary: CanaryConfig | None = None
 
-    id: str = Field(
-        ...,
-        min_length=1,
-        description="Machine-readable offering identifier.",
-    )
-    name: str = Field(
-        ...,
-        min_length=1,
-        description="Human-readable service name.",
-    )
-    description: str = Field(
-        default="",
-        description="Detailed description of the service.",
-    )
-    category: str = Field(
-        default="",
-        description="Service category (e.g. 'database', 'storage', 'auth').",
-    )
-    tiers: list[ServiceTier] = Field(
-        ...,
-        min_length=1,
-        description="Available tiers / plans.  At least one is required.",
-    )
-    documentation_url: str | None = Field(
-        default=None,
-        description="URL to external documentation.",
-    )
 
+# ---------------------------------------------------------------------------
+# Provider Endpoints
+# ---------------------------------------------------------------------------
+
+class ProviderEndpoints(BaseModel):
+    provision: str
+    deprovision: str
+    credentials: str
+    rotate: str | None = None
+    status: str
+    usage: str | None = None
+    health: str
+    dependency_graph: str | None = None
+    scorecard: str | None = None
+    skills: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# v1.1: A2A Agent Delegation
+# ---------------------------------------------------------------------------
+
+class A2AAgentCard(BaseModel):
+    agent_id: str | None = None
+    capabilities: list[A2ACapability] | None = None
+    delegation_endpoint: str | None = None
+    task_lifecycle: bool | None = None
+    agent_public_key: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# v1.1: Non-Human Identity
+# ---------------------------------------------------------------------------
+
+class NHIConfig(BaseModel):
+    short_lived_tokens: bool | None = None
+    token_ttl_seconds: int | None = None
+    orphan_detection: bool | None = None
+    federation: list[NHIFederationType] | None = None
+    token_endpoint: str | None = None
+
+
+class NHIToken(BaseModel):
+    token: str
+    token_type: NHITokenType
+    expires_at: str
+    refresh_endpoint: str | None = None
+    identity_id: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# v1.1: FinOps / Cost-as-Code
+# ---------------------------------------------------------------------------
+
+class FinOpsConfig(BaseModel):
+    budget_enforcement: bool | None = None
+    cost_in_pr: bool | None = None
+    anomaly_detection: bool | None = None
+    burn_rate_tracking: bool | None = None
+    budget_endpoint: str | None = None
+
+
+class BudgetConstraint(BaseModel):
+    max_monthly_cost: str | None = None
+    max_total_cost: str | None = None
+    currency: Currency | None = None
+    alert_threshold_percent: float | None = None
+
+
+class BudgetStatus(BaseModel):
+    budget_limit: str | None = None
+    consumed: str | None = None
+    remaining: str | None = None
+    percent_used: float | None = None
+    currency: Currency | None = None
+    alert_triggered: bool | None = None
+
+
+class BurnRate(BaseModel):
+    hourly_rate: str | None = None
+    daily_rate: str | None = None
+    ttl_remaining_seconds: int | None = None
+    estimated_total_cost: str | None = None
+    currency: Currency | None = None
+
+
+# ---------------------------------------------------------------------------
+# v1.1: Dependency Graph
+# ---------------------------------------------------------------------------
+
+class DependencyGraph(BaseModel):
+    auto_generate: bool | None = None
+    impact_analysis: bool | None = None
+    health_propagation: bool | None = None
+    auto_docs: bool | None = None
+
+
+# ---------------------------------------------------------------------------
+# v1.1: Scorecards & Compliance
+# ---------------------------------------------------------------------------
+
+class Scorecards(BaseModel):
+    maturity_scores: dict[str, float] | None = None
+    compliance: list[ComplianceFramework] | None = None
+    guided_remediation: bool | None = None
+
+
+# ---------------------------------------------------------------------------
+# v1.1: Agent Observability
+# ---------------------------------------------------------------------------
+
+class ObservabilityConfig(BaseModel):
+    otel_endpoint: str | None = None
+    trace_propagation: list[TracePropagationFormat] | None = None
+    audit_log: bool | None = None
+    hitl_gates: bool | None = None
+    cost_per_action: bool | None = None
+
+
+# ---------------------------------------------------------------------------
+# v1.1: MCP Alignment
+# ---------------------------------------------------------------------------
+
+class MCPConfig(BaseModel):
+    tools: list[str] | None = None
+    streamable_http: bool | None = None
+    well_known_url: str | None = None
+    skills_url: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Service Manifest
+# ---------------------------------------------------------------------------
 
 class ServiceManifest(BaseModel):
-    """The top-level manifest served at ``/.well-known/osp.json``.
-
-    A provider publishes exactly one manifest that describes itself and all
-    the services it offers.
-    """
-
-    osp_version: str = Field(
-        default="0.1.0",
-        description="Version of the OSP specification this manifest conforms to.",
-    )
-    provider_name: str = Field(
-        ...,
-        min_length=1,
-        description="Human-readable provider name.",
-    )
-    provider_url: str = Field(
-        ...,
-        description="Canonical base URL of the provider (no trailing slash).",
-    )
-    provider_description: str = Field(
-        default="",
-        description="Short blurb about the provider.",
-    )
-    services: list[ServiceOffering] = Field(
-        ...,
-        min_length=1,
-        description="Services offered by this provider.  At least one is required.",
-    )
-    contact_email: str | None = Field(
-        default=None,
-        description="Support / contact email.",
-    )
-    signature: str | None = Field(
-        default=None,
-        description="Optional detached signature (e.g. JWS compact serialisation) over the manifest.",
-    )
+    """Top-level manifest published at /.well-known/osp.json."""
+    manifest_id: str = Field(..., min_length=1)
+    manifest_version: int = Field(default=1)
+    previous_version: int | None = None
+    osp_spec_version: str | None = None
+    provider_id: str = Field(..., min_length=1)
+    display_name: str = Field(..., min_length=1)
+    provider_url: str | None = None
+    provider_public_key: str | None = None
+    offerings: list[ServiceOffering] = Field(..., min_length=1)
+    accepted_payment_methods: list[PaymentMethod | str] | None = None
+    trust_tier_required: int | None = None
+    endpoints: ProviderEndpoints
+    a2a: A2AAgentCard | None = None
+    nhi: NHIConfig | None = None
+    finops: FinOpsConfig | None = None
+    dependency_graph: DependencyGraph | None = None
+    scorecards: Scorecards | None = None
+    observability: ObservabilityConfig | None = None
+    mcp: MCPConfig | None = None
+    extensions: dict[str, Any] | None = None
+    effective_at: str | None = None
+    provider_signature: str = Field(default="")
 
 
 # ---------------------------------------------------------------------------
@@ -164,67 +407,74 @@ class ServiceManifest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class ProvisionRequest(BaseModel):
-    """Request payload sent by an agent to provision a new resource."""
-
-    service_id: str = Field(
-        ...,
-        min_length=1,
-        description="Which service offering to provision.",
-    )
-    tier_id: str = Field(
-        ...,
-        min_length=1,
-        description="Desired tier within the offering.",
-    )
-    parameters: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Service-specific provisioning parameters (region, name, etc.).",
-    )
-    agent_id: str | None = Field(
-        default=None,
-        description="Optional identifier of the requesting agent.",
-    )
-    idempotency_key: str | None = Field(
-        default=None,
-        description="Client-generated key for safe retries.",
-    )
+    offering_id: str = Field(..., min_length=1)
+    tier_id: str = Field(..., min_length=1)
+    project_name: str = Field(..., min_length=1)
+    region: str | None = None
+    payment_method: str | None = None
+    payment_proof: str | None = None
+    agent_public_key: str | None = None
+    nonce: str = Field(..., min_length=1)
+    config: dict[str, Any] | None = None
+    webhook_url: str | None = None
+    # v1.1
+    delegating_agent_id: str | None = None
+    delegation_proof: str | None = None
+    nhi_token_mode: NHITokenMode | None = None
+    budget: BudgetConstraint | None = None
+    ttl_seconds: int | None = None
+    trace_context: str | None = None
 
 
-class ResourceStatus(str, Enum):
-    """Lifecycle states of a provisioned resource."""
+class FulfillmentProof(BaseModel):
+    type: FulfillmentProofType
+    health_check_url: str | None = None
+    receipt_signature: str | None = None
+    receipt_payload: str | None = None
+    timestamp: str
 
-    provisioning = "provisioning"
-    provisioned = "provisioned"
-    updating = "updating"
-    deprovisioning = "deprovisioning"
-    deprovisioned = "deprovisioned"
-    error = "error"
+
+class ProvisionError(BaseModel):
+    code: ProvisionErrorCode
+    message: str
+    retry_after_seconds: int | None = None
+
+
+class CostBreakdownItem(BaseModel):
+    dimension: str
+    estimated_usage: str
+    unit_price: str
+    estimated_cost: str
+
+
+class CostEstimate(BaseModel):
+    monthly_estimate: str | None = None
+    currency: Currency | None = None
+    breakdown: list[CostBreakdownItem] | None = None
 
 
 class ProvisionResponse(BaseModel):
-    """Returned after a successful provisioning request."""
-
-    resource_id: str = Field(
-        ...,
-        min_length=1,
-        description="Provider-generated unique identifier for the new resource.",
-    )
-    status: ResourceStatus = Field(
-        default=ResourceStatus.provisioned,
-        description="Current lifecycle status.",
-    )
-    message: str = Field(
-        default="",
-        description="Optional human-readable message.",
-    )
-    credentials_bundle: CredentialBundle | None = Field(
-        default=None,
-        description="Credentials ready to use immediately (when synchronous provisioning is possible).",
-    )
-    dashboard_url: str | None = Field(
-        default=None,
-        description="Link to a management dashboard for this resource.",
-    )
+    request_id: str | None = None
+    offering_id: str | None = None
+    tier_id: str | None = None
+    resource_id: str = Field(..., min_length=1)
+    status: ProvisionStatus
+    credentials: CredentialBundle | None = None
+    dashboard_url: str | None = None
+    estimated_ready_seconds: int | None = None
+    fulfillment_proof: FulfillmentProof | str | None = None
+    escrow_id: str | None = None
+    message: str | None = None
+    status_url: str | None = None
+    region: str | None = None
+    created_at: str | None = None
+    expires_at: str | None = None
+    error: ProvisionError | None = None
+    # v1.1
+    nhi_token: NHIToken | None = None
+    cost_estimate: CostEstimate | None = None
+    trace_id: str | None = None
+    dependency_impact: list[str] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -232,96 +482,192 @@ class ProvisionResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class CredentialBundle(BaseModel):
-    """A set of credentials for accessing a provisioned resource.
-
-    Credentials are returned as an opaque string-to-string map so the
-    protocol does not prescribe the authentication mechanism.
-    """
-
-    credentials: dict[str, str] = Field(
-        ...,
-        min_length=1,
-        description="Key-value credential pairs (e.g. DATABASE_URL, API_KEY).",
-    )
-    expires_at: datetime | None = Field(
-        default=None,
-        description="When these credentials expire (UTC).  None means they don't expire automatically.",
-    )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Extra metadata about the credentials (rotation policy, etc.).",
-    )
+    bundle_id: str | None = None
+    resource_id: str = Field(default="")
+    offering_id: str | None = None
+    encrypted_payload: str | None = None
+    encryption_method: EncryptionMethod | None = None
+    credentials: dict[str, str] | None = None
+    ephemeral_public_key: str | None = None
+    nonce: str | None = None
+    provider_signature: str | None = None
+    agent_public_key_fingerprint: str | None = None
+    issued_at: str = Field(default="")
+    expires_at: str | None = None
+    rotation_available_at: str | None = None
+    credential_type: CredentialType | None = None
+    version: int | None = None
+    previous_bundle_id: str | None = None
+    decrypted_schema: dict[str, Any] | None = None
+    # v1.1
+    nhi_identity_id: str | None = None
+    token_refresh_endpoint: str | None = None
+    osp_uri: str | None = None
 
 
 # ---------------------------------------------------------------------------
-# Usage reporting
+# Lifecycle & Usage
 # ---------------------------------------------------------------------------
 
-class UsageMetric(BaseModel):
-    """A single usage metric data point."""
+class ResourceStatus(BaseModel):
+    resource_id: str
+    status: ProvisionStatus
+    offering_id: str
+    tier_id: str
+    region: str | None = None
+    created_at: str
+    updated_at: str | None = None
+    dashboard_url: str | None = None
+    message: str | None = None
 
-    name: str = Field(
-        ...,
-        min_length=1,
-        description="Metric name (e.g. 'storage_bytes', 'api_calls').",
-    )
-    value: float = Field(
-        ...,
-        description="Current metric value.",
-    )
-    unit: str = Field(
-        default="",
-        description="Human-readable unit (e.g. 'bytes', 'requests').",
-    )
-    limit: float | None = Field(
-        default=None,
-        description="Tier limit for this metric, if applicable.",
-    )
+
+class UsageDimension(BaseModel):
+    name: str | None = None
+    dimension: str | None = None
+    value: float | None = None
+    quantity: str | None = None
+    unit: str
+    included_quantity: str | None = None
+    overage_quantity: str | None = None
+    unit_price: str | None = None
+    cost: Price | None = None
 
 
 class UsageReport(BaseModel):
-    """Usage data for a provisioned resource."""
+    report_id: str | None = None
+    resource_id: str
+    offering_id: str | None = None
+    tier_id: str | None = None
+    period_start: str
+    period_end: str
+    dimensions: list[UsageDimension] = Field(default_factory=list)
+    total_cost: Price | None = None
+    overage_cost: Price | None = None
+    countersignature: str | None = None
+    countersignature_deadline: str | None = None
+    dispute_window_ends_at: str | None = None
+    provider_signature: str | None = None
+    generated_at: str | None = None
+    metadata: dict[str, Any] | None = None
+    # v1.1
+    budget_status: BudgetStatus | None = None
+    burn_rate: BurnRate | None = None
+    trace_id: str | None = None
 
-    resource_id: str = Field(
-        ...,
-        min_length=1,
-        description="Resource these metrics belong to.",
-    )
-    metrics: list[UsageMetric] = Field(
-        default_factory=list,
-        description="List of current usage metrics.",
-    )
-    period_start: datetime | None = Field(
-        default=None,
-        description="Start of the current billing period (UTC).",
-    )
-    period_end: datetime | None = Field(
-        default=None,
-        description="End of the current billing period (UTC).",
-    )
-    total_cost: float | None = Field(
-        default=None,
-        ge=0,
-        description="Estimated cost for the current period.",
-    )
+
+class HealthStatus(BaseModel):
+    status: Literal["healthy", "degraded", "unhealthy"]
+    version: str | None = None
+    latency_ms: float | None = None
+    checked_at: str
+    details: dict[str, Any] | None = None
+
+
+# ---------------------------------------------------------------------------
+# Webhook Events
+# ---------------------------------------------------------------------------
+
+class CredentialBundleRef(BaseModel):
+    encrypted_payload: str
+    encryption_method: EncryptionMethod
+    ephemeral_public_key: str | None = None
+    nonce: str | None = None
+    provider_signature: str
+
+
+class WebhookEventError(BaseModel):
+    code: str
+    message: str
+    retryable: bool | None = None
+    retry_after_seconds: int | None = None
+
+
+class ResourceWarning(BaseModel):
+    warning_type: WarningType
+    message: str
+    severity: Literal["info", "warning", "critical"] | None = None
+    action_required_by: str | None = None
+
+
+class UsageThresholdData(BaseModel):
+    dimension: str
+    threshold_percent: float
+    current_usage: str
+    limit: str
+    unit: str
+
+
+class PaymentDetails(BaseModel):
+    amount: str
+    currency: Currency
+    payment_method: str | None = None
+    due_by: str | None = None
+    transaction_id: str | None = None
+
+
+class BudgetAlert(BaseModel):
+    budget_limit: str | None = None
+    current_spend: str | None = None
+    percent_used: float | None = None
+    currency: Currency | None = None
+    action: Literal["alert", "throttle", "block"] | None = None
+
+
+class NHIEvent(BaseModel):
+    identity_id: str | None = None
+    token_type: NHITokenType | None = None
+    expires_at: str | None = None
+    refresh_endpoint: str | None = None
+
+
+class DependencyEvent(BaseModel):
+    dependency_resource_id: str | None = None
+    dependency_offering_id: str | None = None
+    health_status: Literal["healthy", "degraded", "unhealthy", "unknown"] | None = None
+    affected_resources: list[str] | None = None
+
+
+class TTLEvent(BaseModel):
+    ttl_remaining_seconds: int | None = None
+    original_ttl_seconds: int | None = None
+    action: Literal["warning", "expiring", "expired", "extended"] | None = None
+    extension_available: bool | None = None
+
+
+class WebhookEventData(BaseModel):
+    status: str | None = None
+    credentials: CredentialBundleRef | None = None
+    fulfillment_proof: FulfillmentProof | None = None
+    error: WebhookEventError | None = None
+    warning: ResourceWarning | None = None
+    usage_threshold: UsageThresholdData | None = None
+    payment_details: PaymentDetails | None = None
+    budget_alert: BudgetAlert | None = None
+    nhi_event: NHIEvent | None = None
+    dependency_event: DependencyEvent | None = None
+    ttl_event: TTLEvent | None = None
+    dashboard_url: str | None = None
+    message: str | None = None
+
+
+class WebhookEvent(BaseModel):
+    event_id: str
+    event_type: WebhookEventType
+    resource_id: str
+    request_id: str | None = None
+    offering_id: str
+    timestamp: str
+    data: WebhookEventData | None = None
+    provider_signature: str
+    delivery_attempt: int | None = None
+    trace_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
 # Error
 # ---------------------------------------------------------------------------
 
-class OSPError(BaseModel):
-    """Standard error envelope returned by providers."""
-
-    error: str = Field(
-        ...,
-        description="Machine-readable error code (e.g. 'not_found', 'invalid_request').",
-    )
-    message: str = Field(
-        default="",
-        description="Human-readable explanation.",
-    )
-    details: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional structured details.",
-    )
+class OSPErrorBody(BaseModel):
+    error: str
+    code: str | None = None
+    details: dict[str, Any] | None = None

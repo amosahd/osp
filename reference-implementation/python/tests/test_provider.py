@@ -1,4 +1,4 @@
-"""Tests for OSPProvider using FastAPI TestClient."""
+"""Tests for OSPProvider using FastAPI TestClient — v1.1."""
 
 from __future__ import annotations
 
@@ -10,10 +10,12 @@ from fastapi.testclient import TestClient
 from osp.provider import OSPProvider
 from osp.types import (
     CredentialBundle,
+    HealthStatus,
     ProvisionRequest,
     ProvisionResponse,
+    ResourceStatus,
     ServiceManifest,
-    UsageMetric,
+    UsageDimension,
     UsageReport,
 )
 
@@ -34,16 +36,18 @@ class FakeProvider(OSPProvider):
         self._counter += 1
         resource_id = f"res_{self._counter:04d}"
         self._resources[resource_id] = {
-            "service_id": request.service_id,
+            "offering_id": request.offering_id,
             "tier_id": request.tier_id,
-            "params": request.parameters,
+            "config": request.config,
         }
         return ProvisionResponse(
             resource_id=resource_id,
-            status="provisioned",
+            status="active",
             message="Created successfully.",
-            credentials_bundle=CredentialBundle(
+            credentials=CredentialBundle(
+                resource_id=resource_id,
                 credentials={"API_KEY": f"key_{resource_id}"},
+                issued_at="2026-01-01T00:00:00Z",
             ),
         )
 
@@ -57,19 +61,33 @@ class FakeProvider(OSPProvider):
         if resource_id not in self._resources:
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Not found")
-        return CredentialBundle(credentials={"API_KEY": f"key_{resource_id}"})
+        return CredentialBundle(
+            resource_id=resource_id,
+            credentials={"API_KEY": f"key_{resource_id}"},
+            issued_at="2026-01-01T00:00:00Z",
+        )
 
     async def on_rotate_credentials(self, resource_id: str) -> CredentialBundle:
         if resource_id not in self._resources:
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Not found")
-        return CredentialBundle(credentials={"API_KEY": f"rotated_key_{resource_id}"})
+        return CredentialBundle(
+            resource_id=resource_id,
+            credentials={"API_KEY": f"rotated_key_{resource_id}"},
+            issued_at="2026-01-01T00:00:00Z",
+        )
 
-    async def on_get_status(self, resource_id: str) -> dict[str, Any]:
+    async def on_get_status(self, resource_id: str) -> ResourceStatus:
         if resource_id not in self._resources:
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Not found")
-        return {"resource_id": resource_id, "status": "provisioned"}
+        return ResourceStatus(
+            resource_id=resource_id,
+            status="active",
+            offering_id=self._resources[resource_id]["offering_id"],
+            tier_id=self._resources[resource_id]["tier_id"],
+            created_at="2026-01-01T00:00:00Z",
+        )
 
     async def on_get_usage(self, resource_id: str) -> UsageReport:
         if resource_id not in self._resources:
@@ -77,10 +95,18 @@ class FakeProvider(OSPProvider):
             raise HTTPException(status_code=404, detail="Not found")
         return UsageReport(
             resource_id=resource_id,
-            metrics=[
-                UsageMetric(name="api_calls", value=100, unit="requests", limit=10_000),
+            period_start="2026-03-01T00:00:00Z",
+            period_end="2026-03-27T00:00:00Z",
+            dimensions=[
+                UsageDimension(name="api_calls", value=100, unit="requests"),
             ],
-            total_cost=0.0,
+        )
+
+    async def on_health_check(self) -> HealthStatus:
+        return HealthStatus(
+            status="healthy",
+            version="1.0.0",
+            checked_at="2026-03-27T12:00:00Z",
         )
 
 
@@ -107,8 +133,17 @@ class TestManifestEndpoint:
         resp = test_client.get("/.well-known/osp.json")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["provider_name"] == sample_manifest.provider_name
-        assert len(data["services"]) == 1
+        assert data["display_name"] == sample_manifest.display_name
+        assert len(data["offerings"]) == 1
+
+    def test_manifest_has_v11_fields(self, test_client: TestClient) -> None:
+        resp = test_client.get("/.well-known/osp.json")
+        data = resp.json()
+        assert data.get("osp_spec_version") == "1.1"
+        assert "a2a" in data
+        assert "nhi" in data
+        assert "finops" in data
+        assert "mcp" in data
 
 
 # ---------------------------------------------------------------------------
@@ -119,21 +154,30 @@ class TestProvisionEndpoint:
     def test_provision_creates_resource(self, test_client: TestClient) -> None:
         resp = test_client.post(
             "/osp/v1/provision",
-            json={"service_id": "postgres", "tier_id": "free"},
+            json={
+                "offering_id": "test-provider/postgres",
+                "tier_id": "free",
+                "project_name": "my-db",
+                "nonce": "abc123",
+            },
         )
         assert resp.status_code == 201
         data = resp.json()
         assert data["resource_id"] == "res_0001"
-        assert data["status"] == "provisioned"
-        assert "API_KEY" in data["credentials_bundle"]["credentials"]
+        assert data["status"] == "active"
+        assert "API_KEY" in data["credentials"]["credentials"]
 
-    def test_provision_with_parameters(self, test_client: TestClient) -> None:
+    def test_provision_with_v11_fields(self, test_client: TestClient) -> None:
         resp = test_client.post(
             "/osp/v1/provision",
             json={
-                "service_id": "postgres",
+                "offering_id": "test-provider/postgres",
                 "tier_id": "pro",
-                "parameters": {"region": "eu-west-1"},
+                "project_name": "v11-db",
+                "nonce": "nonce-v11",
+                "nhi_token_mode": "short_lived",
+                "budget": {"max_monthly_cost": "50.00", "currency": "USD"},
+                "trace_context": "trace-ctx",
             },
         )
         assert resp.status_code == 201
@@ -141,9 +185,9 @@ class TestProvisionEndpoint:
     def test_provision_validation_error(self, test_client: TestClient) -> None:
         resp = test_client.post(
             "/osp/v1/provision",
-            json={"service_id": "", "tier_id": "free"},
+            json={"offering_id": "", "tier_id": "free", "project_name": "db", "nonce": "x"},
         )
-        assert resp.status_code == 422  # Pydantic validation
+        assert resp.status_code == 422
 
 
 # ---------------------------------------------------------------------------
@@ -152,14 +196,17 @@ class TestProvisionEndpoint:
 
 class TestDeprovisionEndpoint:
     def test_deprovision_success(self, test_client: TestClient) -> None:
-        # First provision
         create_resp = test_client.post(
             "/osp/v1/provision",
-            json={"service_id": "postgres", "tier_id": "free"},
+            json={
+                "offering_id": "test-provider/postgres",
+                "tier_id": "free",
+                "project_name": "db",
+                "nonce": "x",
+            },
         )
         resource_id = create_resp.json()["resource_id"]
 
-        # Then deprovision
         resp = test_client.delete(f"/osp/v1/resources/{resource_id}")
         assert resp.status_code == 204
 
@@ -176,7 +223,12 @@ class TestCredentialsEndpoint:
     def test_get_credentials(self, test_client: TestClient) -> None:
         create_resp = test_client.post(
             "/osp/v1/provision",
-            json={"service_id": "postgres", "tier_id": "free"},
+            json={
+                "offering_id": "test-provider/postgres",
+                "tier_id": "free",
+                "project_name": "db",
+                "nonce": "x",
+            },
         )
         resource_id = create_resp.json()["resource_id"]
 
@@ -187,7 +239,12 @@ class TestCredentialsEndpoint:
     def test_rotate_credentials(self, test_client: TestClient) -> None:
         create_resp = test_client.post(
             "/osp/v1/provision",
-            json={"service_id": "postgres", "tier_id": "free"},
+            json={
+                "offering_id": "test-provider/postgres",
+                "tier_id": "free",
+                "project_name": "db",
+                "nonce": "x",
+            },
         )
         resource_id = create_resp.json()["resource_id"]
 
@@ -209,13 +266,18 @@ class TestStatusEndpoint:
     def test_get_status(self, test_client: TestClient) -> None:
         create_resp = test_client.post(
             "/osp/v1/provision",
-            json={"service_id": "postgres", "tier_id": "free"},
+            json={
+                "offering_id": "test-provider/postgres",
+                "tier_id": "free",
+                "project_name": "db",
+                "nonce": "x",
+            },
         )
         resource_id = create_resp.json()["resource_id"]
 
         resp = test_client.get(f"/osp/v1/resources/{resource_id}/status")
         assert resp.status_code == 200
-        assert resp.json()["status"] == "provisioned"
+        assert resp.json()["status"] == "active"
 
 
 # ---------------------------------------------------------------------------
@@ -226,7 +288,12 @@ class TestUsageEndpoint:
     def test_get_usage(self, test_client: TestClient) -> None:
         create_resp = test_client.post(
             "/osp/v1/provision",
-            json={"service_id": "postgres", "tier_id": "free"},
+            json={
+                "offering_id": "test-provider/postgres",
+                "tier_id": "free",
+                "project_name": "db",
+                "nonce": "x",
+            },
         )
         resource_id = create_resp.json()["resource_id"]
 
@@ -234,7 +301,7 @@ class TestUsageEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["resource_id"] == resource_id
-        assert len(data["metrics"]) == 1
+        assert len(data["dimensions"]) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +312,7 @@ class TestHealthEndpoint:
     def test_health_check(self, test_client: TestClient) -> None:
         resp = test_client.get("/osp/v1/health")
         assert resp.status_code == 200
-        assert resp.json()["healthy"] is True
+        assert resp.json()["status"] == "healthy"
 
 
 # ---------------------------------------------------------------------------
@@ -254,13 +321,17 @@ class TestHealthEndpoint:
 
 class TestNotImplementedHooks:
     def test_bare_provider_returns_501(self, sample_manifest: ServiceManifest) -> None:
-        """A provider that doesn't override hooks should return 501."""
         bare = OSPProvider(manifest=sample_manifest)
         client = TestClient(bare.app, raise_server_exceptions=False)
 
         resp = client.post(
             "/osp/v1/provision",
-            json={"service_id": "postgres", "tier_id": "free"},
+            json={
+                "offering_id": "test/pg",
+                "tier_id": "free",
+                "project_name": "db",
+                "nonce": "x",
+            },
         )
         assert resp.status_code == 501
         assert resp.json()["error"] == "not_implemented"

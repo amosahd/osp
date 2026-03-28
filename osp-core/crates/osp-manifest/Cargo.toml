@@ -1,0 +1,27 @@
+[package]
+name = "osp-manifest"
+description = "Protocol object types and manifest handling for OSP"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+osp-crypto.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+url.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+jsonschema.workspace = true
+base64.workspace = true
+tracing.workspace = true
+sha2.workspace = true
+hex.workspace = true
+directories.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

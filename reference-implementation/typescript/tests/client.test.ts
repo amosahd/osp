@@ -750,13 +750,20 @@ describe("retry behavior", () => {
   it("respects timeout configuration", async () => {
     const manifest = createTestManifest();
 
-    mockFetch(async (url) => {
+    mockFetch(async (url, init) => {
       if (url.includes(".well-known/osp.json")) {
         return jsonResponse(manifest);
       }
-      // Simulate a very slow response
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      return jsonResponse({});
+      // Simulate a slow response that respects abort signal
+      return new Promise<Response>((resolve, reject) => {
+        const timer = setTimeout(() => resolve(jsonResponse({})), 10000);
+        if (init?.signal) {
+          init.signal.addEventListener("abort", () => {
+            clearTimeout(timer);
+            reject(new DOMException("The operation was aborted.", "AbortError"));
+          });
+        }
+      });
     });
 
     const client = new OSPClient({

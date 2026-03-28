@@ -1,0 +1,25 @@
+[package]
+name = "osp-vault"
+description = "Encrypted credential storage and environment generation for OSP"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+osp-crypto.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+aes-gcm.workspace = true
+rand.workspace = true
+base64.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+keyring.workspace = true
+directories.workspace = true
+toml.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

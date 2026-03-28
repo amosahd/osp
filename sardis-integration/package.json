@@ -1,0 +1,37 @@
+{
+  "name": "@sardis/osp-integration",
+  "version": "0.1.0",
+  "description": "Sardis integration with OSP — payment rail, MCP tools, and CLI extension",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" },
+    "./payment": { "import": "./dist/payment/index.js", "types": "./dist/payment/index.d.ts" },
+    "./mcp": { "import": "./dist/mcp/index.js", "types": "./dist/mcp/index.d.ts" },
+    "./cli": { "import": "./dist/cli/index.js", "types": "./dist/cli/index.d.ts" }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "sardis",
+    "osp",
+    "payment",
+    "escrow",
+    "mcp",
+    "agent",
+    "open-service-protocol"
+  ],
+  "license": "Apache-2.0",
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": ">=1.0.0",
+    "@osp/client": ">=0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0"
+  }
+}

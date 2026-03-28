@@ -35,6 +35,7 @@ The Open Service Protocol (OSP) defines a standard interface through which AI ag
   - [3.7 UsageReport](#37-usagereport)
 - [4. Discovery](#4-discovery)
   - [4.1 Well-Known Endpoint](#41-well-known-endpoint)
+  - [4.1.1 Combined Discovery (OSP + MCP)](#411-combined-discovery-osp--mcp)
   - [4.2 Registry](#42-registry)
   - [4.3 Manifest Verification](#43-manifest-verification)
   - [4.4 Manifest Versioning](#44-manifest-versioning)
@@ -67,6 +68,7 @@ The Open Service Protocol (OSP) defines a standard interface through which AI ag
   - [6.14 Resource Snapshots](#614-resource-snapshots)
   - [6.15 GET /osp/v1/metrics/{resource_id}](#615-get-ospv1metricsresource_id)
   - [6.16 Resource Migration (Cross-Provider)](#616-resource-migration-cross-provider)
+  - [6.17 Progressive Deployment / Canary Provisioning](#617-progressive-deployment--canary-provisioning)
 - [7. Billing](#7-billing)
   - [7.1 Payment Methods](#71-payment-methods)
   - [7.2 Usage-Based Billing](#72-usage-based-billing)
@@ -96,16 +98,27 @@ The Open Service Protocol (OSP) defines a standard interface through which AI ag
   - [11.2 Project Endpoints](#112-project-endpoints)
   - [11.3 Environment Variable Management](#113-environment-variable-management)
   - [11.4 Cross-Project Resource Sharing](#114-cross-project-resource-sharing)
-  - [11.5 Project Templates (Presets)](#115-project-templates-presets)
+  - [11.5 Project Templates (Presets) and Golden Paths](#115-project-templates-presets-and-golden-paths)
   - [11.6 Infrastructure-as-Code (Declarative Configuration)](#116-infrastructure-as-code-declarative-configuration)
   - [11.7 Account Linking (Pre-Provisioning)](#117-account-linking-pre-provisioning)
   - [11.8 LLM Context Generation](#118-llm-context-generation)
+  - [11.9 Service Dependency Graph](#119-service-dependency-graph)
+    - [11.9.1 Impact Analysis](#1191-impact-analysis)
+    - [11.9.2 Health Propagation](#1192-health-propagation)
+    - [11.9.3 Auto-Generated Architecture Documentation](#1193-auto-generated-architecture-documentation)
+  - [11.10 Service Maturity Scorecards](#1110-service-maturity-scorecards)
+    - [11.10.1 Compliance Checklists](#11101-compliance-checklists)
+    - [11.10.2 Guided Remediation](#11102-guided-remediation)
+  - [11.11 SBOM Generation and Supply Chain Attestation](#1111-sbom-generation-and-supply-chain-attestation)
 - [12. Agent Credential Safety](#12-agent-credential-safety)
   - [12.1 The Problem](#121-the-problem)
   - [12.2 Credential Delivery Modes](#122-credential-delivery-modes)
   - [12.3 Credential Visibility Controls](#123-credential-visibility-controls)
   - [12.4 .gitignore and .cursorignore Generation](#124-gitignore-and-cursorignore-generation)
   - [12.5 Credential Leak Detection](#125-credential-leak-detection)
+  - [12.6 Short-Lived Token Issuance](#126-short-lived-token-issuance)
+  - [12.7 NHI Inventory and Orphan Detection](#127-nhi-inventory-and-orphan-detection)
+  - [12.8 Identity Federation](#128-identity-federation)
 - [13. Developer Experience](#13-developer-experience)
   - [13.1 Typed Environment Variables](#131-typed-environment-variables)
   - [13.2 Clone-to-Running Flow](#132-clone-to-running-flow)
@@ -113,6 +126,9 @@ The Open Service Protocol (OSP) defines a standard interface through which AI ag
   - [13.4 Interactive Setup Wizard](#134-interactive-setup-wizard)
   - [13.5 Environment Diffing](#135-environment-diffing)
   - [13.6 Team Onboarding](#136-team-onboarding)
+  - [13.7 TypeScript-Based Configuration (osp.config.ts)](#137-typescript-based-configuration-ospconfigts)
+  - [13.8 Ephemeral Environment Lifecycle](#138-ephemeral-environment-lifecycle)
+  - [13.9 Developer Onboarding Command](#139-developer-onboarding-command)
 - [14. Ecosystem Integration](#14-ecosystem-integration)
   - [14.1 Browser Automation Fallback](#141-browser-automation-fallback)
   - [14.2 Credential Import](#142-credential-import)
@@ -120,7 +136,22 @@ The Open Service Protocol (OSP) defines a standard interface through which AI ag
   - [14.4 MCP Integration](#144-mcp-integration)
   - [14.5 CI/CD Integration](#145-cicd-integration)
   - [14.6 Cost Dashboard](#146-cost-dashboard)
+    - [14.6.1 Budget Guardrails](#1461-budget-guardrails)
+    - [14.6.2 Cost-in-PR](#1462-cost-in-pr)
+    - [14.6.3 Cost Anomaly Detection](#1463-cost-anomaly-detection)
+    - [14.6.4 Environment TTLs with Burn Rate Tracking](#1464-environment-ttls-with-burn-rate-tracking)
   - [14.7 Notifications and Alerts](#147-notifications-and-alerts)
+  - [14.8 Provider Status Aggregation](#148-provider-status-aggregation)
+  - [14.9 Unified Billing Marketplace](#149-unified-billing-marketplace)
+- [15. Agent-to-Agent (A2A) Protocol Support](#15-agent-to-agent-a2a-protocol-support)
+  - [15.1 Agent Cards in OSP Manifests](#151-agent-cards-in-osp-manifests)
+  - [15.2 Delegated Provisioning](#152-delegated-provisioning)
+  - [15.3 Task Lifecycle Integration](#153-task-lifecycle-integration)
+  - [15.4 OpenTelemetry-Compatible Tracing](#154-opentelemetry-compatible-tracing)
+  - [15.5 Agent Action Audit Log](#155-agent-action-audit-log)
+  - [15.6 Human-in-the-Loop Gates](#156-human-in-the-loop-gates)
+  - [15.7 Cost-per-Agent-Action Tracking](#157-cost-per-agent-action-tracking)
+  - [15.8 Provider Onboarding SDK](#158-provider-onboarding-sdk)
 - [Appendix A: Complete JSON Schemas](#appendix-a-complete-json-schemas)
 - [Appendix B: Example Flows](#appendix-b-example-flows)
 - [Appendix C: Comparison with Stripe Projects](#appendix-c-comparison-with-stripe-projects)
@@ -1039,6 +1070,129 @@ ETag: "v3-abc123"
 
 {...ServiceManifest...}
 ```
+
+### 4.1.1 Combined Discovery (OSP + MCP)
+
+Providers that expose both OSP service provisioning and MCP tool interfaces SHOULD advertise both capabilities through a single well-known endpoint. This avoids redundant discovery requests and enables agents to determine in one round-trip whether a provider supports provisioning, tool invocation, or both.
+
+#### Extended Manifest: `mcp` Field
+
+The ServiceManifest MAY include an `mcp` field at the top level:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `mcp` | `object` | OPTIONAL | MCP capability advertisement. See [MCP Discovery Object](#mcp-discovery-object). |
+
+#### MCP Discovery Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `supported` | `boolean` | REQUIRED | Whether the provider exposes MCP-compatible tool endpoints. |
+| `transport` | `string` | REQUIRED | MCP transport protocol. One of: `streamable-http`, `sse`, `stdio`. Providers SHOULD use `streamable-http` for network-accessible endpoints. |
+| `endpoint` | `string` | REQUIRED | URL of the MCP server endpoint. MUST be HTTPS when `transport` is `streamable-http` or `sse`. |
+| `tools` | `array<string>` | OPTIONAL | List of MCP tool names exposed by this provider (e.g., `["query_database", "run_migration", "list_tables"]`). If omitted, agents MUST discover tools via the MCP `tools/list` method. |
+| `authentication` | `string` | OPTIONAL | Authentication mechanism for the MCP endpoint. One of: `osp_credential`, `bearer_token`, `oauth2`, `none`. Default: `osp_credential` (use the OSP-provisioned resource credentials). |
+| `requires_resource` | `boolean` | OPTIONAL | Whether a provisioned OSP resource is required before MCP tools are available. Default: `true`. |
+| `mcp_version` | `string` | OPTIONAL | MCP protocol version supported. Default: `"2025-03-26"`. |
+
+#### Example: Combined OSP + MCP Manifest
+
+```json
+{
+  "osp_version": "1.0",
+  "manifest_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "provider": {
+    "provider_id": "com.supabase",
+    "display_name": "Supabase",
+    "homepage_url": "https://supabase.com"
+  },
+  "offerings": ["..."],
+  "mcp": {
+    "supported": true,
+    "transport": "streamable-http",
+    "endpoint": "https://mcp.supabase.com/v1",
+    "tools": [
+      "query_database",
+      "run_migration",
+      "list_tables",
+      "manage_auth_users",
+      "invoke_edge_function"
+    ],
+    "authentication": "osp_credential",
+    "requires_resource": true,
+    "mcp_version": "2025-03-26"
+  },
+  "endpoints": {"base_url": "https://api.supabase.com"},
+  "provider_public_key": "...",
+  "provider_signature": "..."
+}
+```
+
+#### Discovery Flow
+
+When an agent fetches `/.well-known/osp.json`, it receives both OSP and MCP capabilities in a single response:
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant Provider
+
+    Agent->>Provider: GET /.well-known/osp.json
+    Provider-->>Agent: ServiceManifest (with mcp field)
+
+    Note over Agent: Parse manifest
+    Note over Agent: OSP: offerings[], endpoints
+    Note over Agent: MCP: transport, endpoint, tools[]
+
+    Agent->>Provider: POST /osp/v1/provision (provision database)
+    Provider-->>Agent: ProvisionResponse (credentials)
+
+    Agent->>Provider: POST https://mcp.supabase.com/v1 (MCP initialize)
+    Note over Agent: Uses OSP credentials for MCP auth
+    Provider-->>Agent: MCP ServerInfo + tools
+
+    Agent->>Provider: POST https://mcp.supabase.com/v1 (tools/call: query_database)
+    Provider-->>Agent: MCP ToolResult
+```
+
+#### Authentication Bridge
+
+When `authentication` is `osp_credential`, the agent authenticates to the MCP endpoint using credentials obtained through OSP provisioning:
+
+1. Agent provisions a resource via `POST /osp/v1/provision`.
+2. Agent receives `credentials_bundle` containing the resource credentials.
+3. Agent connects to the MCP endpoint, passing the resource credential in the `Authorization` header:
+
+```http
+POST https://mcp.supabase.com/v1 HTTP/1.1
+Authorization: Bearer <osp_resource_credential>
+X-OSP-Resource-Id: res_abc123
+Content-Type: application/json
+
+{"jsonrpc": "2.0", "method": "tools/list", "id": 1}
+```
+
+Providers MUST validate that the credential corresponds to an active OSP resource and MUST scope the available MCP tools to the permissions of that resource's credential scope.
+
+#### MCP Streamable HTTP Transport
+
+Providers advertising `transport: "streamable-http"` MUST implement the MCP Streamable HTTP transport as defined in the MCP specification (2025-03-26 revision). Key requirements:
+
+1. The endpoint MUST accept JSON-RPC 2.0 messages via HTTP POST.
+2. The endpoint MUST support the `Accept: text/event-stream` header for streaming responses.
+3. The endpoint MUST support session management via the `Mcp-Session-Id` header.
+4. The endpoint SHOULD support request batching (multiple JSON-RPC messages in a single POST).
+5. The endpoint MUST use HTTPS (TLS 1.2+).
+
+Providers MAY additionally support the legacy SSE transport (`transport: "sse"`) for backward compatibility, but `streamable-http` is RECOMMENDED for all new implementations.
+
+#### Security Considerations
+
+1. The MCP endpoint MUST enforce the same authentication and authorization as the OSP endpoints. An agent with `read_only` OSP credentials MUST NOT be able to execute destructive MCP tools.
+2. Providers MUST NOT expose MCP tools that bypass OSP billing or usage tracking. Operations performed through MCP SHOULD be reflected in OSP usage reports.
+3. The MCP endpoint URL MUST be on the same domain as the OSP `endpoints.base_url`, or the manifest MUST include CORS headers permitting cross-origin requests from the OSP domain.
+
+---
 
 ### 4.2 Registry
 
@@ -2850,6 +3004,185 @@ Export and import formats are provider-defined but SHOULD use industry standards
 
 These endpoints are OPTIONAL. Providers SHOULD declare migration support in `features`: `"features": ["export", "import"]`.
 
+### 6.17 Progressive Deployment / Canary Provisioning
+
+When upgrading a resource's tier, migrating to a new provider, or rolling out configuration changes, agents frequently need to verify the new resource before cutting over production traffic. OSP defines a **progressive deployment** mechanism that provisions a canary resource alongside the existing production resource, validates it, and then promotes or rolls back.
+
+#### Canary Provision Request
+
+Agents initiate a canary deployment by including the `canary` field in a `ProvisionRequest`:
+
+```http
+POST /osp/v1/provision HTTP/1.1
+Host: api.neon.tech
+Content-Type: application/json
+X-OSP-Version: 1.0
+
+{
+  "offering_id": "neon/serverless-postgres",
+  "tier_id": "pro",
+  "project_name": "my-db-canary",
+  "region": "us-east-1",
+  "configuration": {
+    "postgres_version": "17"
+  },
+  "canary": {
+    "production_resource_id": "res_prod_db_001",
+    "traffic_percentage": 10,
+    "validation_checks": ["health_check", "latency_p99", "error_rate"],
+    "auto_promote_after_seconds": 3600,
+    "auto_rollback_on": ["error_rate_above_1_percent", "latency_p99_above_500ms", "health_check_fail"],
+    "seed_from_production": true,
+    "seed_mode": "schema_and_sample_data"
+  },
+  "payment_method": "stripe_spt",
+  "payment_proof": {"spt_token": "spt_...", "amount": "25.00", "currency": "USD"},
+  "nonce": "e5f6a7b8-c9d0-1234-ef01-567890123456"
+}
+```
+
+#### Canary Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `production_resource_id` | `string` | REQUIRED | The `resource_id` of the existing production resource that this canary targets. |
+| `traffic_percentage` | `integer` | OPTIONAL | Percentage of traffic to route to the canary (0-100). Default: `10`. Providers that do not support traffic splitting MUST ignore this field and note it in the response. |
+| `validation_checks` | `array<string>` | OPTIONAL | Checks to run against the canary. Values: `health_check`, `latency_p50`, `latency_p99`, `error_rate`, `credential_test`, `custom`. Default: `["health_check"]`. |
+| `auto_promote_after_seconds` | `integer` | OPTIONAL | If all validation checks pass continuously for this duration, automatically promote the canary to production. `0` disables auto-promotion. Default: `0` (manual promotion). |
+| `auto_rollback_on` | `array<string>` | OPTIONAL | Conditions that trigger automatic rollback. Values: `error_rate_above_{N}_percent`, `latency_p99_above_{N}ms`, `health_check_fail`, `provider_error`. Default: `["health_check_fail"]`. |
+| `seed_from_production` | `boolean` | OPTIONAL | Whether to seed the canary with data from the production resource. Default: `false`. |
+| `seed_mode` | `string` | OPTIONAL | If `seed_from_production` is `true`: `schema_only`, `schema_and_sample_data`, `full_clone`. Default: `schema_only`. |
+
+#### Canary Response
+
+```json
+{
+  "resource_id": "res_canary_abc123",
+  "offering_id": "neon/serverless-postgres",
+  "tier_id": "pro",
+  "status": "provisioning",
+  "canary_status": {
+    "phase": "provisioning",
+    "production_resource_id": "res_prod_db_001",
+    "traffic_percentage": 0,
+    "target_traffic_percentage": 10,
+    "validation_results": [],
+    "promotion_eligible": false,
+    "auto_promote_at": null,
+    "created_at": "2026-03-28T10:00:00Z"
+  },
+  "poll_url": "https://api.neon.tech/osp/v1/status/res_canary_abc123",
+  "created_at": "2026-03-28T10:00:00Z"
+}
+```
+
+#### Canary Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Provisioning
+    Provisioning --> Validating : Resource ready
+    Validating --> TrafficShifting : Checks pass
+    Validating --> RollingBack : Checks fail
+    TrafficShifting --> Monitoring : Traffic at target %
+    Monitoring --> Promoting : Auto-promote timer / manual
+    Monitoring --> RollingBack : Rollback condition met
+    Promoting --> Promoted : Production cutover complete
+    RollingBack --> RolledBack : Canary destroyed
+    Promoted --> [*]
+    RolledBack --> [*]
+```
+
+The `canary_status.phase` field tracks the lifecycle:
+
+| Phase | Description |
+|-------|-------------|
+| `provisioning` | Canary resource is being created. |
+| `seeding` | Data is being seeded from the production resource. |
+| `validating` | Running initial validation checks against the canary. |
+| `traffic_shifting` | Gradually routing traffic to the canary. |
+| `monitoring` | Canary is receiving traffic; monitoring for rollback conditions. |
+| `promoting` | Promoting the canary to production (swapping resource IDs). |
+| `promoted` | Canary is now the production resource. The old production resource enters a grace period. |
+| `rolling_back` | Reverting traffic to the original production resource. |
+| `rolled_back` | Canary has been destroyed; production is unaffected. |
+
+#### POST /osp/v1/canary/{resource_id}/promote
+
+Manually promote a canary to production.
+
+```http
+POST /osp/v1/canary/res_canary_abc123/promote HTTP/1.1
+Authorization: Bearer <agent_attestation>
+
+{
+  "confirm": true,
+  "deprovision_old_after_hours": 24
+}
+```
+
+**Response:**
+
+```json
+{
+  "resource_id": "res_canary_abc123",
+  "canary_status": {
+    "phase": "promoting",
+    "old_production_resource_id": "res_prod_db_001",
+    "old_resource_deprovision_at": "2026-03-29T11:00:00Z"
+  }
+}
+```
+
+On promotion:
+1. The canary resource_id becomes the new production resource.
+2. All credential references (`osp://` URIs) that pointed to the old production resource are updated to resolve to the canary's credentials.
+3. The old production resource is retained for `deprovision_old_after_hours` before automatic deprovisioning.
+4. Webhook: `resource.canary_promoted` is sent to the agent.
+
+#### POST /osp/v1/canary/{resource_id}/rollback
+
+Manually roll back a canary.
+
+```http
+POST /osp/v1/canary/res_canary_abc123/rollback HTTP/1.1
+Authorization: Bearer <agent_attestation>
+
+{
+  "reason": "Latency regression detected in application testing"
+}
+```
+
+**Response:**
+
+```json
+{
+  "resource_id": "res_canary_abc123",
+  "canary_status": {
+    "phase": "rolling_back",
+    "production_resource_id": "res_prod_db_001",
+    "rollback_reason": "Latency regression detected in application testing"
+  }
+}
+```
+
+On rollback:
+1. All traffic is immediately routed back to the original production resource.
+2. The canary resource is deprovisioned.
+3. Webhook: `resource.canary_rolled_back` is sent to the agent.
+
+#### Webhook Events
+
+| Event | Trigger |
+|-------|---------|
+| `resource.canary_validating` | Canary provisioning complete, validation starting |
+| `resource.canary_traffic_shifted` | Traffic percentage change applied |
+| `resource.canary_promoted` | Canary promoted to production |
+| `resource.canary_rolled_back` | Canary rolled back |
+| `resource.canary_auto_rollback` | Automatic rollback triggered by threshold breach |
+
+These endpoints are OPTIONAL. Providers SHOULD declare canary support in the offering's `features` array: `"features": ["canary_deployment", "traffic_splitting"]`. Providers that support canary provisioning but not traffic splitting MUST indicate `"traffic_splitting_supported": false` in the canary response, in which case the agent is responsible for application-level traffic management.
+
 ---
 
 ## 7. Billing
@@ -3617,9 +3950,9 @@ POST /osp/v1/projects/proj_staging/link HTTP/1.1
 
 The resource now appears in both projects' `GET /env` output, but with different credential scopes. The staging project gets read-only credentials while production has full access.
 
-### 11.5 Project Templates (Presets)
+### 11.5 Project Templates (Presets) and Golden Paths
 
-Pre-configured project templates that provision an entire stack in one command.
+Pre-configured project templates that provision an entire stack in one command. Templates range from basic presets (minimal configuration) to **golden paths** (opinionated, security-hardened configurations that achieve a high maturity scorecard grade). See Section 11.10 for the full golden path specification including security defaults, reliability defaults, and scorecard integration.
 
 #### GET /osp/registry/v1/presets
 
@@ -3877,6 +4210,758 @@ Publishable key: $NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 All variables available via: osp env pull --project my-saas-app
 ```
 
+### 11.9 Service Dependency Graph
+
+OSP projects contain multiple resources that depend on each other (e.g., hosting depends on database, auth middleware depends on auth service). OSP defines a formal dependency graph that agents and clients can query for impact analysis, health propagation, and architecture documentation.
+
+#### Dependency Model
+
+Dependencies are declared in two ways:
+
+1. **Explicit declaration** in `osp.yaml` via the `depends_on` field (Section 11.6).
+2. **Implicit detection** by analyzing credential references — if resource B's configuration contains a credential from resource A, then B depends on A.
+
+The OSP client MUST compute the merged dependency graph from both sources.
+
+#### GET /osp/v1/projects/{project_id}/graph
+
+Retrieve the dependency graph for a project.
+
+```http
+GET /osp/v1/projects/proj_my-saas/graph HTTP/1.1
+Authorization: Bearer <agent_attestation>
+X-OSP-Version: 1.0
+```
+
+**Response:**
+
+```json
+{
+  "project_id": "proj_my-saas",
+  "graph": {
+    "nodes": [
+      {
+        "resource_id": "res_db_001",
+        "alias": "database",
+        "offering_id": "supabase/managed-postgres",
+        "tier_id": "pro",
+        "status": "healthy",
+        "health_updated_at": "2026-03-28T10:00:00Z"
+      },
+      {
+        "resource_id": "res_auth_002",
+        "alias": "auth",
+        "offering_id": "clerk/auth",
+        "tier_id": "pro",
+        "status": "healthy",
+        "health_updated_at": "2026-03-28T10:00:00Z"
+      },
+      {
+        "resource_id": "res_host_003",
+        "alias": "hosting",
+        "offering_id": "vercel/hosting",
+        "tier_id": "pro",
+        "status": "healthy",
+        "health_updated_at": "2026-03-28T10:00:00Z"
+      },
+      {
+        "resource_id": "res_cache_004",
+        "alias": "cache",
+        "offering_id": "upstash/redis",
+        "tier_id": "free",
+        "status": "healthy",
+        "health_updated_at": "2026-03-28T10:00:00Z"
+      }
+    ],
+    "edges": [
+      {
+        "from": "res_host_003",
+        "to": "res_db_001",
+        "type": "credential_reference",
+        "credential_keys": ["DATABASE_URL"],
+        "critical": true
+      },
+      {
+        "from": "res_host_003",
+        "to": "res_auth_002",
+        "type": "credential_reference",
+        "credential_keys": ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
+        "critical": true
+      },
+      {
+        "from": "res_host_003",
+        "to": "res_cache_004",
+        "type": "credential_reference",
+        "credential_keys": ["UPSTASH_REDIS_URL"],
+        "critical": false
+      },
+      {
+        "from": "res_cache_004",
+        "to": "res_db_001",
+        "type": "explicit",
+        "declared_in": "osp.yaml",
+        "critical": false
+      }
+    ],
+    "generated_at": "2026-03-28T10:00:05Z"
+  }
+}
+```
+
+#### Edge Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `from` | `string` | REQUIRED | The `resource_id` of the dependent resource. |
+| `to` | `string` | REQUIRED | The `resource_id` of the dependency. |
+| `type` | `string` | REQUIRED | How the dependency was detected. One of: `explicit` (declared in osp.yaml), `credential_reference` (credential from `to` appears in `from`'s configuration), `manual` (user-annotated). |
+| `credential_keys` | `array<string>` | OPTIONAL | Which credential keys create this dependency. |
+| `critical` | `boolean` | REQUIRED | Whether the dependent resource fails without this dependency. Defaults to `true` for `credential_reference` type, `false` for `explicit`. |
+
+#### 11.9.1 Impact Analysis
+
+Before executing destructive operations (deprovision, rotate, migrate), agents SHOULD query the impact analysis endpoint to understand downstream effects.
+
+##### POST /osp/v1/projects/{project_id}/graph/impact
+
+```http
+POST /osp/v1/projects/proj_my-saas/graph/impact HTTP/1.1
+Authorization: Bearer <agent_attestation>
+Content-Type: application/json
+
+{
+  "operation": "deprovision",
+  "target_resource_id": "res_db_001"
+}
+```
+
+**Response:**
+
+```json
+{
+  "target": {
+    "resource_id": "res_db_001",
+    "alias": "database",
+    "offering_id": "supabase/managed-postgres"
+  },
+  "operation": "deprovision",
+  "impact": {
+    "severity": "critical",
+    "affected_resources": [
+      {
+        "resource_id": "res_host_003",
+        "alias": "hosting",
+        "impact": "SERVICE_DOWN",
+        "reason": "Depends on DATABASE_URL from res_db_001",
+        "credential_keys_affected": ["DATABASE_URL"],
+        "critical_dependency": true
+      },
+      {
+        "resource_id": "res_cache_004",
+        "alias": "cache",
+        "impact": "DEGRADED",
+        "reason": "Explicit dependency declared in osp.yaml, but marked non-critical",
+        "critical_dependency": false
+      }
+    ],
+    "total_affected": 2,
+    "critical_affected": 1,
+    "recommendation": "BLOCK — deprovisioning res_db_001 will cause res_host_003 (hosting) to fail. Consider migrating the dependent resources first.",
+    "safe_order": [
+      "1. Deprovision res_host_003 (hosting) or update its DATABASE_URL",
+      "2. Deprovision res_cache_004 (cache) or remove explicit dependency",
+      "3. Deprovision res_db_001 (database)"
+    ]
+  }
+}
+```
+
+Impact `operation` values:
+
+| Operation | Analysis |
+|-----------|----------|
+| `deprovision` | What breaks if this resource is deleted? |
+| `rotate` | What needs credential updates after rotation? |
+| `migrate` | What needs reconfiguration after cross-provider migration? |
+| `tier_change` | What is affected by limit changes (e.g., connection pool size)? |
+| `region_change` | What experiences latency changes? |
+
+Impact `severity` values:
+
+| Severity | Meaning |
+|----------|---------|
+| `none` | No downstream resources affected. |
+| `info` | Downstream resources are affected but non-critically. |
+| `warning` | Downstream resources may experience degradation. |
+| `critical` | Downstream resources will fail. Operation SHOULD be blocked without explicit confirmation. |
+
+Agents MUST present impact analysis results to the principal before executing `critical` severity operations. Agents SHOULD present `warning` severity results. Agents MAY silently proceed for `none` and `info` severities.
+
+#### 11.9.2 Health Propagation
+
+When a resource's health status changes, the dependency graph enables propagation of health warnings to dependent resources.
+
+##### Health Propagation Rules
+
+1. When a resource's status transitions to `degraded` or `unhealthy`, the OSP client MUST compute the set of all resources that depend on it (directly or transitively).
+2. Dependent resources MUST have their `propagated_health` field updated to reflect the upstream issue.
+3. The `propagated_health` field is distinct from the resource's own `status` — a resource can be `healthy` on its own but have `propagated_health: "upstream_degraded"`.
+
+##### GET /osp/v1/projects/{project_id}/health
+
+```http
+GET /osp/v1/projects/proj_my-saas/health HTTP/1.1
+Authorization: Bearer <agent_attestation>
+```
+
+**Response:**
+
+```json
+{
+  "project_id": "proj_my-saas",
+  "overall_health": "degraded",
+  "resources": [
+    {
+      "resource_id": "res_db_001",
+      "alias": "database",
+      "status": "degraded",
+      "propagated_health": null,
+      "issue": "High connection count (95/100)",
+      "status_updated_at": "2026-03-28T09:55:00Z"
+    },
+    {
+      "resource_id": "res_host_003",
+      "alias": "hosting",
+      "status": "healthy",
+      "propagated_health": "upstream_degraded",
+      "upstream_issues": [
+        {
+          "resource_id": "res_db_001",
+          "issue": "Database degraded — high connection count may affect query latency"
+        }
+      ],
+      "status_updated_at": "2026-03-28T10:00:00Z"
+    },
+    {
+      "resource_id": "res_auth_002",
+      "alias": "auth",
+      "status": "healthy",
+      "propagated_health": null,
+      "status_updated_at": "2026-03-28T10:00:00Z"
+    },
+    {
+      "resource_id": "res_cache_004",
+      "alias": "cache",
+      "status": "healthy",
+      "propagated_health": "upstream_degraded",
+      "upstream_issues": [
+        {
+          "resource_id": "res_db_001",
+          "issue": "Database degraded — cache invalidation may be delayed"
+        }
+      ],
+      "status_updated_at": "2026-03-28T10:00:00Z"
+    }
+  ]
+}
+```
+
+`propagated_health` values:
+
+| Value | Meaning |
+|-------|---------|
+| `null` | No upstream issues. |
+| `upstream_degraded` | An upstream dependency is degraded. This resource may experience degradation. |
+| `upstream_unhealthy` | An upstream dependency is unhealthy. This resource is likely non-functional. |
+| `upstream_deprovisioned` | An upstream dependency has been deprovisioned. This resource will fail. |
+
+Webhook event: `project.health_propagated` is sent when propagated health changes for any resource in the project.
+
+#### 11.9.3 Auto-Generated Architecture Documentation
+
+The dependency graph enables automatic generation of architecture documentation that stays in sync with the actual infrastructure.
+
+##### GET /osp/v1/projects/{project_id}/graph/docs
+
+```http
+GET /osp/v1/projects/proj_my-saas/graph/docs?format=markdown HTTP/1.1
+Authorization: Bearer <agent_attestation>
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `format` | `string` | Output format: `markdown`, `mermaid`, `d2`, `json`. Default: `markdown`. |
+| `include_credentials` | `boolean` | Whether to include credential key names (not values). Default: `true`. |
+| `include_costs` | `boolean` | Whether to include cost information. Default: `true`. |
+
+**Response (Markdown):**
+
+```markdown
+# Architecture: my-saas-app (production)
+
+## Service Map
+
+| Service | Provider | Tier | Status | Monthly Cost |
+|---------|----------|------|--------|-------------|
+| database | Supabase Managed PostgreSQL | Pro | healthy | $32.50 |
+| auth | Clerk Auth | Pro | healthy | $20.00 |
+| hosting | Vercel Hosting | Pro | healthy | $22.00 |
+| cache | Upstash Redis | Free | healthy | $0.00 |
+
+## Dependencies
+
+- **hosting** depends on **database** (DATABASE_URL) [critical]
+- **hosting** depends on **auth** (CLERK_SECRET_KEY) [critical]
+- **hosting** depends on **cache** (UPSTASH_REDIS_URL) [non-critical]
+- **cache** depends on **database** (declared in osp.yaml) [non-critical]
+
+## Dependency Diagram
+
+\`\`\`mermaid
+graph TD
+    hosting[Vercel Hosting] -->|DATABASE_URL| database[Supabase PostgreSQL]
+    hosting -->|CLERK_SECRET_KEY| auth[Clerk Auth]
+    hosting -.->|UPSTASH_REDIS_URL| cache[Upstash Redis]
+    cache -.-> database
+\`\`\`
+
+## Cost Summary
+
+Total monthly: $74.50 (3 paid, 1 free)
+
+Generated by OSP at 2026-03-28T10:00:00Z
+```
+
+The `mermaid` format returns only the Mermaid diagram source. The `d2` format returns D2 diagram language compatible with the D2 renderer. The `json` format returns the raw graph data from `GET /graph`.
+
+OSP clients SHOULD regenerate architecture documentation on every `osp apply` and include it in the project repository. The recommended path is `docs/architecture.md` or `.osp/architecture.md`.
+
+### 11.10 Service Maturity Scorecards
+
+OSP defines a standardized scoring system that evaluates how production-ready a project's infrastructure is. Scorecards assess operational maturity across security, reliability, observability, and compliance dimensions.
+
+#### GET /osp/v1/projects/{project_id}/scorecard
+
+```http
+GET /osp/v1/projects/proj_my-saas/scorecard HTTP/1.1
+Authorization: Bearer <agent_attestation>
+X-OSP-Version: 1.0
+```
+
+**Response:**
+
+```json
+{
+  "project_id": "proj_my-saas",
+  "overall_score": 72,
+  "grade": "B",
+  "evaluated_at": "2026-03-28T10:00:00Z",
+  "dimensions": {
+    "security": {
+      "score": 85,
+      "checks": [
+        {"id": "sec-001", "name": "Credential encryption", "status": "pass", "detail": "All credentials use osp:// references or encrypted delivery"},
+        {"id": "sec-002", "name": "Credential rotation", "status": "pass", "detail": "All resources support rotation; 3/4 have auto-rotation enabled"},
+        {"id": "sec-003", "name": "HTTPS enforcement", "status": "pass", "detail": "All provider endpoints use TLS 1.3"},
+        {"id": "sec-004", "name": "Least-privilege credentials", "status": "warn", "detail": "res_db_001 uses admin scope; consider read_write for application credentials"},
+        {"id": "sec-005", "name": "Short-lived tokens", "status": "fail", "detail": "0/4 resources use short-lived tokens (Section 12.6)"}
+      ]
+    },
+    "reliability": {
+      "score": 65,
+      "checks": [
+        {"id": "rel-001", "name": "Automatic backups", "status": "pass", "detail": "Database has daily backups enabled"},
+        {"id": "rel-002", "name": "Multi-region", "status": "fail", "detail": "All resources in us-east-1; no failover region configured"},
+        {"id": "rel-003", "name": "Health monitoring", "status": "pass", "detail": "All resources have health endpoints configured"},
+        {"id": "rel-004", "name": "SLA coverage", "status": "warn", "detail": "2/4 resources have SLA guarantees; free tier cache has no SLA"},
+        {"id": "rel-005", "name": "Snapshot/restore tested", "status": "fail", "detail": "No snapshots have been created or restore tested"}
+      ]
+    },
+    "observability": {
+      "score": 55,
+      "checks": [
+        {"id": "obs-001", "name": "Metrics collection", "status": "pass", "detail": "3/4 resources expose live metrics"},
+        {"id": "obs-002", "name": "Alerting configured", "status": "fail", "detail": "No usage threshold alerts configured"},
+        {"id": "obs-003", "name": "Audit logging", "status": "warn", "detail": "Event stream enabled on 2/4 resources"},
+        {"id": "obs-004", "name": "Cost tracking", "status": "pass", "detail": "All resources report usage to cost dashboard"}
+      ]
+    },
+    "compliance": {
+      "score": 80,
+      "checks": [
+        {"id": "com-001", "name": "Data residency declared", "status": "pass", "detail": "All resources in US jurisdiction"},
+        {"id": "com-002", "name": "GDPR compliance", "status": "warn", "detail": "Not applicable (US-only data), but no DPA on file for 2/4 providers"},
+        {"id": "com-003", "name": "SOC2 providers", "status": "pass", "detail": "3/4 providers are SOC2 Type II certified"},
+        {"id": "com-004", "name": "Credential leak detection", "status": "pass", "detail": "Pre-commit hooks and .cursorignore configured"}
+      ]
+    }
+  },
+  "grade_thresholds": {
+    "A": 90, "B": 70, "C": 50, "D": 30, "F": 0
+  }
+}
+```
+
+#### Scorecard Check Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | `string` | REQUIRED | Unique check identifier. Format: `{dimension}-{number}`. |
+| `name` | `string` | REQUIRED | Human-readable check name. |
+| `status` | `string` | REQUIRED | Result: `pass`, `warn`, `fail`, `skip`. |
+| `detail` | `string` | REQUIRED | Explanation of the result. |
+| `remediation` | `string` | OPTIONAL | Suggested fix. See Section 11.10.2 for `osp fix` integration. |
+| `severity` | `string` | OPTIONAL | Impact of failure: `critical`, `high`, `medium`, `low`. Default: `medium`. |
+
+#### Golden Paths
+
+Project Templates (Section 11.5) are extended into **golden paths** — opinionated, security-hardened configurations that score 90+ on the maturity scorecard. Golden paths differ from basic templates by including:
+
+1. **Security defaults:** Encrypted credential delivery, auto-rotation enabled, least-privilege scopes.
+2. **Reliability defaults:** Backups enabled, health monitoring configured, alerting thresholds set.
+3. **Observability defaults:** Metrics collection, audit logging, cost dashboard enabled.
+4. **Compliance defaults:** Data residency declared, DPAs linked, credential leak detection active.
+
+Golden path templates include a `golden_path` field:
+
+```json
+{
+  "template_id": "golden-nextjs-supabase",
+  "name": "Next.js + Supabase (Production-Ready)",
+  "golden_path": true,
+  "minimum_scorecard_grade": "A",
+  "security_defaults": {
+    "credential_delivery_mode": "reference",
+    "auto_rotation_hours": 168,
+    "credential_scope": "read_write",
+    "leak_detection_enabled": true
+  },
+  "reliability_defaults": {
+    "backup_enabled": true,
+    "health_monitoring_enabled": true,
+    "alert_thresholds": {
+      "usage_percent": 80,
+      "error_rate_percent": 1
+    }
+  },
+  "resources": [
+    {"offering_id": "supabase/managed-postgres", "tier_id": "pro", "alias": "db"},
+    {"offering_id": "clerk/auth", "tier_id": "pro", "alias": "auth"},
+    {"offering_id": "vercel/hosting", "tier_id": "pro", "alias": "hosting"}
+  ]
+}
+```
+
+When provisioning from a golden path template, the OSP client MUST apply all `security_defaults` and `reliability_defaults` unless the agent explicitly overrides them. Overrides SHOULD trigger a warning indicating the scorecard grade impact.
+
+#### 11.10.1 Compliance Checklists
+
+OSP provides framework-specific compliance checklists that map scorecard checks to regulatory requirements.
+
+##### GET /osp/v1/projects/{project_id}/scorecard/compliance
+
+```http
+GET /osp/v1/projects/proj_my-saas/scorecard/compliance?frameworks=soc2,gdpr HTTP/1.1
+Authorization: Bearer <agent_attestation>
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `frameworks` | `string` | Comma-separated compliance frameworks. Values: `soc2`, `hipaa`, `gdpr`, `pci-dss`, `iso-27001`, `fedramp`. |
+
+**Response:**
+
+```json
+{
+  "project_id": "proj_my-saas",
+  "frameworks": {
+    "soc2": {
+      "status": "partial",
+      "controls_total": 12,
+      "controls_met": 9,
+      "controls_unmet": 3,
+      "controls": [
+        {
+          "control_id": "CC6.1",
+          "name": "Logical Access Security",
+          "status": "met",
+          "evidence": [
+            "All credentials encrypted with Ed25519 (sec-001)",
+            "Credential rotation enabled (sec-002)",
+            "Least-privilege credentials (sec-004 — partial)"
+          ]
+        },
+        {
+          "control_id": "CC7.2",
+          "name": "System Monitoring",
+          "status": "unmet",
+          "gap": "No alerting configured for anomalous usage patterns",
+          "remediation": "osp fix obs-002"
+        },
+        {
+          "control_id": "CC8.1",
+          "name": "Change Management",
+          "status": "met",
+          "evidence": [
+            "Infrastructure-as-code via osp.yaml (Section 11.6)",
+            "Drift detection enabled",
+            "All changes tracked in event log"
+          ]
+        }
+      ]
+    },
+    "gdpr": {
+      "status": "partial",
+      "controls_total": 8,
+      "controls_met": 6,
+      "controls_unmet": 2,
+      "controls": [
+        {
+          "control_id": "ART-25",
+          "name": "Data Protection by Design",
+          "status": "met",
+          "evidence": ["Credential encryption (sec-001)", "Reference-mode delivery (sec-005 — partial)"]
+        },
+        {
+          "control_id": "ART-28",
+          "name": "Data Processing Agreements",
+          "status": "unmet",
+          "gap": "DPA not on file for 2/4 providers (Clerk, Upstash)",
+          "remediation": "Contact providers for DPA. OSP tracks DPA status in provider manifest extensions."
+        }
+      ]
+    }
+  }
+}
+```
+
+Compliance mappings are maintained by the OSP community and published at the OSP registry. Providers MAY contribute compliance evidence through their manifest `extensions`:
+
+```json
+{
+  "extensions": {
+    "osp_compliance": {
+      "certifications": ["soc2-type-ii", "iso-27001"],
+      "dpa_url": "https://supabase.com/legal/dpa",
+      "data_processing_location": "US",
+      "subprocessors_url": "https://supabase.com/legal/subprocessors"
+    }
+  }
+}
+```
+
+#### 11.10.2 Guided Remediation
+
+Scorecard failures include machine-readable remediation identifiers that map to `osp fix` commands.
+
+##### CLI: `osp fix`
+
+```bash
+$ osp fix sec-004
+
+Fixing: sec-004 — Least-privilege credentials
+
+Current state:
+  res_db_001 (database): credential scope = admin
+
+Recommended action:
+  Rotate credentials with scope = read_write
+  Admin credentials will be preserved separately for migrations
+
+Execute? [y/N] y
+
+  ✓ Rotating res_db_001 credentials with scope: read_write
+  ✓ New read_write credentials issued
+  ✓ Admin credentials saved to .osp/vault.json (for migration use only)
+  ✓ .env.local updated with new credentials
+  ✓ Scorecard sec-004 now: PASS
+
+Updated scorecard: Security 85 → 92, Overall 72 → 76 (Grade: B+)
+```
+
+##### POST /osp/v1/projects/{project_id}/scorecard/fix
+
+```http
+POST /osp/v1/projects/proj_my-saas/scorecard/fix HTTP/1.1
+Authorization: Bearer <agent_attestation>
+Content-Type: application/json
+
+{
+  "check_id": "sec-004",
+  "auto_approve": false,
+  "dry_run": true
+}
+```
+
+**Response:**
+
+```json
+{
+  "check_id": "sec-004",
+  "remediation_plan": {
+    "steps": [
+      {
+        "step": 1,
+        "action": "rotate_credentials",
+        "target": "res_db_001",
+        "parameters": {"scope": "read_write"},
+        "description": "Rotate database credentials from admin to read_write scope"
+      },
+      {
+        "step": 2,
+        "action": "store_admin_credentials",
+        "target": "res_db_001",
+        "description": "Preserve admin credentials in vault for migration use"
+      },
+      {
+        "step": 3,
+        "action": "update_env",
+        "description": "Update .env.local with new read_write credentials"
+      }
+    ],
+    "estimated_downtime_seconds": 0,
+    "scorecard_impact": {
+      "sec-004": "fail → pass",
+      "security_score": "85 → 92",
+      "overall_score": "72 → 76"
+    }
+  },
+  "dry_run": true,
+  "requires_approval": true
+}
+```
+
+When `auto_approve` is `true` and `dry_run` is `false`, the remediation is executed immediately. When `requires_approval` is `true` in the response, the agent MUST present the plan to the principal before execution, regardless of `auto_approve`.
+
+Remediation actions that involve destructive operations (credential rotation, tier changes, deprovisioning) MUST always set `requires_approval: true`. Non-destructive remediations (enabling monitoring, configuring alerts) MAY set `requires_approval: false`.
+
+### 11.11 SBOM Generation and Supply Chain Attestation
+
+OSP projects compose multiple third-party services into a software supply chain. A **Software Bill of Materials (SBOM)** for OSP enumerates all external services, their versions, providers, and trust properties. Supply chain attestation provides cryptographic proof of the project's service composition.
+
+#### GET /osp/v1/projects/{project_id}/sbom
+
+```http
+GET /osp/v1/projects/proj_my-saas/sbom?format=cyclonedx HTTP/1.1
+Authorization: Bearer <agent_attestation>
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `format` | `string` | SBOM format: `cyclonedx` (CycloneDX JSON), `spdx` (SPDX JSON), `osp` (OSP-native JSON). Default: `osp`. |
+| `include_attestation` | `boolean` | Whether to include cryptographic attestation. Default: `false`. |
+
+**Response (OSP-native format):**
+
+```json
+{
+  "project_id": "proj_my-saas",
+  "sbom_version": "1.0",
+  "generated_at": "2026-03-28T10:00:00Z",
+  "components": [
+    {
+      "type": "service",
+      "name": "supabase/managed-postgres",
+      "version": "17",
+      "provider": {
+        "provider_id": "com.supabase",
+        "display_name": "Supabase",
+        "homepage_url": "https://supabase.com"
+      },
+      "tier_id": "pro",
+      "region": "us-east-1",
+      "resource_id": "res_db_001",
+      "provisioned_at": "2026-03-15T08:00:00Z",
+      "manifest_version": 3,
+      "manifest_signature_verified": true,
+      "trust_tier": "verified",
+      "certifications": ["soc2-type-ii", "iso-27001"],
+      "data_processing_location": "US",
+      "hashes": {
+        "manifest_sha256": "a1b2c3d4e5f6..."
+      }
+    },
+    {
+      "type": "service",
+      "name": "clerk/auth",
+      "version": "latest",
+      "provider": {
+        "provider_id": "com.clerk",
+        "display_name": "Clerk",
+        "homepage_url": "https://clerk.com"
+      },
+      "tier_id": "pro",
+      "region": "us-east-1",
+      "resource_id": "res_auth_002",
+      "provisioned_at": "2026-03-15T08:01:00Z",
+      "manifest_version": 5,
+      "manifest_signature_verified": true,
+      "trust_tier": "verified",
+      "certifications": ["soc2-type-ii"],
+      "data_processing_location": "US"
+    }
+  ],
+  "dependencies": [
+    {"from": "res_host_003", "to": "res_db_001", "critical": true},
+    {"from": "res_host_003", "to": "res_auth_002", "critical": true}
+  ],
+  "metadata": {
+    "tool": "osp-cli/1.0.0",
+    "total_monthly_cost": "74.50",
+    "total_providers": 4,
+    "scorecard_grade": "B"
+  }
+}
+```
+
+#### Supply Chain Attestation
+
+When `include_attestation` is `true`, the SBOM includes an [in-toto](https://in-toto.io/) compatible attestation envelope:
+
+```json
+{
+  "sbom": {"...": "..."},
+  "attestation": {
+    "type": "https://in-toto.io/Statement/v1",
+    "subject": [
+      {
+        "name": "proj_my-saas",
+        "digest": {"sha256": "sbom_content_hash"}
+      }
+    ],
+    "predicateType": "https://osp.dev/attestation/sbom/v1",
+    "predicate": {
+      "generated_at": "2026-03-28T10:00:00Z",
+      "all_manifests_verified": true,
+      "all_providers_trusted": true,
+      "minimum_trust_tier": "verified",
+      "compliance_frameworks_met": ["soc2"],
+      "scorecard_grade": "B"
+    },
+    "signatures": [
+      {
+        "keyid": "agent_key_id",
+        "sig": "base64url_ed25519_signature_over_attestation"
+      }
+    ]
+  }
+}
+```
+
+The attestation is signed by the agent's Ed25519 key and can be verified independently. This enables CI/CD pipelines to gate deployments on supply chain properties:
+
+```yaml
+# .github/workflows/deploy.yml
+- name: Verify OSP supply chain
+  run: |
+    osp sbom --attestation --verify
+    # Fails if any provider manifest signature is invalid
+    # Fails if scorecard grade is below threshold
+    # Fails if required compliance framework is not met
+```
+
+The CycloneDX and SPDX formats map OSP components to their respective `component` and `package` schemas. Service type is mapped to `component.type: "service"` in CycloneDX and `packageType: "SERVICE"` in SPDX. Provider information is included as external references.
+
 ---
 
 ## 12. Agent Credential Safety
@@ -4041,6 +5126,360 @@ Providers SHOULD publish their credential patterns (regex) in the ServiceManifes
   }
 }
 ```
+
+### 12.6 Short-Lived Token Issuance
+
+Static API keys and long-lived credentials are the default in most SaaS providers, but they represent a persistent security risk. Compromised static keys remain valid until manually revoked, creating an unbounded window of exposure. OSP defines a short-lived token issuance mechanism that replaces static credentials with auto-expiring tokens.
+
+#### Token Issuance Endpoint
+
+##### POST /osp/v1/tokens/{resource_id}
+
+Issue a short-lived access token for a provisioned resource.
+
+```http
+POST /osp/v1/tokens/res_db_001 HTTP/1.1
+Host: api.supabase.com
+Authorization: Bearer <agent_attestation>
+Content-Type: application/json
+X-OSP-Version: 1.0
+
+{
+  "scope": "read_write",
+  "ttl_seconds": 3600,
+  "audience": "my-saas-app-api",
+  "metadata": {
+    "purpose": "api-server-runtime",
+    "environment": "production"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `scope` | `string` | OPTIONAL | Access level: `admin`, `read_write`, `read_only`, `custom`. Default: inherits from resource credential scope. |
+| `ttl_seconds` | `integer` | OPTIONAL | Token lifetime in seconds. Minimum: 300 (5 minutes). Maximum: 86400 (24 hours). Default: 3600 (1 hour). |
+| `audience` | `string` | OPTIONAL | Intended audience for the token (`aud` claim). Max 128 characters. |
+| `metadata` | `object` | OPTIONAL | Metadata to embed in the token. Max 10 keys. |
+| `renewable` | `boolean` | OPTIONAL | Whether the token can be renewed before expiry. Default: `true`. |
+
+**Response:**
+
+```json
+{
+  "token_id": "tok_a1b2c3d4",
+  "resource_id": "res_db_001",
+  "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImtleS0yMDI2LTAzIn0.eyJzdWIiOiJyZXNfZGJfMDAxIiwiaXNzIjoiY29tLnN1cGFiYXNlIiwiYXVkIjoibXktc2Fhcy1hcHAtYXBpIiwic2NvcGUiOiJyZWFkX3dyaXRlIiwiaWF0IjoxNzExNjE2MDAwLCJleHAiOjE3MTE2MTk2MDB9.signature",
+  "token_type": "Bearer",
+  "issued_at": "2026-03-28T10:00:00Z",
+  "expires_at": "2026-03-28T11:00:00Z",
+  "renewable": true,
+  "renew_url": "https://api.supabase.com/osp/v1/tokens/tok_a1b2c3d4/renew",
+  "scope": "read_write",
+  "jwt_claims": {
+    "sub": "res_db_001",
+    "iss": "com.supabase",
+    "aud": "my-saas-app-api",
+    "scope": "read_write",
+    "iat": 1711616000,
+    "exp": 1711619600
+  }
+}
+```
+
+#### Token Format
+
+Short-lived tokens MUST be JWTs (RFC 7519) signed with the provider's Ed25519 key. Required claims:
+
+| Claim | Description |
+|-------|-------------|
+| `sub` | The `resource_id` this token grants access to. |
+| `iss` | The `provider_id` that issued the token. |
+| `aud` | The audience specified in the request, or the `provider_id` if not specified. |
+| `scope` | The access scope of the token. |
+| `iat` | Issued-at timestamp (Unix epoch). |
+| `exp` | Expiration timestamp (Unix epoch). MUST be `iat + ttl_seconds`. |
+| `jti` | Unique token identifier (the `token_id`). |
+| `osp_resource` | The `offering_id` of the resource (e.g., `"supabase/managed-postgres"`). |
+
+Agents verify tokens by checking the signature against the provider's public key (from JWKS endpoint, Section 8.9) and validating the `exp` claim.
+
+#### Token Renewal
+
+##### POST /osp/v1/tokens/{token_id}/renew
+
+Renew a token before it expires. The old token is invalidated and a new token is issued.
+
+```http
+POST /osp/v1/tokens/tok_a1b2c3d4/renew HTTP/1.1
+Authorization: Bearer eyJhbGciOiJFZERTQSJ9...
+Content-Type: application/json
+
+{
+  "ttl_seconds": 3600
+}
+```
+
+Renewal rules:
+1. Tokens MUST be renewed before expiration. Expired tokens MUST NOT be renewable.
+2. The new token inherits the same scope and audience as the original.
+3. A token MAY be renewed at most 24 times (configurable by provider), after which a fresh token MUST be issued via `POST /osp/v1/tokens/{resource_id}`.
+4. Providers MUST invalidate the old token within 60 seconds of renewal.
+
+#### Credential Delivery Mode: `short_lived`
+
+The credential delivery modes defined in Section 12.2 are extended with a `short_lived` mode:
+
+| Mode | How Credentials Are Stored | Agent Sees | Risk Level |
+|------|---------------------------|------------|------------|
+| `short_lived` | No persistent credentials stored; tokens issued on demand | JWT with automatic expiry | Very Low — tokens auto-expire |
+
+In `short_lived` mode, the `ProvisionResponse` does not include static credentials. Instead, it includes a `token_endpoint`:
+
+```json
+{
+  "resource_id": "res_db_001",
+  "status": "provisioned",
+  "credentials_bundle": {
+    "format": "short_lived",
+    "token_endpoint": "https://api.supabase.com/osp/v1/tokens/res_db_001",
+    "initial_token": {
+      "token": "eyJhbGciOiJFZERTQSJ9...",
+      "expires_at": "2026-03-28T11:00:00Z",
+      "renew_url": "https://api.supabase.com/osp/v1/tokens/tok_initial/renew"
+    },
+    "rotation_supported": false,
+    "issued_at": "2026-03-28T10:00:00Z"
+  }
+}
+```
+
+Providers SHOULD offer `short_lived` as an option in their `credentials_schema`. Agents targeting production environments SHOULD prefer `short_lived` over `plaintext` or `reference` modes when available.
+
+### 12.7 NHI Inventory and Orphan Detection
+
+Non-human identities (NHIs) — API keys, service accounts, tokens, and credentials provisioned through OSP — accumulate over time. Without active management, orphaned credentials (credentials for deprovisioned resources, departed team members, or abandoned projects) become a persistent attack surface.
+
+#### GET /osp/v1/nhi/inventory
+
+Retrieve a consolidated inventory of all non-human identities managed by OSP for the authenticated principal.
+
+```http
+GET /osp/v1/nhi/inventory?status=active&sort=last_used_at HTTP/1.1
+Authorization: Bearer <principal_attestation>
+X-OSP-Version: 1.0
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | `string` | Filter: `active`, `expired`, `orphaned`, `revoked`, `all`. Default: `active`. |
+| `sort` | `string` | Sort field: `created_at`, `last_used_at`, `expires_at`. Default: `created_at`. |
+| `provider_id` | `string` | Filter by provider. |
+| `project_id` | `string` | Filter by project. |
+| `limit` | `integer` | Max results. Default: 50. Max: 200. |
+| `starting_after` | `string` | Cursor-based pagination. |
+
+**Response:**
+
+```json
+{
+  "total": 12,
+  "identities": [
+    {
+      "nhi_id": "nhi_001",
+      "resource_id": "res_db_001",
+      "project_id": "proj_my-saas",
+      "provider_id": "com.supabase",
+      "offering_id": "supabase/managed-postgres",
+      "credential_type": "connection_string",
+      "scope": "read_write",
+      "status": "active",
+      "created_at": "2026-03-15T08:00:00Z",
+      "last_used_at": "2026-03-28T09:45:00Z",
+      "expires_at": null,
+      "last_rotated_at": "2026-03-22T08:00:00Z",
+      "agent_public_key": "base64url...",
+      "risk_score": 15,
+      "risk_factors": []
+    },
+    {
+      "nhi_id": "nhi_007",
+      "resource_id": "res_old_cache_099",
+      "project_id": "proj_deprecated",
+      "provider_id": "com.upstash",
+      "offering_id": "upstash/redis",
+      "credential_type": "api_key",
+      "scope": "admin",
+      "status": "orphaned",
+      "created_at": "2026-01-10T12:00:00Z",
+      "last_used_at": "2026-02-01T14:00:00Z",
+      "expires_at": null,
+      "last_rotated_at": null,
+      "agent_public_key": "base64url...",
+      "risk_score": 85,
+      "risk_factors": [
+        "Resource deprovisioned but credential not revoked",
+        "Not rotated in 77 days",
+        "Admin scope on unused resource",
+        "Last used 55 days ago"
+      ]
+    }
+  ],
+  "summary": {
+    "total_active": 8,
+    "total_orphaned": 3,
+    "total_expired": 1,
+    "average_age_days": 42,
+    "never_rotated": 4,
+    "admin_scope_count": 5,
+    "risk_score_average": 38
+  }
+}
+```
+
+#### Orphan Detection Rules
+
+An NHI is classified as `orphaned` when any of the following conditions are met:
+
+| Rule | Condition | Auto-Remediation |
+|------|-----------|-----------------|
+| Resource deprovisioned | The `resource_id` no longer exists or is deprovisioned | Revoke credential |
+| Project deleted | The `project_id` no longer exists | Revoke credential |
+| Agent key revoked | The `agent_public_key` is on the revocation list (Section 8.7) | Revoke credential |
+| Prolonged inactivity | `last_used_at` is more than 90 days ago | Flag for review |
+| Never used | `last_used_at` is null and credential is older than 7 days | Flag for review |
+| Rotation overdue | Credential has not been rotated in `rotation_interval_hours * 2` | Flag for review |
+
+#### POST /osp/v1/nhi/cleanup
+
+Execute orphan cleanup across all providers.
+
+```http
+POST /osp/v1/nhi/cleanup HTTP/1.1
+Authorization: Bearer <principal_attestation>
+Content-Type: application/json
+
+{
+  "dry_run": true,
+  "actions": {
+    "revoke_orphaned": true,
+    "revoke_expired": true,
+    "rotate_overdue": false,
+    "downgrade_admin_scope": false
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "dry_run": true,
+  "planned_actions": [
+    {"nhi_id": "nhi_007", "action": "revoke", "reason": "orphaned — resource deprovisioned"},
+    {"nhi_id": "nhi_009", "action": "revoke", "reason": "orphaned — project deleted"},
+    {"nhi_id": "nhi_011", "action": "revoke", "reason": "expired token not cleaned up"}
+  ],
+  "total_actions": 3,
+  "estimated_risk_reduction": "38 → 12 (average risk score)"
+}
+```
+
+When `dry_run` is `false`, the cleanup is executed and the results include success/failure for each action.
+
+OSP clients SHOULD run `nhi/inventory` periodically (RECOMMENDED: weekly) and present orphan reports to the principal. CI/CD pipelines SHOULD include NHI inventory checks as a deployment gate.
+
+### 12.8 Identity Federation
+
+Static credentials create tight coupling between agents and providers. Identity federation enables agents to authenticate to providers using standardized identity protocols (OIDC, SPIFFE) instead of provider-specific credentials.
+
+#### Federated Authentication in ProvisionRequest
+
+Agents MAY replace `agent_attestation` with a federated identity token:
+
+```json
+{
+  "offering_id": "supabase/managed-postgres",
+  "tier_id": "pro",
+  "authentication": {
+    "method": "oidc",
+    "token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "issuer": "https://accounts.google.com",
+    "audience": "com.supabase",
+    "subject": "agent-12345@my-org.iam.gserviceaccount.com"
+  },
+  "nonce": "...",
+  "payment_method": "free"
+}
+```
+
+#### Supported Federation Methods
+
+| Method | Protocol | Token Format | Use Case |
+|--------|----------|-------------|----------|
+| `oidc` | OpenID Connect | JWT with `iss`, `sub`, `aud`, `exp` | Cloud platform agents (GCP, Azure, AWS IAM) |
+| `spiffe` | SPIFFE/SPIRE | X.509 SVID or JWT SVID | Kubernetes workloads, service mesh environments |
+| `github_actions` | GitHub OIDC | JWT from `ACTIONS_ID_TOKEN_REQUEST_URL` | CI/CD pipelines on GitHub Actions |
+| `tap` | Trust & Attestation Protocol | TAP attestation token | OSP-native agent identity |
+
+#### Provider Federation Configuration
+
+Providers advertise their supported federation methods in the manifest:
+
+```json
+{
+  "extensions": {
+    "osp_identity_federation": {
+      "supported_methods": ["oidc", "spiffe", "github_actions", "tap"],
+      "oidc_config": {
+        "trusted_issuers": [
+          "https://accounts.google.com",
+          "https://token.actions.githubusercontent.com",
+          "https://login.microsoftonline.com/{tenant}/v2.0"
+        ],
+        "audience": "com.supabase",
+        "jwks_cache_seconds": 3600
+      },
+      "spiffe_config": {
+        "trust_domain": "osp.supabase.com",
+        "trust_bundle_url": "https://api.supabase.com/.well-known/spiffe-trust-bundle"
+      }
+    }
+  }
+}
+```
+
+#### Federation Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant IdP as Identity Provider (e.g., Google)
+    participant Provider as OSP Provider
+
+    Agent->>IdP: Request OIDC token (scope: com.supabase)
+    IdP-->>Agent: JWT (iss=google, sub=agent@org, aud=com.supabase)
+
+    Agent->>Provider: POST /osp/v1/provision (authentication.method=oidc)
+    Provider->>IdP: GET /.well-known/openid-configuration
+    IdP-->>Provider: JWKS endpoint URL
+    Provider->>IdP: GET /jwks
+    IdP-->>Provider: Public keys
+    Note over Provider: Validate JWT signature, iss, aud, exp
+    Provider-->>Agent: ProvisionResponse (with short-lived token)
+```
+
+#### Security Requirements
+
+1. Providers MUST validate the token signature against the issuer's JWKS endpoint.
+2. Providers MUST verify the `aud` claim matches their expected audience.
+3. Providers MUST verify the `exp` claim and reject expired tokens.
+4. Providers MUST verify the `iss` claim matches a configured trusted issuer.
+5. Providers SHOULD cache JWKS responses for no more than 1 hour.
+6. Providers MUST reject tokens with `iat` more than 5 minutes in the future (clock skew tolerance).
+7. For SPIFFE SVIDs, providers MUST validate the X.509 certificate chain against the configured trust bundle.
+
+Identity federation is OPTIONAL for both providers and agents. Providers that support federation MUST also continue to accept `agent_attestation` tokens for backward compatibility.
 
 ---
 
@@ -4319,6 +5758,418 @@ Key features:
 - **No shared secrets** — each dev gets their own credential set
 - **Revocation on offboarding** — `osp leave` revokes all credentials
 
+### 13.7 TypeScript-Based Configuration (osp.config.ts)
+
+While `osp.yaml` (Section 11.6) provides declarative configuration, complex projects may require programmatic logic: conditional resources, dynamic naming, environment-specific overrides, or computed configuration. OSP supports TypeScript-based configuration via `osp.config.ts`, following the pattern established by Pulumi, Terraform CDK, and similar tools.
+
+#### Configuration File Format
+
+```typescript
+// osp.config.ts
+import { defineConfig, resource, ref } from '@osp/config';
+
+export default defineConfig({
+  project: {
+    name: 'my-saas-app',
+    environment: process.env.OSP_ENV ?? 'development',
+  },
+
+  resources: {
+    database: resource('supabase/managed-postgres', {
+      tier: process.env.OSP_ENV === 'production' ? 'pro' : 'free',
+      region: 'us-east-1',
+      config: {
+        postgres_version: '17',
+        enable_pooling: true,
+      },
+    }),
+
+    auth: resource('clerk/auth', {
+      tier: process.env.OSP_ENV === 'production' ? 'pro' : 'free',
+    }),
+
+    cache: resource('upstash/redis', {
+      tier: 'free',
+      config: {
+        eviction_policy: 'allkeys-lru',
+        max_memory_mb: process.env.OSP_ENV === 'production' ? 256 : 64,
+      },
+    }),
+
+    hosting: resource('vercel/hosting', {
+      tier: process.env.OSP_ENV === 'production' ? 'pro' : 'hobby',
+      dependsOn: ['database', 'auth', 'cache'],
+      config: {
+        framework: 'nextjs',
+        environment_variables: {
+          DATABASE_URL: ref('database', 'connection_uri'),
+          CLERK_SECRET_KEY: ref('auth', 'secret_key'),
+          UPSTASH_REDIS_URL: ref('cache', 'redis_url'),
+        },
+      },
+    }),
+  },
+
+  env: {
+    format: 'dotenv',
+    renames: {
+      'SUPABASE_URL': 'DATABASE_URL',
+      'CLERK_PUBLISHABLE_KEY': 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY',
+    },
+    scopes: {
+      'apps/web': { include: ['database', 'auth'], framework: 'nextjs' },
+      'apps/api': { include: ['database', 'cache'], framework: 'fastapi' },
+    },
+  },
+});
+```
+
+#### API: `defineConfig`
+
+The `defineConfig` function accepts a configuration object and returns a resolved OSP project configuration. The object type:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `project` | `ProjectConfig` | REQUIRED | Project name, environment, and metadata. |
+| `resources` | `Record<string, ResourceConfig>` | REQUIRED | Named resources. Keys become resource aliases. |
+| `env` | `EnvConfig` | OPTIONAL | Environment variable configuration. Same as `osp.yaml` env section. |
+| `hooks` | `HooksConfig` | OPTIONAL | Lifecycle hooks (post_provision, post_env, verify). |
+
+#### API: `resource`
+
+The `resource` function creates a typed resource declaration:
+
+```typescript
+function resource(
+  offeringId: string,
+  config: {
+    tier: string;
+    region?: string;
+    config?: Record<string, unknown>;
+    dependsOn?: string[];
+    canary?: CanaryConfig;
+    sandbox?: SandboxConfig;
+    metadata?: Record<string, string>;
+  }
+): ResourceConfig;
+```
+
+#### API: `ref`
+
+The `ref` function creates a cross-resource credential reference that is resolved at apply time:
+
+```typescript
+function ref(resourceAlias: string, credentialKey: string): string;
+// Returns: "osp://resolved-at-apply-time"
+```
+
+#### Execution
+
+OSP clients compile `osp.config.ts` to a resolved plan before execution:
+
+```bash
+$ OSP_ENV=production osp apply --config osp.config.ts
+
+Compiling osp.config.ts...
+  ✓ TypeScript compiled (0.8s)
+  ✓ 4 resources resolved
+  ✓ Environment: production
+
+Plan:
+  + database: supabase/managed-postgres (pro) — $25.00/mo
+  + auth: clerk/auth (pro) — $20.00/mo
+  + cache: upstash/redis (free) — $0.00
+  + hosting: vercel/hosting (pro) — $20.00/mo
+
+Total: $65.00/mo
+
+Apply? [y/N]
+```
+
+The resolved plan is equivalent to an `osp.yaml` — the TypeScript configuration is a compile-time abstraction. The resolved plan MAY be exported as `osp.yaml` for inspection:
+
+```bash
+$ osp config export --format yaml > osp.resolved.yaml
+```
+
+#### Precedence
+
+When both `osp.yaml` and `osp.config.ts` exist in a project:
+
+1. `osp.config.ts` takes precedence.
+2. OSP clients SHOULD emit a warning: `"Both osp.yaml and osp.config.ts found; using osp.config.ts. Remove osp.yaml to suppress this warning."`.
+3. The `osp.yaml` MAY be used as a fallback for environments where TypeScript compilation is not available (e.g., minimal CI/CD runners).
+
+### 13.8 Ephemeral Environment Lifecycle
+
+Ephemeral environments — short-lived, isolated copies of project infrastructure — are essential for PR previews, feature testing, QA, and demos. OSP defines a complete lifecycle for ephemeral environments beyond the basic sandbox mode in Section 14.3.
+
+#### Ephemeral Environment Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `ephemeral_id` | `string` | REQUIRED | Unique identifier. Format: `eph_{random}`. |
+| `project_id` | `string` | REQUIRED | The parent project this environment is derived from. |
+| `trigger` | `string` | REQUIRED | What created this environment: `pr`, `manual`, `schedule`, `ci`. |
+| `trigger_ref` | `string` | OPTIONAL | Reference for the trigger (e.g., PR number, branch name). |
+| `resources` | `array<string>` | REQUIRED | Resource IDs provisioned for this environment. |
+| `ttl_hours` | `integer` | REQUIRED | Time-to-live in hours. After expiry, all resources are deprovisioned. |
+| `shareable_url` | `string` | OPTIONAL | A public URL for accessing the environment (if hosting is included). |
+| `status` | `string` | REQUIRED | `creating`, `active`, `expiring`, `expired`, `destroyed`. |
+| `burn_rate` | `object` | OPTIONAL | Cost tracking for this environment. See Section 14.6.4. |
+| `created_at` | `string` | REQUIRED | RFC 3339 timestamp. |
+| `expires_at` | `string` | REQUIRED | RFC 3339 timestamp when TTL expires. |
+
+#### POST /osp/v1/projects/{project_id}/ephemeral
+
+Create an ephemeral environment derived from an existing project.
+
+```http
+POST /osp/v1/projects/proj_my-saas/ephemeral HTTP/1.1
+Authorization: Bearer <agent_attestation>
+Content-Type: application/json
+
+{
+  "trigger": "pr",
+  "trigger_ref": "PR #142",
+  "ttl_hours": 48,
+  "resource_overrides": {
+    "database": {
+      "tier_id": "free",
+      "sandbox": {"seed_from_production": true, "seed_mode": "schema_only"}
+    },
+    "hosting": {
+      "tier_id": "hobby"
+    }
+  },
+  "exclude_resources": ["analytics"],
+  "shareable": true,
+  "env_overrides": {
+    "NODE_ENV": "preview",
+    "NEXT_PUBLIC_SITE_URL": "auto"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "ephemeral_id": "eph_pr142_abc",
+  "project_id": "proj_my-saas",
+  "trigger": "pr",
+  "trigger_ref": "PR #142",
+  "status": "creating",
+  "resources": [],
+  "ttl_hours": 48,
+  "expires_at": "2026-03-30T10:00:00Z",
+  "estimated_ready_seconds": 60,
+  "poll_url": "/osp/v1/projects/proj_my-saas/ephemeral/eph_pr142_abc",
+  "created_at": "2026-03-28T10:00:00Z"
+}
+```
+
+When provisioning completes:
+
+```json
+{
+  "ephemeral_id": "eph_pr142_abc",
+  "status": "active",
+  "resources": ["res_eph_db_001", "res_eph_auth_002", "res_eph_host_003"],
+  "shareable_url": "https://pr-142.preview.my-saas-app.vercel.app",
+  "env_url": "/osp/v1/projects/proj_my-saas/ephemeral/eph_pr142_abc/env",
+  "burn_rate": {
+    "hourly_cost": "0.03",
+    "projected_total": "1.44",
+    "currency": "USD"
+  },
+  "expires_at": "2026-03-30T10:00:00Z"
+}
+```
+
+#### CI/CD Integration
+
+```yaml
+# .github/workflows/preview.yml
+name: Preview Environment
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create preview environment
+        id: preview
+        run: |
+          RESULT=$(osp ephemeral create \
+            --trigger pr \
+            --trigger-ref "PR #${{ github.event.number }}" \
+            --ttl 48h \
+            --shareable \
+            --output json)
+          echo "url=$(echo $RESULT | jq -r '.shareable_url')" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Preview environment ready: ${{ steps.preview.outputs.url }}\n\nExpires in 48 hours. Cost: ~$1.44`
+            })
+```
+
+```yaml
+# Cleanup on PR close
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - run: osp ephemeral destroy --trigger-ref "PR #${{ github.event.number }}" --force
+```
+
+#### Lifecycle Webhooks
+
+| Event | Trigger |
+|-------|---------|
+| `ephemeral.created` | Environment provisioning started |
+| `ephemeral.active` | All resources provisioned and ready |
+| `ephemeral.expiring` | 1 hour before TTL expiry |
+| `ephemeral.expired` | TTL reached; deprovisioning initiated |
+| `ephemeral.destroyed` | All resources deprovisioned |
+
+#### Shareable URLs
+
+When `shareable: true` and the environment includes a hosting resource, the OSP client SHOULD generate a unique, publicly accessible URL. The URL format is provider-dependent but MUST include an identifier linking it to the ephemeral environment. Providers SHOULD support custom subdomains:
+
+```
+https://{trigger_ref_slug}.preview.{project_domain}
+```
+
+For example: `https://pr-142.preview.my-saas-app.vercel.app`.
+
+The shareable URL MUST be deactivated when the ephemeral environment is destroyed.
+
+### 13.9 Developer Onboarding Command
+
+The `osp onboard` command provides a comprehensive first-run experience that guides developers from zero to a fully configured OSP environment. Unlike `osp setup` (which requires an existing `osp.yaml`) and `osp init` (which creates a new project), `osp onboard` handles the complete onboarding flow including account setup, provider authentication, and project discovery.
+
+#### CLI: `osp onboard`
+
+```bash
+$ osp onboard
+
+Welcome to OSP! Let's get you set up.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1/5] Identity Setup
+      ? How would you like to authenticate?
+        ◉ GitHub (recommended)
+        ◯ Google
+        ◯ Email + password
+        ◯ OIDC token (enterprise)
+
+      → Opening browser for GitHub OAuth...
+      ✓ Authenticated as @developer (acme-org)
+
+[2/5] Key Generation
+      Generating Ed25519 key pair for credential encryption...
+      ✓ Private key stored in system keychain (macOS Keychain)
+      ✓ Public key: MCowBQYDK2VwAyEA...
+
+[3/5] Provider Authentication
+      Detected 3 providers in team configuration:
+        ? Link Supabase account?
+          ◉ Sign in with OAuth
+          ◯ Paste API key
+          ◯ Skip for now
+
+      ✓ Supabase: linked (acme-org, 4 existing projects)
+      ✓ Clerk: linked (acme-org)
+      ✓ Vercel: linked (acme-org, 12 existing projects)
+
+[4/5] Project Discovery
+      Found 2 OSP projects in acme-org:
+        ◉ my-saas-app (production) — 4 resources, $74.50/mo
+        ◉ marketing-site (production) — 2 resources, $20.00/mo
+
+      Sync both projects? [Y/n] y
+      ✓ my-saas-app: 12 env vars synced
+      ✓ marketing-site: 6 env vars synced
+
+[5/5] CLI Configuration
+      ✓ OSP CLI configured at ~/.osp/config.json
+      ✓ Shell completion installed (zsh)
+      ✓ Pre-commit hook installed (.git/hooks/pre-commit)
+      ✓ .cursorignore updated
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Onboarding complete!
+
+Quick reference:
+  osp status          — check all services
+  osp env pull        — sync environment variables
+  osp discover        — find new services
+  osp scorecard       — check project maturity
+  osp help            — full command reference
+```
+
+#### POST /osp/v1/onboard
+
+Programmatic onboarding for CI/CD and automated environments.
+
+```http
+POST /osp/v1/onboard HTTP/1.1
+Content-Type: application/json
+
+{
+  "authentication": {
+    "method": "github_actions",
+    "token": "eyJhbGciOiJSUzI1NiJ9..."
+  },
+  "agent_public_key": "MCowBQYDK2VwAyEA...",
+  "organization_id": "acme-org",
+  "auto_link_providers": true,
+  "auto_sync_projects": true
+}
+```
+
+**Response:**
+
+```json
+{
+  "onboard_id": "onb_abc123",
+  "status": "completed",
+  "identity": {
+    "principal_id": "github:acme-org",
+    "agent_public_key": "MCowBQYDK2VwAyEA..."
+  },
+  "linked_providers": [
+    {"provider_id": "com.supabase", "status": "linked", "account_id": "acme-org"},
+    {"provider_id": "com.clerk", "status": "linked", "account_id": "acme-org"},
+    {"provider_id": "com.vercel", "status": "linked", "account_id": "acme-org"}
+  ],
+  "synced_projects": [
+    {"project_id": "proj_my-saas", "resources": 4, "env_vars": 12},
+    {"project_id": "proj_marketing", "resources": 2, "env_vars": 6}
+  ],
+  "completed_at": "2026-03-28T10:01:00Z"
+}
+```
+
+The onboarding state is idempotent — calling `osp onboard` again detects the existing configuration and skips completed steps, updating only what has changed.
+
 ---
 
 ## 14. Ecosystem Integration
@@ -4535,6 +6386,61 @@ This means Claude, Cursor, or any MCP-compatible agent can say "I need a Postgre
 
 Providers publish LLM context at `/.well-known/osp-llm-context.md` (Section 11.8). When an agent provisions a service, the provider's context is automatically merged into the project's MCP context, so the agent knows how to USE the service, not just provision it.
 
+#### MCP Streamable HTTP Transport
+
+OSP MCP servers SHOULD implement the **Streamable HTTP** transport (MCP specification, 2025-03-26 revision) as the primary transport mechanism. Streamable HTTP supersedes the SSE-based transport for network-accessible MCP servers.
+
+**Transport requirements for OSP MCP servers:**
+
+1. The MCP server endpoint MUST accept HTTP POST requests with JSON-RPC 2.0 payloads.
+2. For non-streaming responses, the server MUST respond with `Content-Type: application/json`.
+3. For streaming responses (when the client sends `Accept: text/event-stream`), the server MUST respond with `Content-Type: text/event-stream` and emit Server-Sent Events.
+4. The server MUST support session management via the `Mcp-Session-Id` header. Session IDs MUST be opaque strings of at least 32 characters.
+5. The server SHOULD support request batching (array of JSON-RPC messages in a single POST).
+6. The server MUST use HTTPS (TLS 1.2+).
+
+**OSP-specific MCP extensions:**
+
+The OSP MCP server SHOULD include the following in the `serverInfo` response to `initialize`:
+
+```json
+{
+  "serverInfo": {
+    "name": "osp-mcp-server",
+    "version": "1.0.0",
+    "osp": {
+      "project_id": "proj_my-saas",
+      "resources": ["res_db_001", "res_auth_002"],
+      "environment": "production"
+    }
+  }
+}
+```
+
+This enables MCP clients to associate the tool session with an OSP project context.
+
+**Example Streamable HTTP exchange:**
+
+```http
+POST /mcp/v1 HTTP/1.1
+Host: mcp.osp.dev
+Content-Type: application/json
+Accept: text/event-stream
+Mcp-Session-Id: ses_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+Authorization: Bearer <osp_auth_token>
+
+{"jsonrpc": "2.0", "method": "tools/call", "params": {"name": "osp_provision", "arguments": {"offering_id": "supabase/managed-postgres", "tier_id": "free"}}, "id": 1}
+```
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+Mcp-Session-Id: ses_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+
+event: message
+data: {"jsonrpc": "2.0", "result": {"content": [{"type": "text", "text": "Provisioning supabase/managed-postgres (free tier)..."}], "isError": false}, "id": 1}
+```
+
 ### 14.5 CI/CD Integration
 
 OSP integrates with CI/CD pipelines for automated environment management.
@@ -4621,6 +6527,396 @@ Agents and developers need visibility into total infrastructure costs across all
 }
 ```
 
+#### 14.6.1 Budget Guardrails
+
+Organizations need to enforce spending limits across projects and teams. OSP defines budget guardrails that prevent runaway costs from agent-initiated provisioning.
+
+##### Budget Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `budget_id` | `string` | REQUIRED | Unique identifier. Format: `budget_{random}`. |
+| `scope` | `string` | REQUIRED | What this budget applies to: `project`, `team`, `principal`, `global`. |
+| `scope_id` | `string` | REQUIRED | The ID of the scoped entity (project_id, team name, principal_id, or `"*"` for global). |
+| `limit` | `object` | REQUIRED | Spending limit. See below. |
+| `enforcement` | `string` | REQUIRED | How the limit is enforced: `warn`, `soft_block`, `hard_block`. |
+| `period` | `string` | REQUIRED | Budget period: `daily`, `weekly`, `monthly`, `quarterly`, `yearly`. |
+| `current_spend` | `string` | REQUIRED | Current spend in this period as a decimal string. |
+| `alert_thresholds` | `array<number>` | OPTIONAL | Percentages at which to send alerts (e.g., `[50, 80, 90, 100]`). Default: `[80, 100]`. |
+
+Enforcement modes:
+
+| Mode | Behavior |
+|------|----------|
+| `warn` | Agent is warned when approaching or exceeding the limit, but provisioning proceeds. |
+| `soft_block` | Provisioning requests that would exceed the limit return a `402 Payment Required` with a `budget_exceeded` error. The agent MAY override with `"budget_override": true` in the request (requires principal approval). |
+| `hard_block` | Provisioning requests that would exceed the limit are rejected with `403 Forbidden`. No override available. Requires budget increase by a principal with budget management permissions. |
+
+##### POST /osp/v1/budgets
+
+```http
+POST /osp/v1/budgets HTTP/1.1
+Authorization: Bearer <principal_attestation>
+Content-Type: application/json
+
+{
+  "scope": "project",
+  "scope_id": "proj_my-saas",
+  "limit": {
+    "amount": "200.00",
+    "currency": "USD"
+  },
+  "enforcement": "soft_block",
+  "period": "monthly",
+  "alert_thresholds": [50, 80, 90, 100]
+}
+```
+
+**Response:**
+
+```json
+{
+  "budget_id": "budget_abc123",
+  "scope": "project",
+  "scope_id": "proj_my-saas",
+  "limit": {"amount": "200.00", "currency": "USD"},
+  "enforcement": "soft_block",
+  "period": "monthly",
+  "current_spend": "74.50",
+  "utilization_percent": 37.25,
+  "alert_thresholds": [50, 80, 90, 100],
+  "created_at": "2026-03-28T10:00:00Z"
+}
+```
+
+##### Budget Enforcement in Provision Requests
+
+When a provision request would cause the budget to be exceeded:
+
+```http
+HTTP/1.1 402 Payment Required
+Content-Type: application/json
+
+{
+  "error": {
+    "code": "budget_exceeded",
+    "message": "Provisioning supabase/managed-postgres (pro, $25.00/mo) would exceed the monthly budget for proj_my-saas ($200.00 limit, $189.50 current spend).",
+    "details": {
+      "budget_id": "budget_abc123",
+      "limit": "200.00",
+      "current_spend": "189.50",
+      "requested_cost": "25.00",
+      "projected_spend": "214.50",
+      "enforcement": "soft_block",
+      "override_available": true
+    },
+    "retryable": true,
+    "retry_after_seconds": 0
+  }
+}
+```
+
+##### GET /osp/v1/budgets
+
+List all budgets for the authenticated principal.
+
+```http
+GET /osp/v1/budgets?scope=project HTTP/1.1
+Authorization: Bearer <principal_attestation>
+```
+
+##### Webhook Events
+
+| Event | Trigger |
+|-------|---------|
+| `budget.threshold_reached` | Spend crossed an alert threshold |
+| `budget.exceeded` | Spend exceeded the limit |
+| `budget.reset` | Budget period reset (e.g., monthly rollover) |
+
+#### 14.6.2 Cost-in-PR
+
+Before applying infrastructure changes, teams need to understand the cost impact. OSP provides cost impact analysis for `osp.yaml` or `osp.config.ts` changes, designed to run in CI/CD pipelines and comment on pull requests.
+
+##### POST /osp/v1/projects/{project_id}/cost-impact
+
+```http
+POST /osp/v1/projects/proj_my-saas/cost-impact HTTP/1.1
+Authorization: Bearer <agent_attestation>
+Content-Type: application/json
+
+{
+  "proposed_config": "<osp.yaml contents as JSON>",
+  "base_config": "<current osp.yaml contents as JSON>"
+}
+```
+
+**Response:**
+
+```json
+{
+  "project_id": "proj_my-saas",
+  "cost_impact": {
+    "current_monthly": "74.50",
+    "proposed_monthly": "119.50",
+    "delta": "+45.00",
+    "delta_percent": "+60.4%",
+    "currency": "USD",
+    "changes": [
+      {
+        "resource": "database",
+        "change": "tier_upgrade",
+        "from": {"tier": "pro", "cost": "32.50"},
+        "to": {"tier": "team", "cost": "77.50"},
+        "delta": "+45.00"
+      },
+      {
+        "resource": "cache",
+        "change": "no_change",
+        "cost": "0.00",
+        "delta": "0.00"
+      }
+    ],
+    "budget_status": {
+      "budget_id": "budget_abc123",
+      "limit": "200.00",
+      "current_spend": "74.50",
+      "projected_spend": "119.50",
+      "within_budget": true,
+      "utilization_percent": 59.75
+    },
+    "recommendations": [
+      "Database upgrade adds point-in-time recovery and 8x more storage. Consider if current 12.5 GB usage justifies the $45/mo increase.",
+      "Alternative: neon/serverless-postgres team tier at $69/mo would save $8.50/mo for equivalent features."
+    ]
+  }
+}
+```
+
+##### CI/CD Integration
+
+```yaml
+# .github/workflows/cost-review.yml
+name: Cost Impact Review
+on:
+  pull_request:
+    paths: ['osp.yaml', 'osp.config.ts']
+
+jobs:
+  cost-impact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute cost impact
+        id: cost
+        run: |
+          osp cost-impact \
+            --base origin/${{ github.base_ref }}:osp.yaml \
+            --proposed osp.yaml \
+            --output markdown > cost-impact.md
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('cost-impact.md', 'utf-8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+```
+
+The PR comment renders as:
+
+```markdown
+## OSP Cost Impact
+
+| Resource | Change | Current | Proposed | Delta |
+|----------|--------|---------|----------|-------|
+| database | tier upgrade (pro → team) | $32.50/mo | $77.50/mo | +$45.00 |
+| auth | no change | $20.00/mo | $20.00/mo | $0.00 |
+| hosting | no change | $22.00/mo | $22.00/mo | $0.00 |
+| cache | no change | $0.00/mo | $0.00/mo | $0.00 |
+| **Total** | | **$74.50/mo** | **$119.50/mo** | **+$45.00 (+60.4%)** |
+
+Budget: $119.50 / $200.00 (59.75%) — within budget
+```
+
+#### 14.6.3 Cost Anomaly Detection
+
+OSP tracks spending patterns and alerts when costs deviate significantly from the established baseline.
+
+##### Anomaly Detection Model
+
+The OSP client or registry computes a rolling baseline from the previous 30 days of cost data. An anomaly is detected when:
+
+1. **Spike detection:** Daily cost exceeds the 30-day average by more than 2 standard deviations.
+2. **Trend detection:** 7-day rolling average increases by more than 25% compared to the previous 7-day period.
+3. **New resource anomaly:** A newly provisioned resource has an estimated monthly cost exceeding 50% of the current project total.
+4. **Metered overage:** Metered usage exceeds the included quantity by more than 200%.
+
+##### GET /osp/v1/projects/{project_id}/cost/anomalies
+
+```http
+GET /osp/v1/projects/proj_my-saas/cost/anomalies?days=30 HTTP/1.1
+Authorization: Bearer <agent_attestation>
+```
+
+**Response:**
+
+```json
+{
+  "project_id": "proj_my-saas",
+  "anomalies": [
+    {
+      "anomaly_id": "anom_001",
+      "type": "metered_overage",
+      "resource_id": "res_db_001",
+      "detected_at": "2026-03-27T06:00:00Z",
+      "severity": "warning",
+      "detail": "Database storage usage jumped from 12.5 GB to 45.2 GB in 24 hours (262% increase). Metered cost increased from $0.56/day to $4.65/day.",
+      "baseline": {"daily_avg": "0.56", "stddev": "0.12"},
+      "current": {"daily_cost": "4.65"},
+      "deviation_sigma": 34.1,
+      "recommendation": "Investigate storage growth. Possible causes: data import, log accumulation, or uncontrolled writes. Consider adding a storage alert threshold.",
+      "acknowledged": false
+    }
+  ],
+  "baseline": {
+    "period": "2026-02-26 to 2026-03-27",
+    "daily_avg": "2.48",
+    "daily_stddev": "0.35",
+    "monthly_projected": "74.50"
+  }
+}
+```
+
+##### POST /osp/v1/projects/{project_id}/cost/anomalies/{anomaly_id}/acknowledge
+
+Acknowledge an anomaly (suppress further alerts for this specific anomaly):
+
+```json
+{
+  "acknowledged": true,
+  "reason": "Expected — migrating data from legacy system"
+}
+```
+
+Anomaly alerts are delivered via:
+- Webhook: `cost.anomaly_detected`
+- CLI: `osp cost anomalies`
+- Notifications endpoint (Section 14.7)
+
+#### 14.6.4 Environment TTLs with Burn Rate Tracking
+
+Ephemeral and development environments often accumulate costs when forgotten. OSP tracks the **burn rate** (cost per unit time) of every environment and enforces TTLs with cost awareness.
+
+##### Burn Rate Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `hourly_cost` | `string` | REQUIRED | Current cost per hour as a decimal string. |
+| `daily_cost` | `string` | REQUIRED | Projected daily cost. |
+| `monthly_projected` | `string` | REQUIRED | Projected monthly cost at current burn rate. |
+| `total_spent` | `string` | REQUIRED | Total cost since environment creation. |
+| `currency` | `string` | REQUIRED | Currency code. |
+| `ttl_remaining_hours` | `integer` | OPTIONAL | Hours remaining before TTL expiry. |
+| `projected_total_at_ttl` | `string` | OPTIONAL | Projected total cost when TTL expires. |
+
+##### GET /osp/v1/projects/{project_id}/environments
+
+List all environments with burn rate tracking.
+
+```http
+GET /osp/v1/projects/proj_my-saas/environments HTTP/1.1
+Authorization: Bearer <agent_attestation>
+```
+
+**Response:**
+
+```json
+{
+  "environments": [
+    {
+      "environment": "production",
+      "project_id": "proj_my-saas",
+      "ttl": null,
+      "burn_rate": {
+        "hourly_cost": "0.10",
+        "daily_cost": "2.48",
+        "monthly_projected": "74.50",
+        "total_spent": "671.50",
+        "currency": "USD"
+      },
+      "resources": 4,
+      "status": "active"
+    },
+    {
+      "environment": "staging",
+      "project_id": "proj_my-saas-staging",
+      "ttl": {"hours": 720, "expires_at": "2026-04-27T10:00:00Z"},
+      "burn_rate": {
+        "hourly_cost": "0.03",
+        "daily_cost": "0.83",
+        "monthly_projected": "24.90",
+        "total_spent": "12.45",
+        "currency": "USD",
+        "ttl_remaining_hours": 696,
+        "projected_total_at_ttl": "33.33"
+      },
+      "resources": 3,
+      "status": "active"
+    },
+    {
+      "environment": "preview",
+      "project_id": "proj_my-saas-pr142",
+      "ttl": {"hours": 48, "expires_at": "2026-03-30T10:00:00Z"},
+      "burn_rate": {
+        "hourly_cost": "0.01",
+        "daily_cost": "0.24",
+        "monthly_projected": "7.20",
+        "total_spent": "0.48",
+        "currency": "USD",
+        "ttl_remaining_hours": 24,
+        "projected_total_at_ttl": "0.72"
+      },
+      "resources": 2,
+      "status": "active"
+    }
+  ],
+  "total_burn_rate": {
+    "hourly_cost": "0.14",
+    "daily_cost": "3.55",
+    "monthly_projected": "106.60",
+    "currency": "USD"
+  }
+}
+```
+
+##### TTL Enforcement
+
+When a TTL-governed environment approaches expiry:
+
+1. **T-1 hour:** Webhook `environment.ttl_expiring` sent. CLI shows warning on `osp status`.
+2. **T-0:** All resources in the environment are deprovisioned. Webhook `environment.ttl_expired` sent.
+3. **Grace period:** Resources enter a 1-hour grace period during which the principal can extend the TTL via `POST /osp/v1/projects/{id}/ttl/extend`.
+
+##### POST /osp/v1/projects/{project_id}/ttl/extend
+
+```json
+{
+  "additional_hours": 48,
+  "max_total_cost": "5.00"
+}
+```
+
+The `max_total_cost` field is a budget guard — the TTL extension is approved only if the projected additional cost is within the specified limit.
+
 ### 14.7 Notifications and Alerts
 
 OSP aggregates notifications from all providers into a single stream.
@@ -4664,6 +6960,1106 @@ Notifications are also delivered via:
 - Webhook (if configured on the project)
 - CLI: `osp notifications`
 - MCP: `osp_notifications` tool
+
+### 14.8 Provider Status Aggregation
+
+When a project uses multiple providers, understanding the aggregate health of all providers is critical. OSP defines a provider status aggregation endpoint that consolidates status information from all providers a project depends on.
+
+#### GET /osp/v1/projects/{project_id}/provider-status
+
+```http
+GET /osp/v1/projects/proj_my-saas/provider-status HTTP/1.1
+Authorization: Bearer <agent_attestation>
+X-OSP-Version: 1.0
+```
+
+**Response:**
+
+```json
+{
+  "project_id": "proj_my-saas",
+  "overall_status": "degraded",
+  "evaluated_at": "2026-03-28T10:00:00Z",
+  "providers": [
+    {
+      "provider_id": "com.supabase",
+      "display_name": "Supabase",
+      "status": "operational",
+      "status_page_url": "https://status.supabase.com",
+      "last_checked_at": "2026-03-28T09:59:00Z",
+      "resources_affected": 0,
+      "resources_total": 1,
+      "incidents": [],
+      "uptime_30d": "99.98%",
+      "latency_ms": {"p50": 12, "p99": 45}
+    },
+    {
+      "provider_id": "com.clerk",
+      "display_name": "Clerk",
+      "status": "degraded",
+      "status_page_url": "https://status.clerk.com",
+      "last_checked_at": "2026-03-28T09:58:00Z",
+      "resources_affected": 1,
+      "resources_total": 1,
+      "incidents": [
+        {
+          "incident_id": "inc_clerk_001",
+          "title": "Elevated error rates on Auth API",
+          "severity": "minor",
+          "started_at": "2026-03-28T09:30:00Z",
+          "status": "investigating",
+          "affected_components": ["Auth API", "Session Management"],
+          "impact_on_project": "Login and session verification may experience intermittent failures"
+        }
+      ],
+      "uptime_30d": "99.91%",
+      "latency_ms": {"p50": 89, "p99": 450}
+    },
+    {
+      "provider_id": "com.vercel",
+      "display_name": "Vercel",
+      "status": "operational",
+      "status_page_url": "https://vercel-status.com",
+      "last_checked_at": "2026-03-28T09:59:00Z",
+      "resources_affected": 0,
+      "resources_total": 1,
+      "incidents": [],
+      "uptime_30d": "99.99%",
+      "latency_ms": {"p50": 5, "p99": 23}
+    },
+    {
+      "provider_id": "com.upstash",
+      "display_name": "Upstash",
+      "status": "operational",
+      "status_page_url": "https://status.upstash.com",
+      "last_checked_at": "2026-03-28T09:59:00Z",
+      "resources_affected": 0,
+      "resources_total": 1,
+      "incidents": [],
+      "uptime_30d": "100.00%",
+      "latency_ms": {"p50": 3, "p99": 12}
+    }
+  ],
+  "summary": {
+    "total_providers": 4,
+    "operational": 3,
+    "degraded": 1,
+    "major_outage": 0,
+    "active_incidents": 1
+  }
+}
+```
+
+#### Status Determination
+
+Provider status is determined by combining multiple signals:
+
+| Signal | Weight | Source |
+|--------|--------|--------|
+| OSP health endpoint (`GET /osp/v1/health`) | High | Direct provider API check |
+| Provider status page (via API or scraping) | Medium | `status_page_url` from manifest |
+| Resource-level health checks | High | `GET /osp/v1/status/{resource_id}` for each resource |
+| Webhook delivery success rate | Low | Track webhook delivery failures |
+
+Aggregated `overall_status` is the worst status across all providers:
+
+| Status | Meaning |
+|--------|---------|
+| `operational` | All providers operational. |
+| `degraded` | One or more providers experiencing degraded performance. |
+| `partial_outage` | One or more providers experiencing partial outage. |
+| `major_outage` | One or more providers experiencing major outage. |
+
+OSP clients SHOULD poll provider status at regular intervals (RECOMMENDED: every 5 minutes) and cache results. The OSP registry MAY maintain a centralized status aggregation service that clients can query instead of checking each provider independently.
+
+#### Webhook: `provider.status_changed`
+
+When a provider's status changes, the OSP client sends a webhook:
+
+```json
+{
+  "event": "provider.status_changed",
+  "provider_id": "com.clerk",
+  "previous_status": "operational",
+  "new_status": "degraded",
+  "incident": {
+    "incident_id": "inc_clerk_001",
+    "title": "Elevated error rates on Auth API",
+    "severity": "minor"
+  },
+  "affected_resources": ["res_auth_002"],
+  "project_id": "proj_my-saas",
+  "timestamp": "2026-03-28T09:30:00Z"
+}
+```
+
+### 14.9 Unified Billing Marketplace
+
+For principals managing multiple projects across multiple providers, OSP defines a unified billing interface that aggregates invoices, provides consolidated cost views, and enables centralized payment management.
+
+#### GET /osp/v1/billing/summary
+
+Retrieve a consolidated billing summary across all providers and projects.
+
+```http
+GET /osp/v1/billing/summary?period=2026-03 HTTP/1.1
+Authorization: Bearer <principal_attestation>
+X-OSP-Version: 1.0
+```
+
+**Response:**
+
+```json
+{
+  "principal_id": "org_acme",
+  "period": {"start": "2026-03-01", "end": "2026-03-31"},
+  "total": {"amount": "312.80", "currency": "USD"},
+  "by_provider": [
+    {
+      "provider_id": "com.supabase",
+      "display_name": "Supabase",
+      "total": "97.50",
+      "resources": 3,
+      "payment_method": "stripe_spt",
+      "invoice_url": "https://billing.supabase.com/invoices/inv_abc",
+      "line_items": [
+        {"project": "proj_my-saas", "resource": "res_db_001", "offering": "supabase/managed-postgres", "tier": "pro", "cost": "32.50"},
+        {"project": "proj_my-saas", "resource": "res_db_002", "offering": "supabase/managed-postgres", "tier": "team", "cost": "45.00"},
+        {"project": "proj_marketing", "resource": "res_db_003", "offering": "supabase/managed-postgres", "tier": "free", "cost": "0.00"}
+      ]
+    },
+    {
+      "provider_id": "com.vercel",
+      "display_name": "Vercel",
+      "total": "42.00",
+      "resources": 2,
+      "payment_method": "stripe_spt",
+      "invoice_url": "https://vercel.com/account/invoices/inv_def",
+      "line_items": [
+        {"project": "proj_my-saas", "resource": "res_host_001", "offering": "vercel/hosting", "tier": "pro", "cost": "22.00"},
+        {"project": "proj_marketing", "resource": "res_host_002", "offering": "vercel/hosting", "tier": "pro", "cost": "20.00"}
+      ]
+    },
+    {
+      "provider_id": "com.clerk",
+      "display_name": "Clerk",
+      "total": "40.00",
+      "resources": 2,
+      "payment_method": "stripe_spt"
+    }
+  ],
+  "by_project": [
+    {"project_id": "proj_my-saas", "total": "194.50", "resources": 6},
+    {"project_id": "proj_marketing", "total": "40.00", "resources": 3},
+    {"project_id": "proj_internal", "total": "78.30", "resources": 4}
+  ],
+  "by_category": [
+    {"category": "database", "total": "177.50"},
+    {"category": "hosting", "total": "62.00"},
+    {"category": "auth", "total": "40.00"},
+    {"category": "analytics", "total": "25.00"},
+    {"category": "email", "total": "8.30"}
+  ],
+  "payment_methods": {
+    "stripe_spt": {"total": "312.80", "resources": 15},
+    "free": {"total": "0.00", "resources": 4}
+  }
+}
+```
+
+#### Consolidated Payment
+
+The unified billing marketplace supports optional consolidated payment — paying all providers through a single payment method:
+
+##### POST /osp/v1/billing/pay
+
+```http
+POST /osp/v1/billing/pay HTTP/1.1
+Authorization: Bearer <principal_attestation>
+Content-Type: application/json
+
+{
+  "period": "2026-03",
+  "payment_method": "sardis_wallet",
+  "payment_proof": {
+    "wallet_address": "sardis:0xabc...123",
+    "payment_tx": "tx_consolidated_001"
+  },
+  "providers": ["com.supabase", "com.vercel", "com.clerk"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "payment_id": "pay_consolidated_abc",
+  "status": "processing",
+  "total": "312.80",
+  "currency": "USD",
+  "provider_payments": [
+    {"provider_id": "com.supabase", "amount": "97.50", "status": "paid"},
+    {"provider_id": "com.vercel", "amount": "42.00", "status": "paid"},
+    {"provider_id": "com.clerk", "amount": "40.00", "status": "paid"}
+  ],
+  "receipt_url": "https://billing.osp.dev/receipts/pay_consolidated_abc"
+}
+```
+
+Consolidated payment requires all participating providers to accept the same payment method. If a provider does not accept the specified method, that provider's portion is excluded and must be paid separately.
+
+This endpoint is OPTIONAL and is typically implemented by the OSP registry or a billing aggregation service, not by individual providers.
+
+---
+
+## 15. Agent-to-Agent (A2A) Protocol Support
+
+As AI agent ecosystems mature, provisioning is no longer a single-agent activity. An orchestrator agent may delegate provisioning to a specialist agent, which in turn delegates to provider-specific agents. OSP defines how agents discover each other's provisioning capabilities, delegate provisioning tasks, and track task state through the Agent-to-Agent (A2A) protocol.
+
+### 15.1 Agent Cards in OSP Manifests
+
+Agents that offer provisioning-related capabilities to other agents advertise themselves through **Agent Cards** — structured metadata compatible with the Google A2A specification (2025-04), embedded in OSP manifests or published independently.
+
+#### Agent Card Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `agent_id` | `string` | REQUIRED | Globally unique agent identifier. Format: reverse-domain or UUID (e.g., `"com.acme.infra-agent"`). |
+| `name` | `string` | REQUIRED | Human-readable agent name. Max 128 characters. |
+| `description` | `string` | REQUIRED | Description of the agent's capabilities. Max 512 characters. |
+| `url` | `string` | REQUIRED | The agent's A2A-compatible endpoint URL. MUST be HTTPS. |
+| `version` | `string` | REQUIRED | Agent version string. |
+| `capabilities` | `array<string>` | REQUIRED | OSP-specific capabilities. See [Agent Capabilities](#agent-capabilities). |
+| `supported_offerings` | `array<string>` | OPTIONAL | Offering IDs this agent can provision (e.g., `["supabase/managed-postgres", "neon/serverless-postgres"]`). If omitted, the agent handles all offerings. |
+| `authentication` | `object` | REQUIRED | How to authenticate with this agent. See below. |
+| `max_concurrent_tasks` | `integer` | OPTIONAL | Maximum concurrent provisioning tasks. Default: `10`. |
+| `average_response_seconds` | `integer` | OPTIONAL | Average time to complete a provisioning task. |
+
+#### Agent Capabilities
+
+| Capability | Description |
+|------------|-------------|
+| `provision` | Can provision resources on behalf of the requesting agent. |
+| `deprovision` | Can deprovision resources. |
+| `rotate` | Can rotate credentials. |
+| `migrate` | Can perform cross-provider migrations. |
+| `monitor` | Can monitor resource health and metrics. |
+| `optimize` | Can analyze and recommend cost optimizations. |
+| `compliance` | Can evaluate compliance posture. |
+
+#### Publishing Agent Cards
+
+Agent cards are published alongside the OSP manifest in the `agent_cards` field:
+
+```json
+{
+  "osp_version": "1.0",
+  "provider": {"...": "..."},
+  "offerings": ["..."],
+  "agent_cards": [
+    {
+      "agent_id": "com.acme.infra-provisioner",
+      "name": "Acme Infrastructure Agent",
+      "description": "Specialized agent for provisioning and managing database infrastructure across Supabase, Neon, PlanetScale, and Turso.",
+      "url": "https://agents.acme.com/infra",
+      "version": "2.1.0",
+      "capabilities": ["provision", "deprovision", "rotate", "migrate", "optimize"],
+      "supported_offerings": [
+        "supabase/managed-postgres",
+        "neon/serverless-postgres",
+        "turso/libsql",
+        "upstash/redis"
+      ],
+      "authentication": {
+        "method": "bearer_token",
+        "token_endpoint": "https://auth.acme.com/agents/token"
+      },
+      "max_concurrent_tasks": 20,
+      "average_response_seconds": 30
+    }
+  ],
+  "endpoints": {"base_url": "https://api.acme.com"},
+  "provider_public_key": "...",
+  "provider_signature": "..."
+}
+```
+
+Agents MAY also publish their card at `/.well-known/agent.json` on their domain, following the A2A specification's agent card discovery mechanism. When both locations are available, the manifest-embedded card takes precedence for OSP interactions.
+
+#### Agent Card Discovery via Registry
+
+The OSP registry indexes agent cards alongside provider manifests:
+
+```http
+GET /osp/registry/v1/agents?capability=provision&offering=supabase/managed-postgres HTTP/1.1
+```
+
+**Response:**
+
+```json
+{
+  "agents": [
+    {
+      "agent_id": "com.acme.infra-provisioner",
+      "name": "Acme Infrastructure Agent",
+      "capabilities": ["provision", "deprovision", "rotate", "migrate", "optimize"],
+      "supported_offerings": ["supabase/managed-postgres", "neon/serverless-postgres"],
+      "url": "https://agents.acme.com/infra",
+      "average_response_seconds": 30,
+      "reputation_score": 94
+    }
+  ]
+}
+```
+
+### 15.2 Delegated Provisioning
+
+Agent A (the **delegator**) asks Agent B (the **delegate**) to provision a resource on its behalf. This enables specialization: a general-purpose coding agent can delegate database provisioning to a database-specialist agent.
+
+#### Delegation Flow
+
+```mermaid
+sequenceDiagram
+    participant Delegator as Agent A (Delegator)
+    participant Delegate as Agent B (Delegate)
+    participant Provider as OSP Provider
+
+    Delegator->>Delegate: POST /a2a/tasks (OSP provision task)
+    Delegate-->>Delegator: Task accepted (task_id, status: submitted)
+
+    Delegate->>Provider: POST /osp/v1/provision
+    Provider-->>Delegate: ProvisionResponse (credentials)
+
+    Delegate->>Delegate: Encrypt credentials for Delegator's key
+
+    Delegate-->>Delegator: Task completed (credentials, resource_id)
+
+    Note over Delegator: Stores credentials in local vault
+    Note over Delegator: Updates project dependency graph
+```
+
+#### POST /a2a/tasks (OSP Provision Task)
+
+The delegator sends a task to the delegate using the A2A task submission endpoint:
+
+```http
+POST /a2a/tasks HTTP/1.1
+Host: agents.acme.com
+Content-Type: application/json
+Authorization: Bearer <delegator_token>
+
+{
+  "task_id": "task_osp_prov_001",
+  "type": "osp.provision",
+  "input": {
+    "offering_id": "supabase/managed-postgres",
+    "tier_id": "pro",
+    "region": "us-east-1",
+    "configuration": {
+      "postgres_version": "17",
+      "enable_pooling": true
+    },
+    "payment_method": "sardis_wallet",
+    "payment_proof": {
+      "wallet_address": "sardis:0xabc...123",
+      "payment_tx": "tx_delegated_001"
+    },
+    "agent_public_key": "delegator_ed25519_public_key_base64url",
+    "project_id": "proj_my-saas"
+  },
+  "delegation_chain": [
+    {
+      "agent_id": "com.cursor.coding-agent",
+      "delegated_at": "2026-03-28T10:00:00Z",
+      "reason": "Specialized database provisioning"
+    }
+  ],
+  "callback_url": "https://delegator.example.com/a2a/callbacks",
+  "timeout_seconds": 300
+}
+```
+
+#### Delegation Chain
+
+The `delegation_chain` field tracks the full chain of delegation from the original requesting agent to the current delegate. Each entry records:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `agent_id` | `string` | REQUIRED | The agent that delegated the task. |
+| `delegated_at` | `string` | REQUIRED | RFC 3339 timestamp of delegation. |
+| `reason` | `string` | OPTIONAL | Why this delegation occurred. |
+| `attestation` | `string` | OPTIONAL | The delegating agent's attestation token, proving it was authorized to delegate. |
+
+Rules:
+1. The delegation chain MUST NOT exceed 5 levels deep. Delegates receiving a task with a 5-level chain MUST reject it with error `delegation_depth_exceeded`.
+2. Each agent in the chain MUST be authenticated. The delegate MUST verify the delegator's identity before accepting the task.
+3. The delegate MUST pass the `agent_public_key` from the original task to the provider, ensuring credentials are encrypted for the delegator — NOT the delegate.
+4. The delegate MUST NOT retain decrypted credentials after task completion.
+5. Payment authorization MUST come from the original principal, not the delegate. The delegate acts as an intermediary, not a payer.
+
+#### Task Response
+
+The delegate responds with a task status:
+
+```json
+{
+  "task_id": "task_osp_prov_001",
+  "status": "completed",
+  "output": {
+    "resource_id": "res_delegated_abc",
+    "offering_id": "supabase/managed-postgres",
+    "tier_id": "pro",
+    "credentials_bundle": {
+      "format": "encrypted",
+      "encrypted_credentials": {
+        "algorithm": "x25519-xsalsa20-poly1305",
+        "agent_public_key": "delegator_ed25519_public_key_base64url",
+        "provider_ephemeral_public_key": "...",
+        "nonce": "...",
+        "ciphertext": "..."
+      },
+      "issued_at": "2026-03-28T10:00:30Z"
+    },
+    "region": "us-east-1",
+    "dashboard_url": "https://app.supabase.com/project/..."
+  },
+  "delegation_chain": [
+    {
+      "agent_id": "com.cursor.coding-agent",
+      "delegated_at": "2026-03-28T10:00:00Z",
+      "reason": "Specialized database provisioning"
+    },
+    {
+      "agent_id": "com.acme.infra-provisioner",
+      "accepted_at": "2026-03-28T10:00:01Z",
+      "completed_at": "2026-03-28T10:00:30Z"
+    }
+  ],
+  "completed_at": "2026-03-28T10:00:30Z"
+}
+```
+
+### 15.3 Task Lifecycle Integration
+
+OSP provisioning operations map to A2A task states. This section defines the mapping and ensures interoperability between OSP's asynchronous provisioning model and the A2A task lifecycle.
+
+#### State Mapping
+
+| A2A Task State | OSP Equivalent | Description |
+|----------------|----------------|-------------|
+| `submitted` | Request received | The delegate has received the provisioning task but has not yet sent the request to the provider. |
+| `working` | `status: "provisioning"` | The provider is processing the provisioning request asynchronously. |
+| `completed` | `status: "provisioned"` | The resource has been provisioned and credentials are available. |
+| `failed` | `status: "failed"` | Provisioning failed. The A2A task output includes the OSP error object. |
+| `canceled` | Deprovision initiated | The delegator canceled the task. If provisioning was in progress, the delegate initiates deprovisioning. |
+
+#### Task State Transitions
+
+```mermaid
+stateDiagram-v2
+    [*] --> submitted : Task received
+    submitted --> working : Provider accepts provision request
+    submitted --> failed : Validation error (invalid offering, payment, etc.)
+    working --> completed : Provider returns status: provisioned
+    working --> failed : Provider returns status: failed
+    working --> canceled : Delegator cancels
+    canceled --> [*] : Cleanup complete
+    completed --> [*]
+    failed --> [*]
+```
+
+#### Task Streaming (SSE)
+
+Delegates SHOULD support Server-Sent Events for real-time task progress updates, following the A2A streaming pattern:
+
+```http
+GET /a2a/tasks/task_osp_prov_001/stream HTTP/1.1
+Accept: text/event-stream
+Authorization: Bearer <delegator_token>
+```
+
+```
+event: status
+data: {"task_id": "task_osp_prov_001", "status": "submitted", "timestamp": "2026-03-28T10:00:01Z"}
+
+event: status
+data: {"task_id": "task_osp_prov_001", "status": "working", "detail": "Provisioning supabase/managed-postgres in us-east-1", "timestamp": "2026-03-28T10:00:02Z"}
+
+event: progress
+data: {"task_id": "task_osp_prov_001", "progress": 60, "detail": "Database cluster created, configuring connection pooling", "timestamp": "2026-03-28T10:00:20Z"}
+
+event: status
+data: {"task_id": "task_osp_prov_001", "status": "completed", "resource_id": "res_delegated_abc", "timestamp": "2026-03-28T10:00:30Z"}
+```
+
+#### Cancellation
+
+```http
+POST /a2a/tasks/task_osp_prov_001/cancel HTTP/1.1
+Authorization: Bearer <delegator_token>
+
+{
+  "reason": "User changed requirements"
+}
+```
+
+When a task is canceled:
+1. If the task is `submitted` (not yet sent to provider), the delegate simply marks it as `canceled`.
+2. If the task is `working` (provider is provisioning), the delegate MUST attempt to deprovision the resource and mark the task as `canceled` only after deprovisioning succeeds or the deprovision grace period expires.
+3. The delegate MUST NOT charge the delegator for canceled tasks where provisioning did not complete.
+
+### 15.4 OpenTelemetry-Compatible Tracing
+
+Every OSP operation generates distributed traces that can be exported to any OpenTelemetry-compatible backend (Jaeger, Zipkin, Grafana Tempo, Datadog). This enables end-to-end visibility into provisioning flows that span multiple agents, providers, and services.
+
+#### Trace Context Propagation
+
+OSP adopts the W3C Trace Context standard (https://www.w3.org/TR/trace-context/) for propagating trace context across agent-provider boundaries.
+
+All OSP requests MUST support the following headers:
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `traceparent` | RECOMMENDED | W3C Trace Context traceparent header (version-trace_id-span_id-trace_flags). |
+| `tracestate` | OPTIONAL | W3C Trace Context tracestate header for vendor-specific trace data. |
+| `X-OSP-Trace-Id` | REQUIRED | OSP-specific trace ID (Section 8.8). If `traceparent` is present, this SHOULD be the same trace ID. |
+
+#### OSP Span Conventions
+
+OSP defines standard span names and attributes for OpenTelemetry instrumentation:
+
+| Span Name | Operation | Key Attributes |
+|-----------|-----------|----------------|
+| `osp.discover` | Manifest fetch and verification | `osp.provider_id`, `osp.manifest_version`, `osp.signature_valid` |
+| `osp.provision` | Resource provisioning | `osp.offering_id`, `osp.tier_id`, `osp.region`, `osp.payment_method`, `osp.status` |
+| `osp.deprovision` | Resource deprovisioning | `osp.resource_id`, `osp.reason` |
+| `osp.rotate` | Credential rotation | `osp.resource_id`, `osp.old_credentials_valid_until` |
+| `osp.status` | Health check | `osp.resource_id`, `osp.health_status` |
+| `osp.delegate` | A2A task delegation | `osp.delegate_agent_id`, `osp.task_id`, `osp.delegation_depth` |
+| `osp.env.generate` | Environment variable generation | `osp.project_id`, `osp.format`, `osp.var_count` |
+| `osp.apply` | IaC apply operation | `osp.project_id`, `osp.resources_created`, `osp.resources_updated`, `osp.resources_destroyed` |
+
+#### Example: Traced Provisioning Flow
+
+```
+Trace: 4bf92f3577b34da6a3ce929d0e0e4736
+
+├── osp.apply (agent, 22.3s)
+│   ├── osp.discover (agent → supabase.com, 0.8s)
+│   │   ├── http.get /.well-known/osp.json (0.3s)
+│   │   └── osp.verify_signature (0.01s)
+│   ├── osp.provision [database] (agent → api.supabase.com, 15.2s)
+│   │   ├── http.post /osp/v1/provision (0.5s)
+│   │   ├── osp.poll_status (14.5s, 3 polls)
+│   │   └── osp.decrypt_credentials (0.02s)
+│   ├── osp.provision [auth] (agent → api.clerk.com, 2.3s)
+│   │   └── http.post /osp/v1/provision (2.3s)
+│   ├── osp.provision [hosting] (agent → api.vercel.com, 3.1s)
+│   │   └── http.post /osp/v1/provision (3.1s)
+│   └── osp.env.generate (0.1s)
+```
+
+#### Exporter Configuration
+
+OSP clients SHOULD support configuring OpenTelemetry exporters via environment variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint | `http://localhost:4317` |
+| `OTEL_SERVICE_NAME` | Service name for traces | `osp-cli` |
+| `OSP_TRACE_ENABLED` | Enable/disable OSP tracing | `true` |
+| `OSP_TRACE_SAMPLE_RATE` | Sampling rate (0.0-1.0) | `1.0` |
+
+When `OSP_TRACE_ENABLED` is `true`, the OSP client MUST instrument all operations and export spans to the configured OTLP endpoint.
+
+### 15.5 Agent Action Audit Log
+
+Every action performed by an agent through OSP is recorded in a structured, queryable audit log. Unlike the per-resource event stream (Section 6.10), the audit log tracks all operations across all resources and projects for a given principal.
+
+#### GET /osp/v1/audit-log
+
+```http
+GET /osp/v1/audit-log?since=2026-03-27T00:00:00Z&agent_id=com.cursor.coding-agent&limit=50 HTTP/1.1
+Authorization: Bearer <principal_attestation>
+X-OSP-Version: 1.0
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `since` | `string` | RFC 3339 timestamp. Return entries after this time. |
+| `until` | `string` | RFC 3339 timestamp. Return entries before this time. |
+| `agent_id` | `string` | Filter by agent identifier. |
+| `action` | `string` | Filter by action type. |
+| `resource_id` | `string` | Filter by resource. |
+| `project_id` | `string` | Filter by project. |
+| `outcome` | `string` | Filter: `success`, `failure`, `blocked`. |
+| `limit` | `integer` | Max results. Default: 50. Max: 200. |
+| `starting_after` | `string` | Cursor-based pagination. |
+
+**Response:**
+
+```json
+{
+  "entries": [
+    {
+      "audit_id": "aud_001",
+      "timestamp": "2026-03-28T10:00:00Z",
+      "agent_id": "com.cursor.coding-agent",
+      "agent_public_key": "MCowBQYDK2VwAyEA...",
+      "action": "provision",
+      "resource_id": "res_db_001",
+      "project_id": "proj_my-saas",
+      "offering_id": "supabase/managed-postgres",
+      "tier_id": "pro",
+      "outcome": "success",
+      "details": {
+        "region": "us-east-1",
+        "payment_method": "stripe_spt",
+        "cost": "25.00",
+        "duration_ms": 15200
+      },
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "ip_address": "203.0.113.42"
+    },
+    {
+      "audit_id": "aud_002",
+      "timestamp": "2026-03-28T10:05:00Z",
+      "agent_id": "com.cursor.coding-agent",
+      "action": "deprovision",
+      "resource_id": "res_old_cache_099",
+      "project_id": "proj_deprecated",
+      "outcome": "blocked",
+      "details": {
+        "reason": "Human-in-the-loop gate required for destructive operations",
+        "gate_id": "gate_destr_001",
+        "approval_status": "pending"
+      },
+      "trace_id": "5cf93f4688c45eb7b4df040e1f1f5847"
+    }
+  ],
+  "has_more": true,
+  "cursor": "aud_002"
+}
+```
+
+#### Audit Log Entry Actions
+
+| Action | Description |
+|--------|-------------|
+| `provision` | Resource provisioned |
+| `deprovision` | Resource deprovisioned |
+| `rotate` | Credentials rotated |
+| `tier_change` | Tier upgraded or downgraded |
+| `share` | Resource shared with another agent |
+| `delegate` | Management delegated to another agent |
+| `env_generate` | Environment variables generated |
+| `env_sync` | Environment synced to deployment platform |
+| `apply` | IaC configuration applied |
+| `import` | Credentials imported from external source |
+| `export` | Resource data exported for migration |
+| `snapshot` | Snapshot created |
+| `restore` | Resource restored from snapshot |
+| `budget_override` | Budget limit overridden |
+| `scorecard_fix` | Scorecard remediation executed |
+| `nhi_cleanup` | NHI orphan cleanup executed |
+
+Audit log entries MUST be retained for a minimum of 1 year. Entries MUST be immutable — once written, they cannot be modified or deleted.
+
+OSP clients SHOULD make audit logs available to the principal's compliance and security teams. The audit log SHOULD be exportable in CEF (Common Event Format) or JSON Lines format for integration with SIEM systems.
+
+### 15.6 Human-in-the-Loop Gates
+
+Certain operations — particularly destructive ones — SHOULD require explicit human approval before execution. OSP defines a gating mechanism that pauses agent actions pending principal review.
+
+#### Gate Configuration
+
+Gates are configured at the project or principal level:
+
+```json
+{
+  "gates": [
+    {
+      "gate_id": "gate_destr_001",
+      "name": "Destructive Operations",
+      "trigger": {
+        "actions": ["deprovision", "restore", "tier_change_downgrade"],
+        "environments": ["production"]
+      },
+      "approval": {
+        "method": "webhook",
+        "webhook_url": "https://approvals.acme.com/osp",
+        "timeout_seconds": 3600,
+        "approvers": ["admin@acme.com"],
+        "auto_approve_after_seconds": null
+      }
+    },
+    {
+      "gate_id": "gate_cost_001",
+      "name": "High-Cost Provisioning",
+      "trigger": {
+        "actions": ["provision"],
+        "conditions": {"estimated_monthly_cost_above": "100.00"}
+      },
+      "approval": {
+        "method": "cli_prompt",
+        "timeout_seconds": 300,
+        "auto_approve_after_seconds": null
+      }
+    },
+    {
+      "gate_id": "gate_budget_001",
+      "name": "Budget Override",
+      "trigger": {
+        "actions": ["budget_override"]
+      },
+      "approval": {
+        "method": "multi_party",
+        "required_approvals": 2,
+        "approvers": ["admin@acme.com", "cto@acme.com", "finance@acme.com"],
+        "timeout_seconds": 86400
+      }
+    }
+  ]
+}
+```
+
+#### Gate Trigger Conditions
+
+| Condition | Description |
+|-----------|-------------|
+| `actions` | List of audit log actions that trigger the gate. |
+| `environments` | Environments where the gate applies (e.g., `["production"]`). |
+| `estimated_monthly_cost_above` | Trigger when the operation's estimated monthly cost exceeds this amount. |
+| `resource_count_above` | Trigger when operating on more than N resources at once. |
+| `delegation_depth_above` | Trigger when the A2A delegation chain exceeds N levels. |
+
+#### Gate Approval Methods
+
+| Method | Description |
+|--------|-------------|
+| `cli_prompt` | The OSP CLI presents an interactive prompt to the principal. |
+| `webhook` | A webhook is sent to an approval system (Slack, PagerDuty, custom). |
+| `email` | An approval email is sent to the configured approvers. |
+| `multi_party` | Multiple approvers must independently approve. |
+| `auto_approve` | Automatically approved after a delay (for non-critical gates). |
+
+#### Gate Enforcement
+
+When an agent action triggers a gate:
+
+1. The operation is paused. The OSP client returns a gate pending response:
+
+```json
+{
+  "status": "gate_pending",
+  "gate_id": "gate_destr_001",
+  "gate_name": "Destructive Operations",
+  "action": "deprovision",
+  "resource_id": "res_db_001",
+  "approval_url": "https://approvals.acme.com/osp/gate_destr_001/review",
+  "timeout_at": "2026-03-28T11:00:00Z",
+  "poll_url": "/osp/v1/gates/gate_destr_001/status"
+}
+```
+
+2. The approval system is notified via the configured method.
+
+3. When approved:
+
+```json
+{
+  "gate_id": "gate_destr_001",
+  "status": "approved",
+  "approved_by": "admin@acme.com",
+  "approved_at": "2026-03-28T10:15:00Z"
+}
+```
+
+4. The OSP client resumes the paused operation.
+
+5. When rejected or timed out:
+
+```json
+{
+  "gate_id": "gate_destr_001",
+  "status": "rejected",
+  "reason": "Production deprovisioning denied — resource still in use by 3 services",
+  "rejected_by": "admin@acme.com"
+}
+```
+
+The operation is aborted and the agent is notified. The audit log records the blocked action with `outcome: "blocked"`.
+
+Agents MUST NOT bypass gates. If an agent attempts an operation that triggers a gate and does not wait for approval, the provider MUST reject the operation.
+
+### 15.7 Cost-per-Agent-Action Tracking
+
+Understanding which agent actions drive costs enables optimization and accountability. OSP tracks the cost impact of every agent action.
+
+#### GET /osp/v1/cost/by-agent
+
+```http
+GET /osp/v1/cost/by-agent?period=2026-03&agent_id=com.cursor.coding-agent HTTP/1.1
+Authorization: Bearer <principal_attestation>
+```
+
+**Response:**
+
+```json
+{
+  "period": {"start": "2026-03-01", "end": "2026-03-31"},
+  "agent_id": "com.cursor.coding-agent",
+  "total_cost": "194.50",
+  "currency": "USD",
+  "actions": [
+    {
+      "action": "provision",
+      "count": 8,
+      "total_cost": "165.00",
+      "breakdown": [
+        {"offering_id": "supabase/managed-postgres", "count": 3, "cost": "77.50"},
+        {"offering_id": "vercel/hosting", "count": 2, "cost": "42.00"},
+        {"offering_id": "clerk/auth", "count": 2, "cost": "40.00"},
+        {"offering_id": "upstash/redis", "count": 1, "cost": "5.50"}
+      ]
+    },
+    {
+      "action": "tier_change",
+      "count": 2,
+      "total_cost": "29.50",
+      "breakdown": [
+        {"offering_id": "supabase/managed-postgres", "count": 1, "cost": "20.00", "detail": "free → pro"},
+        {"offering_id": "vercel/hosting", "count": 1, "cost": "9.50", "detail": "hobby → pro, prorated"}
+      ]
+    },
+    {
+      "action": "ephemeral_environment",
+      "count": 12,
+      "total_cost": "8.64",
+      "detail": "12 PR preview environments, average TTL 36 hours"
+    }
+  ],
+  "comparison": {
+    "previous_period": "142.30",
+    "change_percent": "+36.7%",
+    "change_reason": "3 new production resources provisioned; 12 ephemeral environments vs 4 last month"
+  }
+}
+```
+
+#### GET /osp/v1/cost/by-agent/summary
+
+Aggregate cost across all agents:
+
+```json
+{
+  "period": {"start": "2026-03-01", "end": "2026-03-31"},
+  "total_cost": "312.80",
+  "by_agent": [
+    {"agent_id": "com.cursor.coding-agent", "total": "194.50", "actions": 22},
+    {"agent_id": "com.github.actions-ci", "total": "68.30", "actions": 45},
+    {"agent_id": "manual", "total": "50.00", "actions": 3}
+  ]
+}
+```
+
+The `manual` agent ID represents actions performed through the OSP CLI by a human principal, not through an automated agent.
+
+Cost-per-agent tracking integrates with budget guardrails (Section 14.6.1) — budgets can be scoped to specific agents, enabling per-agent spending limits.
+
+### 15.8 Provider Onboarding SDK
+
+Becoming an OSP-compatible provider requires implementing the endpoints defined in Section 6, publishing a manifest (Section 4.1), and handling credential encryption (Section 8.2). The Provider Onboarding SDK reduces this from weeks of work to hours by providing a framework that handles protocol compliance.
+
+#### SDK Architecture
+
+The Provider Onboarding SDK is available in TypeScript and Python:
+
+```bash
+# TypeScript
+npm install @osp/provider-sdk
+
+# Python
+pip install osp-provider-sdk
+```
+
+#### Minimal Provider Implementation (TypeScript)
+
+```typescript
+import { OSPProvider, defineOffering } from '@osp/provider-sdk';
+
+const provider = new OSPProvider({
+  providerId: 'com.example',
+  displayName: 'Example Provider',
+  homepageUrl: 'https://example.com',
+  signingKeyPath: './keys/ed25519-private.pem',
+});
+
+provider.addOffering(defineOffering({
+  offeringId: 'example/database',
+  name: 'Example Database',
+  category: 'database',
+  tiers: [
+    {
+      tierId: 'free',
+      name: 'Free',
+      price: { amount: '0.00', currency: 'USD', interval: 'monthly' },
+    },
+    {
+      tierId: 'pro',
+      name: 'Pro',
+      price: { amount: '15.00', currency: 'USD', interval: 'monthly' },
+    },
+  ],
+  credentialsSchema: {
+    type: 'object',
+    required: ['connection_uri'],
+    properties: {
+      connection_uri: { type: 'string', format: 'uri' },
+      api_key: { type: 'string' },
+    },
+  },
+
+  // The provider implements these callbacks:
+  async onProvision(request) {
+    const db = await createDatabase(request.projectName, request.tier);
+    return {
+      credentials: {
+        connection_uri: db.connectionUri,
+        api_key: db.apiKey,
+      },
+      dashboardUrl: `https://dashboard.example.com/db/${db.id}`,
+    };
+  },
+
+  async onDeprovision(resourceId) {
+    await deleteDatabase(resourceId);
+  },
+
+  async onRotate(resourceId) {
+    const newCreds = await rotateCredentials(resourceId);
+    return {
+      credentials: {
+        connection_uri: newCreds.connectionUri,
+        api_key: newCreds.apiKey,
+      },
+    };
+  },
+
+  async onHealthCheck(resourceId) {
+    const status = await checkDatabaseHealth(resourceId);
+    return { status: status.healthy ? 'healthy' : 'unhealthy' };
+  },
+}));
+
+// Start the server — all OSP endpoints are auto-generated
+provider.listen(3000);
+// Manifest auto-published at /.well-known/osp.json
+// All Section 6 endpoints auto-generated at /osp/v1/*
+// Ed25519 signing handled automatically
+// Credential encryption handled automatically
+```
+
+#### Minimal Provider Implementation (Python)
+
+```python
+from osp_provider_sdk import OSPProvider, Offering, Tier, Price
+
+provider = OSPProvider(
+    provider_id="com.example",
+    display_name="Example Provider",
+    homepage_url="https://example.com",
+    signing_key_path="./keys/ed25519-private.pem",
+)
+
+@provider.offering(
+    offering_id="example/database",
+    name="Example Database",
+    category="database",
+    tiers=[
+        Tier(tier_id="free", name="Free", price=Price(amount="0.00", currency="USD", interval="monthly")),
+        Tier(tier_id="pro", name="Pro", price=Price(amount="15.00", currency="USD", interval="monthly")),
+    ],
+)
+class DatabaseOffering:
+    async def provision(self, request):
+        db = await create_database(request.project_name, request.tier)
+        return {
+            "credentials": {"connection_uri": db.connection_uri, "api_key": db.api_key},
+            "dashboard_url": f"https://dashboard.example.com/db/{db.id}",
+        }
+
+    async def deprovision(self, resource_id: str):
+        await delete_database(resource_id)
+
+    async def rotate(self, resource_id: str):
+        new_creds = await rotate_credentials(resource_id)
+        return {"credentials": {"connection_uri": new_creds.connection_uri, "api_key": new_creds.api_key}}
+
+    async def health_check(self, resource_id: str):
+        status = await check_database_health(resource_id)
+        return {"status": "healthy" if status.healthy else "unhealthy"}
+
+# Start — auto-generates all endpoints
+provider.run(port=3000)
+```
+
+#### What the SDK Handles Automatically
+
+| Concern | SDK Responsibility |
+|---------|-------------------|
+| Manifest generation | Auto-generates `/.well-known/osp.json` from offering definitions, signs with Ed25519 |
+| Endpoint routing | Auto-generates all Section 6 endpoints (`/osp/v1/provision`, `/deprovision`, etc.) |
+| Credential encryption | Automatically encrypts credentials when `agent_public_key` is provided |
+| Nonce enforcement | Tracks nonces in a configurable store (in-memory, Redis, database) |
+| Idempotency | Handles idempotency key deduplication |
+| Rate limiting | Configurable rate limiting per endpoint |
+| Webhook delivery | Retry logic with exponential backoff (Section 8.5) |
+| JWKS endpoint | Auto-publishes `/.well-known/osp-keys.json` for key rotation |
+| Health endpoint | Auto-generates `GET /osp/v1/health` |
+| Error formatting | Standardized error responses with correct HTTP status codes |
+| Conformance testing | Built-in `osp conformance run` command validates the implementation |
+| OpenTelemetry | Automatic span generation for all operations (Section 15.4) |
+
+#### Conformance Validation
+
+The SDK includes a built-in conformance test runner:
+
+```bash
+$ npx @osp/provider-sdk conformance --url http://localhost:3000
+
+OSP Conformance Test Suite
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[Core]
+  ✓ Manifest published at /.well-known/osp.json
+  ✓ Manifest signature valid (Ed25519)
+  ✓ POST /osp/v1/provision — synchronous success
+  ✓ POST /osp/v1/provision — async with poll
+  ✓ POST /osp/v1/provision — credential encryption
+  ✓ POST /osp/v1/provision — nonce rejection
+  ✓ POST /osp/v1/provision — idempotency
+  ✓ DELETE /osp/v1/deprovision/{id}
+  ✓ GET /osp/v1/credentials/{id}
+  ✓ POST /osp/v1/rotate/{id}
+  ✓ GET /osp/v1/status/{id}
+  ✓ GET /osp/v1/usage/{id}
+  ✓ GET /osp/v1/health
+  ✓ POST /osp/v1/dispute/{id}
+
+[Webhooks]
+  ✓ Webhook delivery with HMAC signature
+  ✓ Webhook retry on failure
+
+[Events]
+  ✓ GET /osp/v1/events/{id} — event stream
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Result: OSP Core + Webhooks + Events (17/17 passed)
+Conformance badge: https://osp.dev/badges/conformance/core-webhooks-events.svg
+```
+
+The conformance badge can be embedded in the provider's documentation and displayed in the OSP registry.
 
 ---
 

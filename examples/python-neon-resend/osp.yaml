@@ -1,0 +1,28 @@
+project:
+  name: email-service
+  framework: fastapi
+  description: Email sending service with serverless Postgres and transactional email
+
+services:
+  database:
+    provider: neon.tech
+    offering: neon/postgres
+    tier: free
+    config:
+      region: aws-us-east-2
+
+  email:
+    provider: resend.com
+    offering: resend/email
+    tier: free
+    config:
+      domain: notifications.example.com
+
+env_mapping:
+  database:
+    DATABASE_URL: "osp://neon/postgres/database_url"
+    PGHOST: "osp://neon/postgres/host"
+    PGDATABASE: "osp://neon/postgres/database"
+
+  email:
+    RESEND_API_KEY: "osp://resend/email/api_key"

@@ -1,0 +1,41 @@
+project:
+  name: my-saas-app
+  framework: nextjs
+  description: SaaS application with database, auth, and hosting
+
+services:
+  database:
+    provider: supabase.com
+    offering: supabase/postgres
+    tier: free
+    config:
+      region: us-east-1
+
+  auth:
+    provider: clerk.com
+    offering: clerk/auth
+    tier: free
+    config:
+      allowed_origins:
+        - http://localhost:3000
+        - https://my-saas-app.vercel.app
+
+  hosting:
+    provider: vercel.com
+    offering: vercel/hosting
+    tier: hobby
+    config:
+      framework: nextjs
+      build_command: npm run build
+      output_directory: .next
+
+env_mapping:
+  database:
+    NEXT_PUBLIC_SUPABASE_URL: "osp://supabase/postgres/url"
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: "osp://supabase/postgres/anon_key"
+    SUPABASE_SERVICE_ROLE_KEY: "osp://supabase/postgres/service_key"
+    DATABASE_URL: "osp://supabase/postgres/database_url"
+
+  auth:
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "osp://clerk/auth/publishable_key"
+    CLERK_SECRET_KEY: "osp://clerk/auth/secret_key"

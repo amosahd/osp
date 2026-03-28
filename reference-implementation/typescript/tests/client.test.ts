@@ -20,6 +20,7 @@ function createTestManifest(overrides?: Partial<ServiceManifest>): ServiceManife
     manifest_id: "mf_test_provider",
     manifest_version: 1,
     previous_version: null,
+    osp_spec_version: "1.1",
     provider_id: "test-provider.com",
     display_name: "Test Provider",
     provider_url: "https://test-provider.com",
@@ -49,6 +50,7 @@ function createTestManifest(overrides?: Partial<ServiceManifest>): ServiceManife
               verification_window_seconds: 900,
               dispute_window_seconds: 86400,
             },
+            sla: "99.9%",
           },
         ],
         credentials_schema: {
@@ -61,6 +63,7 @@ function createTestManifest(overrides?: Partial<ServiceManifest>): ServiceManife
         estimated_provision_seconds: 30,
         fulfillment_proof_type: "api_key_delivery",
         regions: ["us-east-1", "eu-west-1"],
+        dependencies: [],
       },
       {
         offering_id: "test-provider/storage",
@@ -93,6 +96,24 @@ function createTestManifest(overrides?: Partial<ServiceManifest>): ServiceManife
       usage: "/osp/v1/resources/:resource_id/usage",
       health: "/osp/v1/health",
     },
+    a2a: {
+      agent_id: "test-agent",
+      capabilities: ["provision", "deprovision"],
+      task_lifecycle: true,
+    },
+    nhi: {
+      short_lived_tokens: true,
+      token_ttl_seconds: 3600,
+      federation: ["oidc"],
+    },
+    finops: {
+      budget_enforcement: true,
+      cost_in_pr: true,
+    },
+    mcp: {
+      tools: ["test_query"],
+      streamable_http: false,
+    },
     effective_at: "2026-01-01T00:00:00Z",
     provider_signature: "dGVzdC1zaWduYXR1cmU",
     ...overrides,
@@ -114,10 +135,10 @@ function mockFetch(handler: (url: string, init?: RequestInit) => Response | Prom
   ) as unknown as typeof fetch;
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(body: unknown, status = 200, headers?: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
   });
 }
 
@@ -330,6 +351,41 @@ describe("OSPClient.provision", () => {
     });
 
     expect(result.resource_id).toBe("res_xyz");
+  });
+
+  it("includes v1.1 fields in provision request", async () => {
+    const manifest = createTestManifest();
+    const provisionResponse: ProvisionResponse = {
+      resource_id: "res_v11",
+      status: "active",
+      cost_estimate: { monthly_estimate: "25.00", currency: "USD" },
+      trace_id: "trace_123",
+    };
+
+    mockFetch((url, init) => {
+      if (url.includes(".well-known/osp.json")) {
+        return jsonResponse(manifest);
+      }
+      const body = JSON.parse(init?.body as string);
+      expect(body.nhi_token_mode).toBe("short_lived");
+      expect(body.budget).toEqual({ max_monthly_cost: "50.00", currency: "USD" });
+      expect(body.trace_context).toBe("trace-ctx");
+      return jsonResponse(provisionResponse);
+    });
+
+    const client = new OSPClient();
+    const result = await client.provision("https://test-provider.com", {
+      offering_id: "test-provider/postgres",
+      tier_id: "pro",
+      project_name: "v11-project",
+      nonce: "nonce-v11",
+      nhi_token_mode: "short_lived",
+      budget: { max_monthly_cost: "50.00", currency: "USD" },
+      trace_context: "trace-ctx",
+    });
+
+    expect(result.cost_estimate?.monthly_estimate).toBe("25.00");
+    expect(result.trace_id).toBe("trace_123");
   });
 });
 
@@ -571,7 +627,7 @@ describe("error handling", () => {
       );
     });
 
-    const client = new OSPClient();
+    const client = new OSPClient({ retry: { maxRetries: 0 } });
 
     try {
       await client.provision("https://test-provider.com", {
@@ -600,7 +656,7 @@ describe("error handling", () => {
       return new Response("Internal Server Error", { status: 500 });
     });
 
-    const client = new OSPClient();
+    const client = new OSPClient({ retry: { maxRetries: 0 } });
 
     try {
       await client.getStatus("https://test-provider.com", "res_abc123");
@@ -611,6 +667,129 @@ describe("error handling", () => {
       expect(ospErr.statusCode).toBe(500);
       expect(ospErr.code).toBe("HTTP_500");
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Retry behavior
+// ---------------------------------------------------------------------------
+
+describe("retry behavior", () => {
+  it("retries on 500 status codes", async () => {
+    const manifest = createTestManifest();
+    let attempt = 0;
+
+    mockFetch((url) => {
+      if (url.includes(".well-known/osp.json")) {
+        return jsonResponse(manifest);
+      }
+      attempt++;
+      if (attempt < 3) {
+        return new Response("Server Error", { status: 500 });
+      }
+      return jsonResponse({ status: "healthy", checked_at: "2026-03-27T12:00:00Z" });
+    });
+
+    const client = new OSPClient({
+      retry: { maxRetries: 3, baseDelayMs: 10, maxDelayMs: 50 },
+    });
+    const result = await client.checkHealth("https://test-provider.com");
+    expect(result.status).toBe("healthy");
+    expect(attempt).toBe(3);
+  });
+
+  it("retries on 429 with Retry-After header", async () => {
+    const manifest = createTestManifest();
+    let attempt = 0;
+
+    mockFetch((url) => {
+      if (url.includes(".well-known/osp.json")) {
+        return jsonResponse(manifest);
+      }
+      attempt++;
+      if (attempt === 1) {
+        return jsonResponse(
+          { error: "rate_limited" },
+          429,
+          { "Retry-After": "1" },
+        );
+      }
+      return jsonResponse({ status: "healthy", checked_at: "2026-03-27T12:00:00Z" });
+    });
+
+    const client = new OSPClient({
+      retry: { maxRetries: 3, baseDelayMs: 10, maxDelayMs: 50 },
+    });
+    const result = await client.checkHealth("https://test-provider.com");
+    expect(result.status).toBe("healthy");
+    expect(attempt).toBe(2);
+  });
+
+  it("does not retry on 400 errors", async () => {
+    const manifest = createTestManifest();
+    let attempt = 0;
+
+    mockFetch((url) => {
+      if (url.includes(".well-known/osp.json")) {
+        return jsonResponse(manifest);
+      }
+      attempt++;
+      return jsonResponse({ error: "Bad Request", code: "BAD_REQUEST" }, 400);
+    });
+
+    const client = new OSPClient({
+      retry: { maxRetries: 3, baseDelayMs: 10 },
+    });
+
+    await expect(
+      client.getStatus("https://test-provider.com", "res_abc"),
+    ).rejects.toThrow(OSPError);
+    expect(attempt).toBe(1);
+  });
+
+  it("respects timeout configuration", async () => {
+    const manifest = createTestManifest();
+
+    mockFetch(async (url) => {
+      if (url.includes(".well-known/osp.json")) {
+        return jsonResponse(manifest);
+      }
+      // Simulate a very slow response
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      return jsonResponse({});
+    });
+
+    const client = new OSPClient({
+      timeoutMs: 50,
+      retry: { maxRetries: 0 },
+    });
+
+    await expect(
+      client.checkHealth("https://test-provider.com"),
+    ).rejects.toThrow();
+  });
+
+  it("uses custom retry configuration", async () => {
+    const manifest = createTestManifest();
+    let attempt = 0;
+
+    mockFetch((url) => {
+      if (url.includes(".well-known/osp.json")) {
+        return jsonResponse(manifest);
+      }
+      attempt++;
+      return new Response("Error", { status: 503 });
+    });
+
+    const client = new OSPClient({
+      retry: { maxRetries: 1, baseDelayMs: 10, maxDelayMs: 20 },
+    });
+
+    await expect(
+      client.checkHealth("https://test-provider.com"),
+    ).rejects.toThrow(OSPError);
+    // 1 initial + 1 retry = 2
+    expect(attempt).toBe(2);
   });
 });
 
@@ -659,7 +838,6 @@ describe("manifest signature verification", () => {
 
   it("returns false when signature is missing", async () => {
     const manifest = createTestManifest();
-    // Force-remove the signature
     (manifest as Record<string, unknown>).provider_signature = "";
     expect(await verifyManifestSignature(manifest)).toBe(false);
   });
@@ -669,7 +847,6 @@ describe("manifest signature verification", () => {
       provider_public_key: "dGVzdC1wdWJsaWMta2V5",
       provider_signature: "aW52YWxpZC1zaWduYXR1cmU",
     });
-    // The dummy key/sig pair will not verify
     expect(await verifyManifestSignature(manifest)).toBe(false);
   });
 });
@@ -695,6 +872,17 @@ describe("canonicalJson", () => {
     expect(canonicalJson("hello")).toBe('"hello"');
     expect(canonicalJson(42)).toBe("42");
   });
+
+  it("handles nested arrays with objects", () => {
+    const obj = { arr: [{ z: 1, a: 2 }, { y: 3, b: 4 }] };
+    expect(canonicalJson(obj)).toBe('{"arr":[{"a":2,"z":1},{"b":4,"y":3}]}');
+  });
+
+  it("handles empty objects and arrays", () => {
+    expect(canonicalJson({})).toBe("{}");
+    expect(canonicalJson([])).toBe("[]");
+    expect(canonicalJson({ a: [], b: {} })).toBe('{"a":[],"b":{}}');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -706,7 +894,6 @@ describe("base64url", () => {
     const original = new Uint8Array([0, 1, 2, 255, 254, 128, 63, 62]);
     const encoded = base64urlEncode(original);
 
-    // Must not contain +, /, or = characters
     expect(encoded).not.toMatch(/[+/=]/);
 
     const decoded = base64urlDecode(encoded);
@@ -714,10 +901,20 @@ describe("base64url", () => {
   });
 
   it("decodes standard base64url strings", () => {
-    // "Hello, World!" in base64url
     const decoded = base64urlDecode("SGVsbG8sIFdvcmxkIQ");
     const text = new TextDecoder().decode(decoded);
     expect(text).toBe("Hello, World!");
+  });
+
+  it("handles empty input", () => {
+    const encoded = base64urlEncode(new Uint8Array([]));
+    expect(encoded).toBe("");
+  });
+
+  it("encodes without padding", () => {
+    const input = new TextEncoder().encode("test");
+    const encoded = base64urlEncode(input);
+    expect(encoded).not.toContain("=");
   });
 });
 
@@ -728,5 +925,84 @@ describe("base64url", () => {
 describe("WELL_KNOWN_PATH", () => {
   it("is the correct .well-known path", () => {
     expect(WELL_KNOWN_PATH).toBe("/.well-known/osp.json");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v1.1 manifest fields
+// ---------------------------------------------------------------------------
+
+describe("v1.1 manifest fields", () => {
+  it("manifest has A2A agent card", () => {
+    const manifest = createTestManifest();
+    expect(manifest.a2a).toBeDefined();
+    expect(manifest.a2a?.agent_id).toBe("test-agent");
+    expect(manifest.a2a?.capabilities).toContain("provision");
+    expect(manifest.a2a?.task_lifecycle).toBe(true);
+  });
+
+  it("manifest has NHI config", () => {
+    const manifest = createTestManifest();
+    expect(manifest.nhi).toBeDefined();
+    expect(manifest.nhi?.short_lived_tokens).toBe(true);
+    expect(manifest.nhi?.token_ttl_seconds).toBe(3600);
+    expect(manifest.nhi?.federation).toContain("oidc");
+  });
+
+  it("manifest has FinOps config", () => {
+    const manifest = createTestManifest();
+    expect(manifest.finops).toBeDefined();
+    expect(manifest.finops?.budget_enforcement).toBe(true);
+    expect(manifest.finops?.cost_in_pr).toBe(true);
+  });
+
+  it("manifest has MCP config", () => {
+    const manifest = createTestManifest();
+    expect(manifest.mcp).toBeDefined();
+    expect(manifest.mcp?.tools).toContain("test_query");
+    expect(manifest.mcp?.streamable_http).toBe(false);
+  });
+
+  it("manifest has osp_spec_version", () => {
+    const manifest = createTestManifest();
+    expect(manifest.osp_spec_version).toBe("1.1");
+  });
+
+  it("offering can have dependencies", () => {
+    const manifest = createTestManifest();
+    expect(manifest.offerings[0]?.dependencies).toEqual([]);
+  });
+
+  it("tier can have SLA and TTL", () => {
+    const manifest = createTestManifest();
+    const offering = findOffering(manifest, "test-provider/postgres")!;
+    const proTier = findTier(offering, "pro");
+    expect(proTier?.sla).toBe("99.9%");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OSPClient constructor options
+// ---------------------------------------------------------------------------
+
+describe("OSPClient constructor", () => {
+  it("uses default values when no options provided", () => {
+    const client = new OSPClient();
+    expect(client).toBeInstanceOf(OSPClient);
+  });
+
+  it("accepts all option fields", () => {
+    const client = new OSPClient({
+      registryUrl: "https://custom-registry.com",
+      authToken: "my-token",
+      timeoutMs: 5000,
+      retry: {
+        maxRetries: 5,
+        baseDelayMs: 100,
+        maxDelayMs: 5000,
+        jitter: 0.1,
+      },
+    });
+    expect(client).toBeInstanceOf(OSPClient);
   });
 });

@@ -50,6 +50,62 @@
       "type": "string",
       "format": "uri",
       "description": "URL for async provisioning callbacks when resource is ready"
+    },
+    "delegating_agent_id": {
+      "type": "string",
+      "description": "A2A: ID of the agent delegating this provisioning request (v1.1)"
+    },
+    "delegation_proof": {
+      "type": "string",
+      "description": "A2A: Ed25519 signature by the delegating agent authorizing this request (v1.1)"
+    },
+    "nhi_token_mode": {
+      "type": "string",
+      "enum": ["static", "short_lived", "federated"],
+      "default": "static",
+      "description": "NHI: preferred credential mode — static API key, short-lived token, or federated identity (v1.1)"
+    },
+    "budget": {
+      "$ref": "#/$defs/BudgetConstraint",
+      "description": "FinOps: budget constraint for this provisioning request (v1.1)"
+    },
+    "ttl_seconds": {
+      "type": ["integer", "null"],
+      "description": "Ephemeral environment TTL in seconds, null for persistent (v1.1)"
+    },
+    "trace_context": {
+      "type": "string",
+      "description": "OpenTelemetry W3C traceparent header value for distributed tracing (v1.1)"
+    }
+  },
+  "$defs": {
+    "BudgetConstraint": {
+      "type": "object",
+      "description": "Budget constraint for cost-aware provisioning (v1.1)",
+      "properties": {
+        "max_monthly_cost": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Maximum monthly cost in provider's currency"
+        },
+        "max_total_cost": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Maximum total cost for TTL-based environments"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "USDC", "EURC"],
+          "description": "Budget currency"
+        },
+        "alert_threshold_percent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 80,
+          "description": "Alert when budget consumption reaches this percentage"
+        }
+      }
     }
   }
 }

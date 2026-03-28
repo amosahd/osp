@@ -27,7 +27,15 @@
         "usage.threshold",
         "usage.report_ready",
         "payment.required",
-        "payment.confirmed"
+        "payment.confirmed",
+        "budget.alert",
+        "budget.exceeded",
+        "nhi.token_expiring",
+        "nhi.token_rotated",
+        "dependency.health_changed",
+        "scorecard.updated",
+        "environment.ttl_expiring",
+        "environment.ttl_expired"
       ],
       "description": "Type of lifecycle event"
     },
@@ -62,6 +70,10 @@
       "minimum": 1,
       "default": 1,
       "description": "Delivery attempt number (increments on retries)"
+    },
+    "trace_id": {
+      "type": "string",
+      "description": "OpenTelemetry trace ID for correlating events with provisioning traces (v1.1)"
     }
   },
   "$defs": {
@@ -97,6 +109,22 @@
         "payment_details": {
           "$ref": "#/$defs/PaymentDetails",
           "description": "Payment-related details (for payment.* events)"
+        },
+        "budget_alert": {
+          "$ref": "#/$defs/BudgetAlert",
+          "description": "Budget alert details (for budget.* events) (v1.1)"
+        },
+        "nhi_event": {
+          "$ref": "#/$defs/NHIEvent",
+          "description": "NHI token lifecycle event details (for nhi.* events) (v1.1)"
+        },
+        "dependency_event": {
+          "$ref": "#/$defs/DependencyEvent",
+          "description": "Dependency health change details (for dependency.* events) (v1.1)"
+        },
+        "ttl_event": {
+          "$ref": "#/$defs/TTLEvent",
+          "description": "Environment TTL event details (for environment.* events) (v1.1)"
         },
         "dashboard_url": {
           "type": "string",
@@ -197,7 +225,7 @@
       "properties": {
         "warning_type": {
           "type": "string",
-          "enum": ["approaching_limit", "performance_degraded", "maintenance_scheduled", "credential_expiring", "payment_overdue"],
+          "enum": ["approaching_limit", "performance_degraded", "maintenance_scheduled", "credential_expiring", "payment_overdue", "budget_threshold", "ttl_expiring"],
           "description": "Category of warning"
         },
         "message": {
@@ -272,6 +300,109 @@
         "transaction_id": {
           "type": "string",
           "description": "Transaction identifier (for payment.confirmed events)"
+        }
+      }
+    },
+    "BudgetAlert": {
+      "type": "object",
+      "description": "Budget alert event details (v1.1)",
+      "properties": {
+        "budget_limit": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Budget limit amount"
+        },
+        "current_spend": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Current spend amount"
+        },
+        "percent_used": {
+          "type": "integer",
+          "description": "Budget utilization percentage"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "USDC", "EURC"],
+          "description": "Budget currency"
+        },
+        "action": {
+          "type": "string",
+          "enum": ["alert", "throttle", "block"],
+          "description": "Enforcement action taken"
+        }
+      }
+    },
+    "NHIEvent": {
+      "type": "object",
+      "description": "NHI token lifecycle event details (v1.1)",
+      "properties": {
+        "identity_id": {
+          "type": "string",
+          "description": "Non-human identity identifier"
+        },
+        "token_type": {
+          "type": "string",
+          "enum": ["bearer", "dpop", "mtls"],
+          "description": "Token type"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the token expires"
+        },
+        "refresh_endpoint": {
+          "type": "string",
+          "description": "Endpoint to refresh the token"
+        }
+      }
+    },
+    "DependencyEvent": {
+      "type": "object",
+      "description": "Dependency health change event details (v1.1)",
+      "properties": {
+        "dependency_resource_id": {
+          "type": "string",
+          "description": "Resource ID of the dependency whose health changed"
+        },
+        "dependency_offering_id": {
+          "type": "string",
+          "description": "Offering ID of the dependency"
+        },
+        "health_status": {
+          "type": "string",
+          "enum": ["healthy", "degraded", "unhealthy", "unknown"],
+          "description": "New health status of the dependency"
+        },
+        "affected_resources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Resource IDs affected by this health change"
+        }
+      }
+    },
+    "TTLEvent": {
+      "type": "object",
+      "description": "Ephemeral environment TTL event details (v1.1)",
+      "properties": {
+        "ttl_remaining_seconds": {
+          "type": "integer",
+          "description": "Seconds remaining before TTL expiration"
+        },
+        "original_ttl_seconds": {
+          "type": "integer",
+          "description": "Original TTL duration in seconds"
+        },
+        "action": {
+          "type": "string",
+          "enum": ["warning", "expiring", "expired", "extended"],
+          "description": "TTL lifecycle action"
+        },
+        "extension_available": {
+          "type": "boolean",
+          "description": "Whether the TTL can be extended"
         }
       }
     }

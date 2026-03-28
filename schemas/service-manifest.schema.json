@@ -20,6 +20,11 @@
       "type": ["integer", "null"],
       "description": "Previous manifest version, null for first version"
     },
+    "osp_spec_version": {
+      "type": "string",
+      "default": "1.1",
+      "description": "Version of the OSP specification this manifest conforms to"
+    },
     "provider_id": {
       "type": "string",
       "description": "Provider's domain or identifier (e.g., 'supabase.com')"
@@ -64,6 +69,34 @@
       "$ref": "#/$defs/ProviderEndpoints",
       "description": "API endpoints for provisioning lifecycle operations"
     },
+    "a2a": {
+      "$ref": "#/$defs/A2AAgentCard",
+      "description": "A2A agent card for delegated provisioning (v1.1)"
+    },
+    "nhi": {
+      "$ref": "#/$defs/NHIConfig",
+      "description": "Non-human identity lifecycle configuration (v1.1)"
+    },
+    "finops": {
+      "$ref": "#/$defs/FinOpsConfig",
+      "description": "FinOps budget and cost guardrails configuration (v1.1)"
+    },
+    "dependency_graph": {
+      "$ref": "#/$defs/DependencyGraph",
+      "description": "Service dependency graph metadata (v1.1)"
+    },
+    "scorecards": {
+      "$ref": "#/$defs/Scorecards",
+      "description": "Service maturity scorecards and compliance checklists (v1.1)"
+    },
+    "observability": {
+      "$ref": "#/$defs/ObservabilityConfig",
+      "description": "Agent observability and tracing configuration (v1.1)"
+    },
+    "mcp": {
+      "$ref": "#/$defs/MCPConfig",
+      "description": "MCP .well-known alignment and tool advertisement (v1.1)"
+    },
     "extensions": {
       "type": "object",
       "description": "Provider-specific metadata and custom extensions"
@@ -99,7 +132,7 @@
         },
         "category": {
           "type": "string",
-          "enum": ["database", "hosting", "auth", "analytics", "storage", "compute", "messaging", "monitoring", "search", "ai", "other"],
+          "enum": ["database", "hosting", "auth", "analytics", "storage", "compute", "messaging", "monitoring", "search", "ai", "email", "other"],
           "description": "Service category for discovery and filtering"
         },
         "tiers": {
@@ -136,6 +169,22 @@
           "type": "string",
           "format": "uri",
           "description": "URL to the service offering's documentation"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Other offering IDs that this offering depends on (v1.1)"
+        },
+        "sbom_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the SBOM (Software Bill of Materials) for this offering (v1.1)"
+        },
+        "canary": {
+          "$ref": "#/$defs/CanaryConfig",
+          "description": "Progressive deployment / canary provisioning config (v1.1)"
         }
       }
     },
@@ -178,6 +227,14 @@
         "usage_metering": {
           "$ref": "#/$defs/UsageMetering",
           "description": "Usage-based billing configuration"
+        },
+        "sla": {
+          "type": "string",
+          "description": "Service Level Agreement (e.g., '99.9%', '99.99%') (v1.1)"
+        },
+        "ttl_seconds": {
+          "type": ["integer", "null"],
+          "description": "Default environment TTL in seconds, null for no expiry (v1.1)"
         }
       }
     },
@@ -277,6 +334,240 @@
         "health": {
           "type": "string",
           "description": "GET endpoint path for provider health checks"
+        },
+        "dependency_graph": {
+          "type": "string",
+          "description": "GET endpoint path for dependency graph (v1.1)"
+        },
+        "scorecard": {
+          "type": "string",
+          "description": "GET endpoint path for service scorecard (v1.1)"
+        },
+        "skills": {
+          "type": "string",
+          "description": "GET endpoint path for LLM skills document (v1.1)"
+        }
+      }
+    },
+    "A2AAgentCard": {
+      "type": "object",
+      "description": "A2A agent card enabling delegated provisioning between agents (v1.1)",
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "description": "Unique agent identifier for this provider"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["provision", "deprovision", "rotate", "monitor", "delegate"]
+          },
+          "description": "Agent capabilities this provider supports"
+        },
+        "delegation_endpoint": {
+          "type": "string",
+          "description": "Endpoint for receiving delegated provisioning requests from other agents"
+        },
+        "task_lifecycle": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this provider supports A2A task lifecycle states"
+        },
+        "agent_public_key": {
+          "type": "string",
+          "description": "Ed25519 public key for agent-to-agent communication (base64url)"
+        }
+      }
+    },
+    "NHIConfig": {
+      "type": "object",
+      "description": "Non-human identity lifecycle configuration (v1.1)",
+      "properties": {
+        "short_lived_tokens": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider supports short-lived token issuance instead of static API keys"
+        },
+        "token_ttl_seconds": {
+          "type": "integer",
+          "description": "Default TTL for short-lived tokens in seconds"
+        },
+        "orphan_detection": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider supports NHI inventory and orphan identity detection"
+        },
+        "federation": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["oidc", "spiffe", "mtls"]
+          },
+          "description": "Supported identity federation protocols"
+        },
+        "token_endpoint": {
+          "type": "string",
+          "description": "Endpoint for obtaining short-lived tokens"
+        }
+      }
+    },
+    "FinOpsConfig": {
+      "type": "object",
+      "description": "FinOps budget guardrails and cost-as-code configuration (v1.1)",
+      "properties": {
+        "budget_enforcement": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider supports budget guardrails and spend limits"
+        },
+        "cost_in_pr": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider supports cost-in-PR previews for config changes"
+        },
+        "anomaly_detection": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider supports cost anomaly detection and alerting"
+        },
+        "burn_rate_tracking": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider supports environment burn rate tracking with TTLs"
+        },
+        "budget_endpoint": {
+          "type": "string",
+          "description": "Endpoint for budget and cost management operations"
+        }
+      }
+    },
+    "DependencyGraph": {
+      "type": "object",
+      "description": "Service dependency graph metadata for impact analysis (v1.1)",
+      "properties": {
+        "auto_generate": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider can auto-generate dependency graph from project state"
+        },
+        "impact_analysis": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider supports impact analysis before deprovision/rotate"
+        },
+        "health_propagation": {
+          "type": "boolean",
+          "default": false,
+          "description": "Unhealthy service propagates warnings to dependents"
+        },
+        "auto_docs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider can auto-generate architecture documentation"
+        }
+      }
+    },
+    "Scorecards": {
+      "type": "object",
+      "description": "Service maturity scorecards and compliance checklists (v1.1)",
+      "properties": {
+        "maturity_scores": {
+          "type": "object",
+          "description": "Maturity scores by dimension (monitoring, backups, rotation, https, etc.)"
+        },
+        "compliance": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["soc2", "hipaa", "gdpr", "pci_dss", "iso27001"]
+          },
+          "description": "Compliance frameworks supported by this provider"
+        },
+        "guided_remediation": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider supports guided remediation via osp fix commands"
+        }
+      }
+    },
+    "ObservabilityConfig": {
+      "type": "object",
+      "description": "Agent observability and OpenTelemetry tracing configuration (v1.1)",
+      "properties": {
+        "otel_endpoint": {
+          "type": "string",
+          "description": "OpenTelemetry collector endpoint for sending traces"
+        },
+        "trace_propagation": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["w3c", "b3", "jaeger"]
+          },
+          "description": "Supported trace context propagation formats"
+        },
+        "audit_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider exposes structured queryable audit log"
+        },
+        "hitl_gates": {
+          "type": "boolean",
+          "default": false,
+          "description": "Destructive operations require human-in-the-loop approval"
+        },
+        "cost_per_action": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider tracks cost per agent action"
+        }
+      }
+    },
+    "MCPConfig": {
+      "type": "object",
+      "description": "MCP .well-known alignment and tool advertisement (v1.1)",
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "MCP tool names this provider exposes"
+        },
+        "streamable_http": {
+          "type": "boolean",
+          "default": false,
+          "description": "Provider supports MCP Streamable HTTP transport"
+        },
+        "well_known_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the provider's /.well-known/mcp.json"
+        },
+        "skills_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the provider's LLM skills document"
+        }
+      }
+    },
+    "CanaryConfig": {
+      "type": "object",
+      "description": "Progressive deployment / canary provisioning configuration (v1.1)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether canary/progressive deployment is supported"
+        },
+        "strategies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["percentage", "blue_green", "rolling"]
+          },
+          "description": "Supported deployment strategies"
         }
       }
     }

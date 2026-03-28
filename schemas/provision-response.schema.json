@@ -73,6 +73,25 @@
     "error": {
       "$ref": "#/$defs/ProvisionError",
       "description": "Error details when status is 'failed'"
+    },
+    "nhi_token": {
+      "$ref": "#/$defs/NHIToken",
+      "description": "Short-lived NHI token details when nhi_token_mode was 'short_lived' (v1.1)"
+    },
+    "cost_estimate": {
+      "$ref": "#/$defs/CostEstimate",
+      "description": "Estimated cost breakdown for this provisioned resource (v1.1)"
+    },
+    "trace_id": {
+      "type": "string",
+      "description": "OpenTelemetry trace ID for this provisioning operation (v1.1)"
+    },
+    "dependency_impact": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of resources affected by this provisioning (v1.1)"
     }
   },
   "$defs": {
@@ -150,7 +169,10 @@
             "trust_tier_insufficient",
             "offering_unavailable",
             "provider_error",
-            "rate_limited"
+            "rate_limited",
+            "budget_exceeded",
+            "delegation_unauthorized",
+            "nhi_federation_failed"
           ],
           "description": "Machine-readable error code"
         },
@@ -161,6 +183,63 @@
         "retry_after_seconds": {
           "type": "integer",
           "description": "Suggested number of seconds before retrying (for rate-limited or transient errors)"
+        }
+      }
+    },
+    "NHIToken": {
+      "type": "object",
+      "description": "Short-lived non-human identity token details (v1.1)",
+      "properties": {
+        "token": {
+          "type": "string",
+          "description": "The short-lived access token"
+        },
+        "token_type": {
+          "type": "string",
+          "enum": ["bearer", "dpop", "mtls"],
+          "description": "Token type"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Token expiration timestamp (ISO 8601)"
+        },
+        "refresh_endpoint": {
+          "type": "string",
+          "description": "Endpoint to refresh the token before expiry"
+        },
+        "identity_id": {
+          "type": "string",
+          "description": "Non-human identity identifier for inventory tracking"
+        }
+      }
+    },
+    "CostEstimate": {
+      "type": "object",
+      "description": "Estimated cost breakdown for provisioned resource (v1.1)",
+      "properties": {
+        "monthly_estimate": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Estimated monthly cost"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "USDC", "EURC"],
+          "description": "Currency"
+        },
+        "breakdown": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "dimension": { "type": "string" },
+              "estimated_usage": { "type": "string" },
+              "unit_price": { "type": "string" },
+              "estimated_cost": { "type": "string" }
+            }
+          },
+          "description": "Per-dimension cost breakdown"
         }
       }
     }

@@ -75,6 +75,18 @@
     "metadata": {
       "type": "object",
       "description": "Provider-specific metadata about the usage period"
+    },
+    "budget_status": {
+      "$ref": "#/$defs/BudgetStatus",
+      "description": "Current budget consumption status relative to guardrails (v1.1)"
+    },
+    "burn_rate": {
+      "$ref": "#/$defs/BurnRate",
+      "description": "Current burn rate for TTL-based environments (v1.1)"
+    },
+    "trace_id": {
+      "type": "string",
+      "description": "OpenTelemetry trace ID linking this report to provisioning traces (v1.1)"
     }
   },
   "$defs": {
@@ -131,6 +143,71 @@
           "type": "string",
           "enum": ["USD", "EUR", "GBP", "USDC", "EURC"],
           "description": "ISO 4217 currency code or stablecoin identifier"
+        }
+      }
+    },
+    "BudgetStatus": {
+      "type": "object",
+      "description": "Budget consumption status relative to FinOps guardrails (v1.1)",
+      "properties": {
+        "budget_limit": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Budget limit amount"
+        },
+        "consumed": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Amount consumed so far"
+        },
+        "remaining": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Remaining budget"
+        },
+        "percent_used": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Percentage of budget consumed"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "USDC", "EURC"],
+          "description": "Budget currency"
+        },
+        "alert_triggered": {
+          "type": "boolean",
+          "description": "Whether the alert threshold has been triggered"
+        }
+      }
+    },
+    "BurnRate": {
+      "type": "object",
+      "description": "Burn rate tracking for TTL-based environments (v1.1)",
+      "properties": {
+        "hourly_rate": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?$",
+          "description": "Current cost per hour"
+        },
+        "daily_rate": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?$",
+          "description": "Current cost per day"
+        },
+        "ttl_remaining_seconds": {
+          "type": ["integer", "null"],
+          "description": "Seconds until this environment's TTL expires, null if persistent"
+        },
+        "estimated_total_cost": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?$",
+          "description": "Estimated total cost until TTL expiration"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "USDC", "EURC"],
+          "description": "Burn rate currency"
         }
       }
     }

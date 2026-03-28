@@ -6,6 +6,8 @@ directly when you need lower-level manifest operations.
 
 from __future__ import annotations
 
+import json
+
 import httpx
 
 from osp.types import ServiceManifest, ServiceOffering, ServiceTier
@@ -19,15 +21,14 @@ async def fetch_manifest(
     client: httpx.AsyncClient | None = None,
     timeout: float = 10.0,
 ) -> ServiceManifest:
-    """Fetch a provider's manifest from its ``/.well-known/osp.json`` endpoint.
+    """Fetch a provider's manifest from its /.well-known/osp.json endpoint.
 
     Parameters
     ----------
     provider_url:
-        Base URL of the provider (e.g. ``https://db.example.com``).
+        Base URL of the provider (e.g. ``https://supabase.com``).
     client:
-        Optional pre-existing *httpx* async client.  When *None* a temporary
-        client is created (and closed) for the request.
+        Optional pre-existing httpx async client.
     timeout:
         HTTP request timeout in seconds.
 
@@ -35,13 +36,6 @@ async def fetch_manifest(
     -------
     ServiceManifest
         Parsed and validated manifest.
-
-    Raises
-    ------
-    httpx.HTTPStatusError
-        If the provider returns a non-2xx status.
-    pydantic.ValidationError
-        If the response body does not conform to the manifest schema.
     """
     url = provider_url.rstrip("/") + WELL_KNOWN_PATH
     owns_client = client is None
@@ -57,93 +51,65 @@ async def fetch_manifest(
 
 
 def verify_manifest_signature(manifest: ServiceManifest) -> bool:
-    """Verify the detached signature on a manifest (stub).
+    """Verify the Ed25519 signature on a manifest.
 
-    Real implementations would verify against a public key registry or a
-    well-known JWK set.  This reference implementation always returns *True*
-    when a signature is present and *False* when it is absent.
+    The provider signs the canonical JSON of the manifest excluding the
+    ``provider_signature`` field. Returns False when key or signature is
+    missing.
 
-    Parameters
-    ----------
-    manifest:
-        The manifest whose ``signature`` field should be checked.
-
-    Returns
-    -------
-    bool
-        *True* if the signature is present (verification is stubbed),
-        *False* if no signature is set.
+    This reference implementation uses a stub — real implementations
+    should verify against the provider's public key.
     """
-    if manifest.signature is None:
+    if not manifest.provider_public_key or not manifest.provider_signature:
         return False
-    # TODO: implement real JWS / JWK verification
+    # TODO: implement real Ed25519 verification
     return True
 
 
-def find_offering(manifest: ServiceManifest, service_id: str) -> ServiceOffering | None:
-    """Look up a :class:`ServiceOffering` by its ``id``.
+def canonical_json(obj: object) -> str:
+    """Produce canonical JSON by sorting keys recursively.
 
-    Parameters
-    ----------
-    manifest:
-        Manifest to search.
-    service_id:
-        The offering identifier to match.
-
-    Returns
-    -------
-    ServiceOffering | None
-        The matching offering, or *None* if not found.
+    This is the payload format that providers sign.
     """
-    for offering in manifest.services:
-        if offering.id == service_id:
+    return json.dumps(_sort_keys(obj), separators=(",", ":"))
+
+
+def _sort_keys(value: object) -> object:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, list):
+        return [_sort_keys(item) for item in value]
+    if isinstance(value, dict):
+        return {k: _sort_keys(v) for k, v in sorted(value.items())}
+    return value
+
+
+def find_offering(
+    manifest: ServiceManifest,
+    offering_id: str,
+) -> ServiceOffering | None:
+    """Look up a ServiceOffering by its offering_id."""
+    for offering in manifest.offerings:
+        if offering.offering_id == offering_id:
             return offering
     return None
 
 
 def find_tier(offering: ServiceOffering, tier_id: str) -> ServiceTier | None:
-    """Look up a :class:`ServiceTier` within an offering by its ``id``.
-
-    Parameters
-    ----------
-    offering:
-        The offering to search.
-    tier_id:
-        The tier identifier to match.
-
-    Returns
-    -------
-    ServiceTier | None
-        The matching tier, or *None* if not found.
-    """
+    """Look up a ServiceTier within an offering by its tier_id."""
     for tier in offering.tiers:
-        if tier.id == tier_id:
+        if tier.tier_id == tier_id:
             return tier
     return None
 
 
 def find_offering_and_tier(
     manifest: ServiceManifest,
-    service_id: str,
+    offering_id: str,
     tier_id: str,
 ) -> tuple[ServiceOffering | None, ServiceTier | None]:
-    """Convenience helper to look up both an offering and a tier in one call.
-
-    Parameters
-    ----------
-    manifest:
-        Manifest to search.
-    service_id:
-        The offering identifier.
-    tier_id:
-        The tier identifier within that offering.
-
-    Returns
-    -------
-    tuple[ServiceOffering | None, ServiceTier | None]
-        A two-tuple.  Either element may be *None* if not found.
-    """
-    offering = find_offering(manifest, service_id)
+    """Convenience helper to look up both an offering and a tier."""
+    offering = find_offering(manifest, offering_id)
     if offering is None:
         return None, None
     tier = find_tier(offering, tier_id)

@@ -21,3 +21,6 @@ Thumbs.db
 # Build
 *.egg-info/
 build/
+target/
+.next/
+next-env.d.ts

@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://osp.dev/schemas/provision-response.schema.json",
+  "title": "ProvisionResponse",
+  "description": "Response from a provider after a provisioning request, indicating either immediate fulfillment or async processing",
+  "type": "object",
+  "required": ["request_id", "offering_id", "tier_id", "status", "created_at"],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "description": "Unique identifier for this provisioning request, used for status polling and deprovisioning"
+    },
+    "offering_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+      "description": "The offering ID that was provisioned"
+    },
+    "tier_id": {
+      "type": "string",
+      "description": "The tier that was provisioned"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["provisioning", "active", "failed", "pending_payment"],
+      "description": "Current status of the provisioning request"
+    },
+    "resource_id": {
+      "type": "string",
+      "description": "Provider-assigned resource identifier, available once provisioning completes"
+    },
+    "credentials": {
+      "oneOf": [
+        { "$ref": "#/$defs/CredentialBundle" },
+        { "type": "null" }
+      ],
+      "description": "Encrypted credential bundle, included when status is 'active' and provisioning is synchronous; null when provisioning is in progress"
+    },
+    "fulfillment_proof": {
+      "oneOf": [
+        { "$ref": "#/$defs/FulfillmentProof" },
+        { "type": "null" }
+      ],
+      "description": "Proof that the service was provisioned as promised; null when provisioning is in progress"
+    },
+    "status_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to poll for provisioning status (for async provisioning)"
+    },
+    "estimated_ready_seconds": {
+      "type": "integer",
+      "description": "Estimated seconds until provisioning completes (for async provisioning)"
+    },
+    "region": {
+      "type": "string",
+      "description": "Actual region where the resource was deployed"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the provisioning request was accepted (ISO 8601)"
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Timestamp when the provisioned resource expires, null if no expiration"
+    },
+    "dashboard_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to the provider's dashboard for this resource"
+    },
+    "error": {
+      "$ref": "#/$defs/ProvisionError",
+      "description": "Error details when status is 'failed'"
+    }
+  },
+  "$defs": {
+    "CredentialBundle": {
+      "type": "object",
+      "required": ["encrypted_payload", "encryption_method", "provider_signature"],
+      "description": "Encrypted credentials returned to the agent, encrypted with the agent's public key",
+      "properties": {
+        "encrypted_payload": {
+          "type": "string",
+          "description": "Base64url-encoded encrypted credential payload"
+        },
+        "encryption_method": {
+          "type": "string",
+          "enum": ["x25519-xsalsa20-poly1305", "aes-256-gcm"],
+          "description": "Encryption algorithm used to protect the credentials"
+        },
+        "ephemeral_public_key": {
+          "type": "string",
+          "description": "Ephemeral public key used for Diffie-Hellman key exchange (base64url)"
+        },
+        "nonce": {
+          "type": "string",
+          "description": "Encryption nonce (base64url)"
+        },
+        "provider_signature": {
+          "type": "string",
+          "description": "Ed25519 signature over the encrypted payload by the provider"
+        }
+      }
+    },
+    "FulfillmentProof": {
+      "type": "object",
+      "required": ["type", "timestamp"],
+      "description": "Cryptographic or verifiable proof that the provider fulfilled the provisioning request",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["api_key_delivery", "health_check", "signed_receipt"],
+          "description": "Type of fulfillment proof"
+        },
+        "health_check_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL that can be called to verify the resource is alive (for health_check type)"
+        },
+        "receipt_signature": {
+          "type": "string",
+          "description": "Provider's Ed25519 signature over a canonical receipt (for signed_receipt type)"
+        },
+        "receipt_payload": {
+          "type": "string",
+          "description": "Base64url-encoded canonical receipt data that was signed"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when fulfillment was proven (ISO 8601)"
+        }
+      }
+    },
+    "ProvisionError": {
+      "type": "object",
+      "required": ["code", "message"],
+      "description": "Error details for failed provisioning",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "insufficient_funds",
+            "payment_failed",
+            "region_unavailable",
+            "quota_exceeded",
+            "invalid_config",
+            "trust_tier_insufficient",
+            "offering_unavailable",
+            "provider_error",
+            "rate_limited"
+          ],
+          "description": "Machine-readable error code"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable error description"
+        },
+        "retry_after_seconds": {
+          "type": "integer",
+          "description": "Suggested number of seconds before retrying (for rate-limited or transient errors)"
+        }
+      }
+    }
+  }
+}

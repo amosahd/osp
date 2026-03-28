@@ -1,0 +1,261 @@
+{
+  "$schema": "https://osp.dev/schemas/service-manifest.schema.json",
+  "manifest_id": "mf_railway_prod_v1",
+  "manifest_version": 2,
+  "previous_version": 1,
+  "provider_id": "railway.app",
+  "display_name": "Railway",
+  "provider_url": "https://railway.app",
+  "provider_public_key": "cmFpbHdheV9lZDI1NTE5X3B1YmxpY19rZXlfYmFzZTY0dXJs",
+  "offerings": [
+    {
+      "offering_id": "railway/hosting",
+      "name": "Railway App Hosting",
+      "description": "Infrastructure platform for deploying applications from GitHub, Docker, or CLI. Automatic builds, deploys, scaling, and built-in CI/CD with zero-config Nixpacks build system.",
+      "category": "hosting",
+      "tiers": [
+        {
+          "tier_id": "trial",
+          "name": "Trial",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "credit_per_month_usd": 5,
+            "execution_hours_per_month": 500,
+            "memory_gb": 8,
+            "vcpu": 8,
+            "disk_gb": 1,
+            "network_egress_gb": 100
+          },
+          "features": [
+            "$5 free credit/month",
+            "Up to 500 execution hours",
+            "Up to 8 GB RAM",
+            "Up to 8 vCPU",
+            "1 GB disk per service",
+            "Automatic deploys from GitHub",
+            "Nixpacks & Docker support",
+            "Private networking",
+            "Community support"
+          ],
+          "rate_limit": "$5 credit/month"
+        },
+        {
+          "tier_id": "pro",
+          "name": "Pro",
+          "price": {
+            "amount": "20.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "credit_per_month_usd": null,
+            "execution_hours_per_month": null,
+            "memory_gb": 32,
+            "vcpu": 32,
+            "disk_gb": 50,
+            "network_egress_gb": null
+          },
+          "features": [
+            "Everything in Trial",
+            "$20/seat/month",
+            "Usage-based pricing: $0.000463/vCPU/min, $0.000231/GB RAM/min",
+            "Up to 32 GB RAM per service",
+            "Up to 32 vCPU per service",
+            "50 GB disk per service",
+            "Horizontal scaling (replicas)",
+            "Autoscaling",
+            "Cron jobs",
+            "Health checks & rollbacks",
+            "Multiple environments",
+            "Team collaboration",
+            "Priority support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 900,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["vcpu_minutes", "memory_gb_minutes", "disk_gb_hours", "network_egress_bytes"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["RAILWAY_TOKEN", "RAILWAY_PROJECT_ID"],
+        "properties": {
+          "RAILWAY_TOKEN": {
+            "type": "string",
+            "description": "Railway project deployment token"
+          },
+          "RAILWAY_PROJECT_ID": {
+            "type": "string",
+            "description": "Railway project unique identifier"
+          },
+          "RAILWAY_SERVICE_ID": {
+            "type": "string",
+            "description": "Railway service unique identifier"
+          },
+          "RAILWAY_ENVIRONMENT": {
+            "type": "string",
+            "description": "Railway deployment environment (e.g., production, staging)"
+          },
+          "RAILWAY_PUBLIC_DOMAIN": {
+            "type": "string",
+            "description": "Public domain assigned to the service (*.up.railway.app)"
+          }
+        }
+      },
+      "estimated_provision_seconds": 30,
+      "fulfillment_proof_type": "health_check",
+      "regions": ["us-west1", "us-east4", "europe-west4", "asia-southeast1"],
+      "documentation_url": "https://docs.railway.app"
+    },
+    {
+      "offering_id": "railway/postgres",
+      "name": "Railway Managed PostgreSQL",
+      "description": "Managed PostgreSQL database provisioned alongside your Railway projects. One-click deployment with automatic backups, connection pooling via PgBouncer, and private networking between services.",
+      "category": "database",
+      "tiers": [
+        {
+          "tier_id": "trial",
+          "name": "Trial",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "storage_gb": 1,
+            "memory_gb": 1,
+            "vcpu": 1,
+            "connections": 25,
+            "backups": 1
+          },
+          "features": [
+            "1 GB storage included",
+            "Up to 1 GB RAM",
+            "Up to 25 connections",
+            "PostgreSQL 16",
+            "Private networking",
+            "Daily backups (1 retained)",
+            "Community support"
+          ],
+          "rate_limit": "1 GB storage"
+        },
+        {
+          "tier_id": "pro",
+          "name": "Pro",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "storage_gb": null,
+            "memory_gb": 32,
+            "vcpu": 32,
+            "connections": null,
+            "backups": null
+          },
+          "features": [
+            "Everything in Trial",
+            "Usage-based pricing: $0.000231/GB storage/min",
+            "Up to 32 GB RAM",
+            "Up to 32 vCPU",
+            "Unlimited connections (with PgBouncer pooling)",
+            "Point-in-time recovery",
+            "Automated daily backups (7 retained)",
+            "Read replicas",
+            "Connection pooling (PgBouncer)",
+            "Observability dashboard",
+            "Priority support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 900,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["storage_gb_minutes", "vcpu_minutes", "memory_gb_minutes"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["DATABASE_URL"],
+        "properties": {
+          "DATABASE_URL": {
+            "type": "string",
+            "description": "PostgreSQL connection string (postgresql://user:pass@host:port/db)"
+          },
+          "DATABASE_PUBLIC_URL": {
+            "type": "string",
+            "description": "Publicly accessible PostgreSQL connection string"
+          },
+          "PGHOST": {
+            "type": "string",
+            "description": "PostgreSQL host (private networking address)"
+          },
+          "PGPORT": {
+            "type": "integer",
+            "description": "PostgreSQL port (default: 5432)"
+          },
+          "PGDATABASE": {
+            "type": "string",
+            "description": "PostgreSQL database name"
+          },
+          "PGUSER": {
+            "type": "string",
+            "description": "PostgreSQL username"
+          },
+          "PGPASSWORD": {
+            "type": "string",
+            "description": "PostgreSQL password"
+          },
+          "RAILWAY_TOKEN": {
+            "type": "string",
+            "description": "Railway project token for database management"
+          },
+          "RAILWAY_PROJECT_ID": {
+            "type": "string",
+            "description": "Railway project unique identifier"
+          }
+        }
+      },
+      "estimated_provision_seconds": 20,
+      "fulfillment_proof_type": "health_check",
+      "regions": ["us-west1", "us-east4", "europe-west4", "asia-southeast1"],
+      "documentation_url": "https://docs.railway.app/databases/postgresql"
+    }
+  ],
+  "accepted_payment_methods": ["free", "sardis_wallet", "stripe_spt"],
+  "trust_tier_required": 0,
+  "endpoints": {
+    "provision": "/osp/v1/provision",
+    "deprovision": "/osp/v1/resources/{resource_id}",
+    "credentials": "/osp/v1/resources/{resource_id}/credentials",
+    "rotate": "/osp/v1/resources/{resource_id}/credentials/rotate",
+    "status": "/osp/v1/resources/{resource_id}/status",
+    "usage": "/osp/v1/resources/{resource_id}/usage",
+    "health": "/osp/v1/health"
+  },
+  "extensions": {
+    "railway:dashboard_url": "https://railway.app/dashboard",
+    "railway:nixpacks_enabled": true,
+    "railway:private_networking": true,
+    "railway:cron_enabled": true,
+    "railway:autoscaling_enabled": true,
+    "railway:cli_version": "3.14.0"
+  },
+  "effective_at": "2026-03-15T00:00:00Z",
+  "provider_signature": "cmFpbHdheV9zaWduYXR1cmVfcGxhY2Vob2xkZXJfYmFzZTY0dXJsX2VuY29kZWRfZWQyNTUxOQ"
+}

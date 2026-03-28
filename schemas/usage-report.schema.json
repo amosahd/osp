@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://osp.dev/schemas/usage-report.schema.json",
+  "title": "UsageReport",
+  "description": "Usage and metering data reported by a provider for a provisioned resource, used for billing and reconciliation",
+  "type": "object",
+  "required": ["report_id", "resource_id", "offering_id", "period_start", "period_end", "dimensions", "provider_signature"],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "description": "Unique identifier for this usage report"
+    },
+    "resource_id": {
+      "type": "string",
+      "description": "The provisioned resource this usage report covers"
+    },
+    "offering_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+      "description": "The service offering this usage relates to"
+    },
+    "tier_id": {
+      "type": "string",
+      "description": "The tier the resource is on during this reporting period"
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Start of the reporting period (ISO 8601, inclusive)"
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date-time",
+      "description": "End of the reporting period (ISO 8601, exclusive)"
+    },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/UsageDimension"
+      },
+      "minItems": 1,
+      "description": "Metered usage dimensions with quantities and costs"
+    },
+    "total_cost": {
+      "$ref": "#/$defs/Cost",
+      "description": "Total cost for the reporting period across all dimensions"
+    },
+    "overage_cost": {
+      "$ref": "#/$defs/Cost",
+      "description": "Cost for usage exceeding the tier's included limits"
+    },
+    "countersignature": {
+      "type": ["string", "null"],
+      "description": "Agent's Ed25519 countersignature acknowledging this usage report, null if not yet countersigned"
+    },
+    "countersignature_deadline": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Deadline by which the agent must countersign, null if countersignature not required"
+    },
+    "dispute_window_ends_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp after which this usage report can no longer be disputed"
+    },
+    "provider_signature": {
+      "type": "string",
+      "description": "Ed25519 signature by the provider over the canonical JSON of this report (excluding this field)"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this report was generated (ISO 8601)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Provider-specific metadata about the usage period"
+    }
+  },
+  "$defs": {
+    "UsageDimension": {
+      "type": "object",
+      "required": ["dimension", "quantity", "unit"],
+      "description": "A single metered usage dimension with quantity and optional cost",
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "description": "Name of the usage dimension (e.g., 'storage_bytes', 'api_calls', 'compute_hours', 'bandwidth_bytes')"
+        },
+        "quantity": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?$",
+          "description": "Quantity consumed as a string to preserve precision"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement (e.g., 'bytes', 'calls', 'hours', 'rows')"
+        },
+        "included_quantity": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?$",
+          "description": "Quantity included in the tier's base price"
+        },
+        "overage_quantity": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?$",
+          "description": "Quantity exceeding the included amount"
+        },
+        "unit_price": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?$",
+          "description": "Price per unit of overage usage"
+        },
+        "cost": {
+          "$ref": "#/$defs/Cost",
+          "description": "Total cost for this dimension's overage"
+        }
+      }
+    },
+    "Cost": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "description": "A monetary amount with currency",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Cost amount as string to avoid floating point precision issues"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "USDC", "EURC"],
+          "description": "ISO 4217 currency code or stablecoin identifier"
+        }
+      }
+    }
+  }
+}

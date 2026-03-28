@@ -1,0 +1,115 @@
+{
+  "$schema": "https://osp.dev/schemas/service-manifest.schema.json",
+  "manifest_id": "mf_resend_prod_v1",
+  "manifest_version": 2,
+  "previous_version": 1,
+  "provider_id": "resend.com",
+  "display_name": "Resend",
+  "provider_url": "https://resend.com",
+  "provider_public_key": "cmVzZW5kX2VkMjU1MTlfcHVibGljX2tleV9iYXNlNjR1cmw",
+  "offerings": [
+    {
+      "offering_id": "resend/email",
+      "name": "Resend Email API",
+      "description": "Developer-first transactional email API with high deliverability, React Email support, real-time webhooks, and detailed analytics. Send emails via REST API or SMTP with DKIM, SPF, and DMARC authentication.",
+      "category": "email",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "emails_per_day": 100,
+            "emails_per_month": 3000,
+            "custom_domains": 1,
+            "api_keys": 2
+          },
+          "features": [
+            "100 emails/day",
+            "3,000 emails/month",
+            "1 custom domain",
+            "React Email integration",
+            "REST API & SMTP",
+            "Email analytics & logs (1 day)",
+            "Suppression list management",
+            "Community support"
+          ],
+          "rate_limit": "100 emails/day"
+        },
+        {
+          "tier_id": "pro",
+          "name": "Pro",
+          "price": {
+            "amount": "20.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "emails_per_day": null,
+            "emails_per_month": 50000,
+            "custom_domains": null,
+            "api_keys": null
+          },
+          "features": [
+            "Everything in Free",
+            "50,000 emails/month included",
+            "Unlimited custom domains",
+            "Unlimited API keys",
+            "Webhooks (delivery, open, click, bounce)",
+            "Email analytics & logs (7 days)",
+            "Dedicated IP (add-on)",
+            "Team members",
+            "Priority support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 600,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["emails_sent", "emails_delivered", "emails_bounced"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["RESEND_API_KEY"],
+        "properties": {
+          "RESEND_API_KEY": {
+            "type": "string",
+            "description": "API key for authenticating with the Resend API (re_...)"
+          }
+        }
+      },
+      "estimated_provision_seconds": 5,
+      "fulfillment_proof_type": "api_key_delivery",
+      "regions": ["us-east-1", "eu-west-1", "sa-east-1"],
+      "documentation_url": "https://resend.com/docs"
+    }
+  ],
+  "accepted_payment_methods": ["free", "sardis_wallet", "stripe_spt"],
+  "trust_tier_required": 0,
+  "endpoints": {
+    "provision": "/osp/v1/provision",
+    "deprovision": "/osp/v1/resources/{resource_id}",
+    "credentials": "/osp/v1/resources/{resource_id}/credentials",
+    "rotate": "/osp/v1/resources/{resource_id}/credentials/rotate",
+    "status": "/osp/v1/resources/{resource_id}/status",
+    "usage": "/osp/v1/resources/{resource_id}/usage",
+    "health": "/osp/v1/health"
+  },
+  "extensions": {
+    "resend:dashboard_url": "https://resend.com/overview",
+    "resend:react_email_support": true,
+    "resend:smtp_enabled": true,
+    "resend:webhook_events": ["email.sent", "email.delivered", "email.delivery_delayed", "email.bounced", "email.opened", "email.clicked", "email.complained"]
+  },
+  "effective_at": "2026-03-15T00:00:00Z",
+  "provider_signature": "cmVzZW5kX3NpZ25hdHVyZV9wbGFjZWhvbGRlcl9iYXNlNjR1cmxfZW5jb2RlZF9lZDI1NTE5"
+}

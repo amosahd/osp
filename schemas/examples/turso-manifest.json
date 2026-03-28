@@ -1,0 +1,137 @@
+{
+  "$schema": "https://osp.dev/schemas/service-manifest.schema.json",
+  "manifest_id": "mf_turso_prod_v1",
+  "manifest_version": 2,
+  "previous_version": 1,
+  "provider_id": "turso.tech",
+  "display_name": "Turso",
+  "provider_url": "https://turso.tech",
+  "provider_public_key": "dHVyc29fZWQyNTUxOV9wdWJsaWNfa2V5X2Jhc2U2NHVybA",
+  "offerings": [
+    {
+      "offering_id": "turso/libsql",
+      "name": "Turso LibSQL",
+      "description": "Distributed SQLite databases powered by libSQL. Embedded replicas for zero-latency reads, global edge replication, automatic backups, and branching. The SQLite for production workloads.",
+      "category": "database",
+      "tiers": [
+        {
+          "tier_id": "starter",
+          "name": "Starter",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "total_storage_gb": 9,
+            "databases": 500,
+            "locations": 3,
+            "rows_read_per_month": 1000000000,
+            "rows_written_per_month": 25000000,
+            "groups": 1
+          },
+          "features": [
+            "9 GB total storage",
+            "Up to 500 databases",
+            "1 billion row reads/month",
+            "25 million row writes/month",
+            "3 locations",
+            "Embedded replicas",
+            "Automatic backups",
+            "Point-in-time recovery",
+            "Community support"
+          ],
+          "rate_limit": "500 databases"
+        },
+        {
+          "tier_id": "scaler",
+          "name": "Scaler",
+          "price": {
+            "amount": "29.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "total_storage_gb": 24,
+            "databases": 10000,
+            "locations": 6,
+            "rows_read_per_month": null,
+            "rows_written_per_month": null,
+            "groups": 2
+          },
+          "features": [
+            "Everything in Starter",
+            "24 GB total storage included",
+            "Up to 10,000 databases",
+            "Unlimited row reads (overage: $0.75/billion)",
+            "Unlimited row writes (overage: $1/billion)",
+            "6 locations",
+            "2 groups",
+            "Database branching",
+            "Multi-region replication",
+            "Email support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 600,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["storage_bytes", "rows_read", "rows_written"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN"],
+        "properties": {
+          "TURSO_DATABASE_URL": {
+            "type": "string",
+            "format": "uri",
+            "description": "LibSQL database URL (libsql://[db-name]-[org-name].turso.io)"
+          },
+          "TURSO_AUTH_TOKEN": {
+            "type": "string",
+            "description": "Authentication token for database access"
+          },
+          "TURSO_SYNC_URL": {
+            "type": "string",
+            "format": "uri",
+            "description": "Sync URL for embedded replicas (same as database URL for remote DBs)"
+          },
+          "TURSO_ORG_NAME": {
+            "type": "string",
+            "description": "Turso organization name for API management"
+          }
+        }
+      },
+      "estimated_provision_seconds": 8,
+      "fulfillment_proof_type": "health_check",
+      "regions": ["us-east-1", "us-west-2", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1", "sa-east-1"],
+      "documentation_url": "https://docs.turso.tech"
+    }
+  ],
+  "accepted_payment_methods": ["free", "sardis_wallet", "stripe_spt"],
+  "trust_tier_required": 0,
+  "endpoints": {
+    "provision": "/osp/v1/provision",
+    "deprovision": "/osp/v1/resources/{resource_id}",
+    "credentials": "/osp/v1/resources/{resource_id}/credentials",
+    "rotate": "/osp/v1/resources/{resource_id}/credentials/rotate",
+    "status": "/osp/v1/resources/{resource_id}/status",
+    "usage": "/osp/v1/resources/{resource_id}/usage",
+    "health": "/osp/v1/health"
+  },
+  "extensions": {
+    "turso:dashboard_url": "https://turso.tech/app",
+    "turso:embedded_replicas": true,
+    "turso:branching_enabled": true,
+    "turso:libsql_server_compatible": true,
+    "turso:cli_version": "0.96.0",
+    "turso:supported_sdks": ["@libsql/client", "libsql-python", "libsql-rust", "libsql-go"]
+  },
+  "effective_at": "2026-03-15T00:00:00Z",
+  "provider_signature": "dHVyc29fc2lnbmF0dXJlX3BsYWNlaG9sZGVyX2Jhc2U2NHVybF9lbmNvZGVkX2VkMjU1MTk"
+}

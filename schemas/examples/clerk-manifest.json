@@ -1,0 +1,126 @@
+{
+  "$schema": "https://osp.dev/schemas/service-manifest.schema.json",
+  "manifest_id": "mf_clerk_prod_v1",
+  "manifest_version": 2,
+  "previous_version": 1,
+  "provider_id": "clerk.com",
+  "display_name": "Clerk",
+  "provider_url": "https://clerk.com",
+  "provider_public_key": "Y2xlcmtfZWQyNTUxOV9wdWJsaWNfa2V5X2Jhc2U2NHVybA",
+  "offerings": [
+    {
+      "offering_id": "clerk/auth",
+      "name": "Clerk Authentication",
+      "description": "Drop-in authentication and user management with pre-built UI components, social login, multi-factor authentication, session management, and organization support.",
+      "category": "auth",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "monthly_active_users": 10000,
+            "social_connections": 5,
+            "custom_roles": 5,
+            "organizations": 0
+          },
+          "features": [
+            "Up to 10,000 monthly active users",
+            "Pre-built sign-in/sign-up components",
+            "Email/password authentication",
+            "Social OAuth (Google, GitHub, etc.)",
+            "Magic links & OTP",
+            "Session management",
+            "User profile management",
+            "Community support"
+          ],
+          "rate_limit": "10,000 MAU"
+        },
+        {
+          "tier_id": "pro",
+          "name": "Pro",
+          "price": {
+            "amount": "25.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "monthly_active_users": 100000,
+            "social_connections": null,
+            "custom_roles": null,
+            "organizations": null
+          },
+          "features": [
+            "Everything in Free",
+            "Up to 100,000 monthly active users",
+            "Unlimited social connections",
+            "Multi-factor authentication (TOTP, SMS)",
+            "Organizations & multi-tenancy",
+            "Custom roles & permissions",
+            "Allowlists & blocklists",
+            "Custom session tokens",
+            "Webhooks",
+            "Bot protection",
+            "Remove Clerk branding",
+            "Email support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 900,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["monthly_active_users", "sms_messages", "saml_connections"],
+            "reporting_window": "P1D",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY"],
+        "properties": {
+          "CLERK_PUBLISHABLE_KEY": {
+            "type": "string",
+            "description": "Publishable key for client-side Clerk initialization (pk_live_... or pk_test_...)"
+          },
+          "CLERK_SECRET_KEY": {
+            "type": "string",
+            "description": "Secret key for server-side API calls (sk_live_... or sk_test_...)"
+          },
+          "CLERK_WEBHOOK_SECRET": {
+            "type": "string",
+            "description": "Webhook signing secret for verifying Clerk webhook payloads (whsec_...)"
+          }
+        }
+      },
+      "estimated_provision_seconds": 10,
+      "fulfillment_proof_type": "api_key_delivery",
+      "regions": ["us-east-1", "eu-west-1"],
+      "documentation_url": "https://clerk.com/docs"
+    }
+  ],
+  "accepted_payment_methods": ["free", "sardis_wallet", "stripe_spt"],
+  "trust_tier_required": 0,
+  "endpoints": {
+    "provision": "/osp/v1/provision",
+    "deprovision": "/osp/v1/resources/{resource_id}",
+    "credentials": "/osp/v1/resources/{resource_id}/credentials",
+    "rotate": "/osp/v1/resources/{resource_id}/credentials/rotate",
+    "status": "/osp/v1/resources/{resource_id}/status",
+    "usage": "/osp/v1/resources/{resource_id}/usage",
+    "health": "/osp/v1/health"
+  },
+  "extensions": {
+    "clerk:dashboard_url": "https://dashboard.clerk.com",
+    "clerk:jwt_templates_enabled": true,
+    "clerk:organizations_enabled": true,
+    "clerk:supported_frameworks": ["next", "react", "remix", "gatsby", "express", "fastify"]
+  },
+  "effective_at": "2026-03-15T00:00:00Z",
+  "provider_signature": "Y2xlcmtfc2lnbmF0dXJlX3BsYWNlaG9sZGVyX2Jhc2U2NHVybF9lbmNvZGVkX2VkMjU1MTk"
+}

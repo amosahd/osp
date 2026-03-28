@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://osp.dev/schemas/webhook-event.schema.json",
+  "title": "WebhookEvent",
+  "description": "Webhook payload sent by providers for async provisioning updates and lifecycle events",
+  "type": "object",
+  "required": ["event_id", "event_type", "resource_id", "offering_id", "timestamp", "provider_signature"],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Unique identifier for this webhook event, used for idempotency"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "provision.started",
+        "provision.completed",
+        "provision.failed",
+        "deprovision.started",
+        "deprovision.completed",
+        "deprovision.failed",
+        "credentials.rotated",
+        "credentials.expiring",
+        "resource.warning",
+        "resource.suspended",
+        "resource.resumed",
+        "usage.threshold",
+        "usage.report_ready",
+        "payment.required",
+        "payment.confirmed"
+      ],
+      "description": "Type of lifecycle event"
+    },
+    "resource_id": {
+      "type": "string",
+      "description": "The provisioned resource this event relates to"
+    },
+    "request_id": {
+      "type": "string",
+      "description": "The original provisioning request ID (for provision events)"
+    },
+    "offering_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+      "description": "The service offering this event relates to"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this event occurred (ISO 8601)"
+    },
+    "data": {
+      "$ref": "#/$defs/EventData",
+      "description": "Event-specific payload data"
+    },
+    "provider_signature": {
+      "type": "string",
+      "description": "Ed25519 signature by the provider over the canonical JSON of this event (excluding this field)"
+    },
+    "delivery_attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1,
+      "description": "Delivery attempt number (increments on retries)"
+    }
+  },
+  "$defs": {
+    "EventData": {
+      "type": "object",
+      "description": "Event-specific payload containing details about what happened",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["provisioning", "active", "failed", "suspended", "deprovisioning", "deprovisioned"],
+          "description": "Current status of the resource after this event"
+        },
+        "credentials": {
+          "$ref": "#/$defs/CredentialBundleRef",
+          "description": "New credential bundle (for provision.completed and credentials.rotated events)"
+        },
+        "fulfillment_proof": {
+          "$ref": "#/$defs/FulfillmentProof",
+          "description": "Proof of fulfillment (for provision.completed events)"
+        },
+        "error": {
+          "$ref": "#/$defs/EventError",
+          "description": "Error details (for *.failed events)"
+        },
+        "warning": {
+          "$ref": "#/$defs/ResourceWarning",
+          "description": "Warning details (for resource.warning events)"
+        },
+        "usage_threshold": {
+          "$ref": "#/$defs/UsageThreshold",
+          "description": "Usage threshold details (for usage.threshold events)"
+        },
+        "payment_details": {
+          "$ref": "#/$defs/PaymentDetails",
+          "description": "Payment-related details (for payment.* events)"
+        },
+        "dashboard_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the provider's dashboard for this resource"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable description of what happened"
+        }
+      }
+    },
+    "CredentialBundleRef": {
+      "type": "object",
+      "required": ["encrypted_payload", "encryption_method", "provider_signature"],
+      "description": "Encrypted credential bundle delivered via webhook",
+      "properties": {
+        "encrypted_payload": {
+          "type": "string",
+          "description": "Base64url-encoded encrypted credential payload"
+        },
+        "encryption_method": {
+          "type": "string",
+          "enum": ["x25519-xsalsa20-poly1305", "aes-256-gcm"],
+          "description": "Encryption algorithm used"
+        },
+        "ephemeral_public_key": {
+          "type": "string",
+          "description": "Ephemeral public key for key exchange (base64url)"
+        },
+        "nonce": {
+          "type": "string",
+          "description": "Encryption nonce (base64url)"
+        },
+        "provider_signature": {
+          "type": "string",
+          "description": "Ed25519 signature over the encrypted payload"
+        }
+      }
+    },
+    "FulfillmentProof": {
+      "type": "object",
+      "required": ["type", "timestamp"],
+      "description": "Proof that provisioning was fulfilled",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["api_key_delivery", "health_check", "signed_receipt"],
+          "description": "Type of fulfillment proof"
+        },
+        "health_check_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to verify the resource is alive"
+        },
+        "receipt_signature": {
+          "type": "string",
+          "description": "Provider signature over the receipt"
+        },
+        "receipt_payload": {
+          "type": "string",
+          "description": "Base64url-encoded canonical receipt data"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When fulfillment was proven"
+        }
+      }
+    },
+    "EventError": {
+      "type": "object",
+      "required": ["code", "message"],
+      "description": "Error details for failed events",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Machine-readable error code"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable error description"
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether the failed operation can be retried"
+        },
+        "retry_after_seconds": {
+          "type": "integer",
+          "description": "Suggested number of seconds before retrying"
+        }
+      }
+    },
+    "ResourceWarning": {
+      "type": "object",
+      "required": ["warning_type", "message"],
+      "description": "Warning about a resource condition",
+      "properties": {
+        "warning_type": {
+          "type": "string",
+          "enum": ["approaching_limit", "performance_degraded", "maintenance_scheduled", "credential_expiring", "payment_overdue"],
+          "description": "Category of warning"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable warning message"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["info", "warning", "critical"],
+          "description": "Severity level of the warning"
+        },
+        "action_required_by": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Deadline by which action should be taken, null if no deadline"
+        }
+      }
+    },
+    "UsageThreshold": {
+      "type": "object",
+      "required": ["dimension", "threshold_percent", "current_usage"],
+      "description": "Details about a usage threshold being reached",
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "description": "The usage dimension that triggered the threshold"
+        },
+        "threshold_percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "The threshold percentage that was reached"
+        },
+        "current_usage": {
+          "type": "string",
+          "description": "Current usage quantity as a string"
+        },
+        "limit": {
+          "type": "string",
+          "description": "The tier's limit for this dimension"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement"
+        }
+      }
+    },
+    "PaymentDetails": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "description": "Payment-related event details",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Payment amount"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "USDC", "EURC"],
+          "description": "Currency of the payment"
+        },
+        "payment_method": {
+          "type": "string",
+          "description": "Payment method used or required"
+        },
+        "due_by": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Payment deadline (for payment.required events)"
+        },
+        "transaction_id": {
+          "type": "string",
+          "description": "Transaction identifier (for payment.confirmed events)"
+        }
+      }
+    }
+  }
+}

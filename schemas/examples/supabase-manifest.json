@@ -1,0 +1,344 @@
+{
+  "$schema": "https://osp.dev/schemas/service-manifest.schema.json",
+  "manifest_id": "mf_supabase_prod_v1",
+  "manifest_version": 3,
+  "previous_version": 2,
+  "provider_id": "supabase.com",
+  "display_name": "Supabase",
+  "provider_url": "https://supabase.com",
+  "provider_public_key": "dGhpcyBpcyBhIGZha2UgZWQyNTUxOSBwdWJsaWMga2V5",
+  "offerings": [
+    {
+      "offering_id": "supabase/postgres",
+      "name": "Supabase Postgres",
+      "description": "Managed PostgreSQL database with realtime subscriptions, Row Level Security, and auto-generated REST and GraphQL APIs via PostgREST.",
+      "category": "database",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "storage_mb": 500,
+            "bandwidth_gb": 2,
+            "api_calls_per_month": 500000,
+            "max_rows": 50000,
+            "max_connections": 10
+          },
+          "features": [
+            "Dedicated Postgres instance",
+            "Auto-generated REST API",
+            "Realtime subscriptions",
+            "Row Level Security",
+            "Community support"
+          ],
+          "rate_limit": "2 projects"
+        },
+        {
+          "tier_id": "pro",
+          "name": "Pro",
+          "price": {
+            "amount": "25.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "storage_mb": 8192,
+            "bandwidth_gb": 50,
+            "api_calls_per_month": 5000000,
+            "max_rows": null,
+            "max_connections": 60
+          },
+          "features": [
+            "Everything in Free",
+            "8 GB storage included",
+            "50 GB bandwidth included",
+            "No row limits",
+            "Daily backups (7-day retention)",
+            "Email support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 900,
+            "dispute_window_seconds": 86400
+          },
+          "rate_limit": "unlimited projects",
+          "usage_metering": {
+            "dimensions": ["storage_bytes", "bandwidth_bytes", "api_calls"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        },
+        {
+          "tier_id": "team",
+          "name": "Team",
+          "price": {
+            "amount": "599.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "storage_mb": 65536,
+            "bandwidth_gb": 250,
+            "api_calls_per_month": null,
+            "max_rows": null,
+            "max_connections": 200
+          },
+          "features": [
+            "Everything in Pro",
+            "64 GB storage included",
+            "250 GB bandwidth included",
+            "Unlimited API calls",
+            "SOC2 compliance",
+            "Priority support",
+            "Custom domains",
+            "Point-in-time recovery (14 days)"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 7200,
+            "verification_window_seconds": 1800,
+            "dispute_window_seconds": 172800
+          },
+          "rate_limit": "unlimited projects",
+          "usage_metering": {
+            "dimensions": ["storage_bytes", "bandwidth_bytes", "compute_hours"],
+            "reporting_window": "PT1H",
+            "countersignature_required": true
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["connection_string", "api_url", "anon_key", "service_role_key"],
+        "properties": {
+          "connection_string": {
+            "type": "string",
+            "description": "PostgreSQL connection string"
+          },
+          "api_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "PostgREST API URL"
+          },
+          "anon_key": {
+            "type": "string",
+            "description": "Anonymous (public) API key"
+          },
+          "service_role_key": {
+            "type": "string",
+            "description": "Service role API key with elevated privileges"
+          },
+          "jwt_secret": {
+            "type": "string",
+            "description": "JWT secret for custom token generation"
+          }
+        }
+      },
+      "estimated_provision_seconds": 45,
+      "fulfillment_proof_type": "health_check",
+      "regions": ["us-east-1", "us-west-1", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"],
+      "documentation_url": "https://supabase.com/docs/guides/database"
+    },
+    {
+      "offering_id": "supabase/auth",
+      "name": "Supabase Auth",
+      "description": "User authentication and authorization service with social logins, magic links, phone auth, and multi-factor authentication.",
+      "category": "auth",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "monthly_active_users": 50000,
+            "social_providers": 3
+          },
+          "features": [
+            "Email/password auth",
+            "Magic link auth",
+            "Social OAuth (3 providers)",
+            "Row Level Security integration",
+            "Session management"
+          ],
+          "rate_limit": "50000 MAU"
+        },
+        {
+          "tier_id": "pro",
+          "name": "Pro",
+          "price": {
+            "amount": "25.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "monthly_active_users": 100000,
+            "social_providers": null
+          },
+          "features": [
+            "Everything in Free",
+            "100K MAU included",
+            "Unlimited social providers",
+            "Phone auth (SMS)",
+            "Multi-factor authentication",
+            "Custom SMTP",
+            "Audit logs"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 900,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["monthly_active_users", "sms_messages"],
+            "reporting_window": "P1D",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["api_url", "anon_key", "service_role_key"],
+        "properties": {
+          "api_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Auth API endpoint URL"
+          },
+          "anon_key": {
+            "type": "string",
+            "description": "Anonymous API key for client-side auth"
+          },
+          "service_role_key": {
+            "type": "string",
+            "description": "Service role key for server-side auth management"
+          }
+        }
+      },
+      "estimated_provision_seconds": 15,
+      "fulfillment_proof_type": "api_key_delivery",
+      "regions": ["us-east-1", "us-west-1", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"],
+      "documentation_url": "https://supabase.com/docs/guides/auth"
+    },
+    {
+      "offering_id": "supabase/storage",
+      "name": "Supabase Storage",
+      "description": "S3-compatible object storage with access policies, image transformations, and resumable uploads.",
+      "category": "storage",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "storage_gb": 1,
+            "file_upload_limit_mb": 50
+          },
+          "features": [
+            "S3-compatible API",
+            "Access policies",
+            "CDN delivery",
+            "Image transformations"
+          ],
+          "rate_limit": "1 GB storage"
+        },
+        {
+          "tier_id": "pro",
+          "name": "Pro",
+          "price": {
+            "amount": "25.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "storage_gb": 100,
+            "file_upload_limit_mb": 5120
+          },
+          "features": [
+            "Everything in Free",
+            "100 GB storage included",
+            "5 GB file upload limit",
+            "Resumable uploads",
+            "Custom transformations"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 900,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["storage_bytes", "bandwidth_bytes", "transformations"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["api_url", "anon_key", "service_role_key"],
+        "properties": {
+          "api_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Storage API endpoint URL"
+          },
+          "anon_key": {
+            "type": "string",
+            "description": "Anonymous API key"
+          },
+          "service_role_key": {
+            "type": "string",
+            "description": "Service role key with full storage access"
+          },
+          "s3_endpoint": {
+            "type": "string",
+            "format": "uri",
+            "description": "S3-compatible endpoint URL"
+          },
+          "s3_access_key": {
+            "type": "string",
+            "description": "S3 access key ID"
+          },
+          "s3_secret_key": {
+            "type": "string",
+            "description": "S3 secret access key"
+          }
+        }
+      },
+      "estimated_provision_seconds": 15,
+      "fulfillment_proof_type": "api_key_delivery",
+      "regions": ["us-east-1", "us-west-1", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"],
+      "documentation_url": "https://supabase.com/docs/guides/storage"
+    }
+  ],
+  "accepted_payment_methods": ["free", "sardis_wallet", "stripe_spt"],
+  "trust_tier_required": 0,
+  "endpoints": {
+    "provision": "/osp/v1/provision",
+    "deprovision": "/osp/v1/resources/{resource_id}",
+    "credentials": "/osp/v1/resources/{resource_id}/credentials",
+    "rotate": "/osp/v1/resources/{resource_id}/credentials/rotate",
+    "status": "/osp/v1/resources/{resource_id}/status",
+    "usage": "/osp/v1/resources/{resource_id}/usage",
+    "health": "/osp/v1/health"
+  },
+  "extensions": {
+    "supabase:dashboard_base_url": "https://app.supabase.com/project",
+    "supabase:cli_version": "1.200.0",
+    "supabase:graphql_enabled": true,
+    "supabase:realtime_enabled": true
+  },
+  "effective_at": "2026-03-15T00:00:00Z",
+  "provider_signature": "c2lnbmF0dXJlX3BsYWNlaG9sZGVyX2Jhc2U2NHVybF9lbmNvZGVkX2VkMjU1MTlfc2lnbmF0dXJl"
+}

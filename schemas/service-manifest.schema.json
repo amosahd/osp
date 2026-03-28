@@ -1,0 +1,284 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://osp.dev/schemas/service-manifest.schema.json",
+  "title": "ServiceManifest",
+  "description": "A provider's catalog of available services, published at /.well-known/osp.json",
+  "type": "object",
+  "required": ["manifest_id", "manifest_version", "provider_id", "display_name", "offerings", "endpoints", "provider_signature"],
+  "properties": {
+    "manifest_id": {
+      "type": "string",
+      "description": "Unique manifest identifier",
+      "pattern": "^mf_[a-z0-9_]+$"
+    },
+    "manifest_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonically increasing version number"
+    },
+    "previous_version": {
+      "type": ["integer", "null"],
+      "description": "Previous manifest version, null for first version"
+    },
+    "provider_id": {
+      "type": "string",
+      "description": "Provider's domain or identifier (e.g., 'supabase.com')"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Human-readable provider name"
+    },
+    "provider_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Provider's website"
+    },
+    "provider_public_key": {
+      "type": "string",
+      "description": "Ed25519 public key (base64url) for manifest verification"
+    },
+    "offerings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ServiceOffering"
+      },
+      "minItems": 1,
+      "description": "List of service offerings available from this provider"
+    },
+    "accepted_payment_methods": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["free", "sardis_wallet", "stripe_spt", "x402", "mpp", "invoice", "external"]
+      },
+      "description": "Payment methods this provider accepts"
+    },
+    "trust_tier_required": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "default": 0,
+      "description": "Minimum agent trust tier to provision (0=anonymous, 1=verified, 2=bonded, 3=enterprise)"
+    },
+    "endpoints": {
+      "$ref": "#/$defs/ProviderEndpoints",
+      "description": "API endpoints for provisioning lifecycle operations"
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Provider-specific metadata and custom extensions"
+    },
+    "effective_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this manifest version becomes effective (ISO 8601)"
+    },
+    "provider_signature": {
+      "type": "string",
+      "description": "Ed25519 signature over canonical JSON (excluding this field)"
+    }
+  },
+  "$defs": {
+    "ServiceOffering": {
+      "type": "object",
+      "required": ["offering_id", "name", "category", "tiers", "credentials_schema"],
+      "description": "A single service offering within the provider's catalog",
+      "properties": {
+        "offering_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+          "description": "Unique offering ID, format: provider/service (e.g., 'supabase/postgres')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name of the service offering"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the service offering"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["database", "hosting", "auth", "analytics", "storage", "compute", "messaging", "monitoring", "search", "ai", "other"],
+          "description": "Service category for discovery and filtering"
+        },
+        "tiers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ServiceTier"
+          },
+          "minItems": 1,
+          "description": "Available pricing/capability tiers for this offering"
+        },
+        "credentials_schema": {
+          "type": "object",
+          "description": "JSON Schema describing the credentials that will be returned upon provisioning"
+        },
+        "estimated_provision_seconds": {
+          "type": "integer",
+          "default": 30,
+          "description": "Estimated time to provision in seconds"
+        },
+        "fulfillment_proof_type": {
+          "type": "string",
+          "enum": ["api_key_delivery", "health_check", "signed_receipt"],
+          "default": "api_key_delivery",
+          "description": "How the provider proves fulfillment after provisioning"
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Available deployment regions (e.g., 'us-east-1', 'eu-west-1')"
+        },
+        "documentation_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the service offering's documentation"
+        }
+      }
+    },
+    "ServiceTier": {
+      "type": "object",
+      "required": ["tier_id", "name", "price"],
+      "description": "A pricing/capability tier within a service offering",
+      "properties": {
+        "tier_id": {
+          "type": "string",
+          "description": "Unique identifier for this tier within the offering"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable tier name (e.g., 'Free', 'Pro', 'Enterprise')"
+        },
+        "price": {
+          "$ref": "#/$defs/Price",
+          "description": "Pricing information for this tier"
+        },
+        "limits": {
+          "type": "object",
+          "description": "Tier-specific resource limits (storage_mb, api_calls, connections, etc.)"
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of features included in this tier"
+        },
+        "escrow_profile": {
+          "$ref": "#/$defs/EscrowProfile",
+          "description": "Escrow timing parameters for paid tiers"
+        },
+        "rate_limit": {
+          "type": "string",
+          "description": "Rate limit description (e.g., '2 projects', '1000 req/min')"
+        },
+        "usage_metering": {
+          "$ref": "#/$defs/UsageMetering",
+          "description": "Usage-based billing configuration"
+        }
+      }
+    },
+    "Price": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "description": "Pricing information with currency and optional billing interval",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Price amount as string to avoid floating point precision issues (e.g., '25.00')"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "USDC", "EURC"],
+          "description": "ISO 4217 currency code or stablecoin identifier"
+        },
+        "interval": {
+          "type": ["string", "null"],
+          "description": "Billing interval as ISO 8601 duration (P1M = monthly, P1Y = yearly), null for one-time charges"
+        }
+      }
+    },
+    "EscrowProfile": {
+      "type": "object",
+      "description": "Escrow timing parameters governing payment hold and release",
+      "properties": {
+        "timeout_seconds": {
+          "type": "integer",
+          "default": 3600,
+          "description": "Maximum time in seconds before escrowed funds are returned if provisioning fails"
+        },
+        "verification_window_seconds": {
+          "type": "integer",
+          "default": 900,
+          "description": "Time in seconds the agent has to verify provisioning before auto-release"
+        },
+        "dispute_window_seconds": {
+          "type": "integer",
+          "default": 86400,
+          "description": "Time in seconds after verification during which disputes can be raised"
+        }
+      }
+    },
+    "UsageMetering": {
+      "type": "object",
+      "description": "Configuration for usage-based metering and billing",
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Metered dimensions (e.g., 'storage_bytes', 'api_calls', 'compute_hours')"
+        },
+        "reporting_window": {
+          "type": "string",
+          "description": "How often usage is reported, as ISO 8601 duration (e.g., 'PT1H' for hourly)"
+        },
+        "countersignature_required": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the agent must countersign usage reports for billing"
+        }
+      }
+    },
+    "ProviderEndpoints": {
+      "type": "object",
+      "required": ["provision", "deprovision", "credentials", "status", "health"],
+      "description": "API endpoint paths for provisioning lifecycle operations",
+      "properties": {
+        "provision": {
+          "type": "string",
+          "description": "POST endpoint path for provisioning new resources"
+        },
+        "deprovision": {
+          "type": "string",
+          "description": "DELETE endpoint path for deprovisioning resources"
+        },
+        "credentials": {
+          "type": "string",
+          "description": "GET endpoint path for retrieving current credentials"
+        },
+        "rotate": {
+          "type": "string",
+          "description": "POST endpoint path for credential rotation"
+        },
+        "status": {
+          "type": "string",
+          "description": "GET endpoint path for resource status"
+        },
+        "usage": {
+          "type": "string",
+          "description": "GET endpoint path for usage/metering data"
+        },
+        "health": {
+          "type": "string",
+          "description": "GET endpoint path for provider health checks"
+        }
+      }
+    }
+  }
+}

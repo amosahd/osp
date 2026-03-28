@@ -1,0 +1,189 @@
+{
+  "$schema": "https://osp.dev/schemas/service-manifest.schema.json",
+  "manifest_id": "mf_neon_prod_v1",
+  "manifest_version": 5,
+  "previous_version": 4,
+  "provider_id": "neon.tech",
+  "display_name": "Neon",
+  "provider_url": "https://neon.tech",
+  "provider_public_key": "bmVvbl9lZDI1NTE5X3B1YmxpY19rZXlfYmFzZTY0dXJs",
+  "offerings": [
+    {
+      "offering_id": "neon/postgres",
+      "name": "Neon Serverless Postgres",
+      "description": "Serverless PostgreSQL with autoscaling, branching, and bottomless storage. Scale to zero when idle, instant database branching for development and testing.",
+      "category": "database",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free Tier",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "storage_gb": 0.5,
+            "compute_hours_per_month": 191,
+            "branches": 10,
+            "projects": 1,
+            "max_compute_size_cu": 0.25
+          },
+          "features": [
+            "Serverless autoscaling (scale to zero)",
+            "0.5 GB storage included",
+            "191 compute-hours/month (0.25 CU)",
+            "10 branches",
+            "Point-in-time restore (7 days)",
+            "Community support"
+          ],
+          "rate_limit": "1 project"
+        },
+        {
+          "tier_id": "launch",
+          "name": "Launch",
+          "price": {
+            "amount": "19.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "storage_gb": 10,
+            "compute_hours_per_month": 300,
+            "branches": 500,
+            "projects": 10,
+            "max_compute_size_cu": 4
+          },
+          "features": [
+            "Everything in Free",
+            "10 GB storage included",
+            "300 compute-hours/month",
+            "Up to 4 CU compute size",
+            "500 branches",
+            "10 projects",
+            "Point-in-time restore (14 days)",
+            "Standard support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 600,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["storage_bytes", "compute_hours", "written_data_bytes", "data_transfer_bytes"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        },
+        {
+          "tier_id": "scale",
+          "name": "Scale",
+          "price": {
+            "amount": "69.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "storage_gb": 50,
+            "compute_hours_per_month": 750,
+            "branches": 500,
+            "projects": 50,
+            "max_compute_size_cu": 8,
+            "read_replicas": 4
+          },
+          "features": [
+            "Everything in Launch",
+            "50 GB storage included",
+            "750 compute-hours/month",
+            "Up to 8 CU compute size",
+            "50 projects",
+            "Read replicas",
+            "IP Allow rules",
+            "Point-in-time restore (30 days)",
+            "Priority support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 7200,
+            "verification_window_seconds": 900,
+            "dispute_window_seconds": 172800
+          },
+          "usage_metering": {
+            "dimensions": ["storage_bytes", "compute_hours", "written_data_bytes", "data_transfer_bytes"],
+            "reporting_window": "PT1H",
+            "countersignature_required": true
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["connection_string", "host", "port", "database", "username", "password"],
+        "properties": {
+          "connection_string": {
+            "type": "string",
+            "description": "Full PostgreSQL connection string with pooler"
+          },
+          "host": {
+            "type": "string",
+            "description": "Database host (e.g., ep-cool-darkness-123456.us-east-2.aws.neon.tech)"
+          },
+          "port": {
+            "type": "integer",
+            "description": "Database port (default: 5432)"
+          },
+          "database": {
+            "type": "string",
+            "description": "Database name"
+          },
+          "username": {
+            "type": "string",
+            "description": "Database username"
+          },
+          "password": {
+            "type": "string",
+            "description": "Database password"
+          },
+          "pooler_connection_string": {
+            "type": "string",
+            "description": "Connection string via connection pooler for serverless environments"
+          },
+          "branch_id": {
+            "type": "string",
+            "description": "Default branch ID for branch management API calls"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Neon project ID for API calls"
+          },
+          "api_key": {
+            "type": "string",
+            "description": "Neon API key for managing branches and compute"
+          }
+        }
+      },
+      "estimated_provision_seconds": 10,
+      "fulfillment_proof_type": "health_check",
+      "regions": ["us-east-1", "us-east-2", "us-west-2", "eu-central-1", "ap-southeast-1"],
+      "documentation_url": "https://neon.tech/docs"
+    }
+  ],
+  "accepted_payment_methods": ["free", "sardis_wallet", "stripe_spt", "x402"],
+  "trust_tier_required": 0,
+  "endpoints": {
+    "provision": "/osp/v1/provision",
+    "deprovision": "/osp/v1/resources/{resource_id}",
+    "credentials": "/osp/v1/resources/{resource_id}/credentials",
+    "rotate": "/osp/v1/resources/{resource_id}/credentials/rotate",
+    "status": "/osp/v1/resources/{resource_id}/status",
+    "usage": "/osp/v1/resources/{resource_id}/usage",
+    "health": "/osp/v1/health"
+  },
+  "extensions": {
+    "neon:branching_enabled": true,
+    "neon:autoscaling_enabled": true,
+    "neon:scale_to_zero": true,
+    "neon:console_base_url": "https://console.neon.tech/app/projects",
+    "neon:api_base_url": "https://console.neon.tech/api/v2"
+  },
+  "effective_at": "2026-03-20T00:00:00Z",
+  "provider_signature": "bmVvbl9zaWduYXR1cmVfcGxhY2Vob2xkZXJfYmFzZTY0dXJsX2VuY29kZWRfZWQyNTUxOQ"
+}

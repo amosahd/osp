@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Lock files (keep package-lock.json for TS, exclude others)
+# package-lock.json is committed for reproducibility
+
+# Build
+*.egg-info/
+build/

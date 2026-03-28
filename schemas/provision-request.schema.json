@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://osp.dev/schemas/provision-request.schema.json",
+  "title": "ProvisionRequest",
+  "description": "Request from an AI agent to provision a service resource from a provider",
+  "type": "object",
+  "required": ["offering_id", "tier_id", "project_name", "nonce"],
+  "properties": {
+    "offering_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+      "description": "Service offering ID from the provider's manifest (e.g., 'supabase/postgres')"
+    },
+    "tier_id": {
+      "type": "string",
+      "description": "Selected tier ID within the offering"
+    },
+    "project_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Human-readable project name for the provisioned resource"
+    },
+    "region": {
+      "type": "string",
+      "description": "Desired deployment region (must be one of the offering's available regions)"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": ["free", "sardis_wallet", "stripe_spt", "x402", "mpp", "invoice", "external"],
+      "description": "Payment method to use for this provisioning request"
+    },
+    "payment_proof": {
+      "type": "string",
+      "description": "Payment proof (token, transaction hash, escrow ID, etc.) — format depends on payment_method"
+    },
+    "agent_public_key": {
+      "type": "string",
+      "description": "Ed25519 public key (base64url) for encrypting credentials returned to the agent"
+    },
+    "nonce": {
+      "type": "string",
+      "description": "Unique cryptographic nonce for replay protection (base64url encoded)"
+    },
+    "config": {
+      "type": "object",
+      "description": "Offering-specific configuration (e.g., database version, instance size, extensions)"
+    },
+    "webhook_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL for async provisioning callbacks when resource is ready"
+    }
+  }
+}

@@ -1,0 +1,218 @@
+{
+  "$schema": "https://osp.dev/schemas/service-manifest.schema.json",
+  "manifest_id": "mf_upstash_prod_v1",
+  "manifest_version": 2,
+  "previous_version": 1,
+  "provider_id": "upstash.com",
+  "display_name": "Upstash",
+  "provider_url": "https://upstash.com",
+  "provider_public_key": "dXBzdGFzaF9lZDI1NTE5X3B1YmxpY19rZXlfYmFzZTY0dXJs",
+  "offerings": [
+    {
+      "offering_id": "upstash/redis",
+      "name": "Upstash Redis",
+      "description": "Serverless Redis with REST API and per-request pricing. Durable storage, global replication, and automatic TLS encryption. Ideal for caching, session management, and rate limiting in serverless environments.",
+      "category": "database",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "commands_per_day": 10000,
+            "storage_mb": 256,
+            "max_concurrent_connections": 100,
+            "max_request_size_mb": 1,
+            "databases": 1,
+            "regions": 1
+          },
+          "features": [
+            "REST API access",
+            "10,000 commands/day",
+            "256 MB max data size",
+            "TLS encryption",
+            "Single region",
+            "Community support"
+          ],
+          "rate_limit": "10,000 commands/day"
+        },
+        {
+          "tier_id": "pay_as_you_go",
+          "name": "Pay-as-you-go",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "commands_per_day": null,
+            "storage_mb": null,
+            "max_concurrent_connections": 1000,
+            "max_request_size_mb": 100,
+            "databases": 10,
+            "regions": null
+          },
+          "features": [
+            "Everything in Free",
+            "Unlimited commands ($0.2 per 100K commands)",
+            "Unlimited storage ($0.25 per GB)",
+            "Multi-region replication",
+            "Global database support",
+            "Eviction policies",
+            "Email support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 600,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["commands", "storage_bytes", "bandwidth_bytes"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+        "properties": {
+          "UPSTASH_REDIS_REST_URL": {
+            "type": "string",
+            "format": "uri",
+            "description": "REST API endpoint URL for the Redis database"
+          },
+          "UPSTASH_REDIS_REST_TOKEN": {
+            "type": "string",
+            "description": "Authentication token for the REST API"
+          },
+          "UPSTASH_REDIS_URL": {
+            "type": "string",
+            "description": "Native Redis protocol connection string (redis://...)"
+          },
+          "UPSTASH_REDIS_PASSWORD": {
+            "type": "string",
+            "description": "Password for native Redis protocol connections"
+          }
+        }
+      },
+      "estimated_provision_seconds": 5,
+      "fulfillment_proof_type": "api_key_delivery",
+      "regions": ["us-east-1", "us-west-1", "eu-west-1", "ap-northeast-1", "us-central1"],
+      "documentation_url": "https://upstash.com/docs/redis"
+    },
+    {
+      "offering_id": "upstash/qstash",
+      "name": "Upstash QStash",
+      "description": "Serverless messaging and scheduling service with HTTP-based message delivery, guaranteed at-least-once delivery, retries, and dead letter queues. Purpose-built for serverless and edge compute environments.",
+      "category": "messaging",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "messages_per_day": 500,
+            "max_message_size_kb": 500,
+            "topics": 3,
+            "schedules": 5
+          },
+          "features": [
+            "HTTP-based message delivery",
+            "500 messages/day",
+            "At-least-once delivery guarantee",
+            "Automatic retries",
+            "Scheduled messages (cron)",
+            "Community support"
+          ],
+          "rate_limit": "500 messages/day"
+        },
+        {
+          "tier_id": "pro",
+          "name": "Pay-as-you-go",
+          "price": {
+            "amount": "1.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "messages_per_day": null,
+            "max_message_size_kb": 5000,
+            "topics": null,
+            "schedules": null
+          },
+          "features": [
+            "Everything in Free",
+            "Unlimited messages ($1 per 10K messages)",
+            "5 MB max message size",
+            "Unlimited topics",
+            "Unlimited schedules",
+            "Dead letter queues",
+            "Callbacks & webhooks",
+            "Batch publishing",
+            "Email support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 600,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["messages_published", "messages_delivered"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["QSTASH_TOKEN"],
+        "properties": {
+          "QSTASH_TOKEN": {
+            "type": "string",
+            "description": "QStash API bearer token for publishing messages"
+          },
+          "QSTASH_CURRENT_SIGNING_KEY": {
+            "type": "string",
+            "description": "Current signing key for verifying incoming webhook requests"
+          },
+          "QSTASH_NEXT_SIGNING_KEY": {
+            "type": "string",
+            "description": "Next signing key for key rotation verification"
+          }
+        }
+      },
+      "estimated_provision_seconds": 5,
+      "fulfillment_proof_type": "api_key_delivery",
+      "regions": ["us-east-1", "eu-west-1"],
+      "documentation_url": "https://upstash.com/docs/qstash"
+    }
+  ],
+  "accepted_payment_methods": ["free", "sardis_wallet", "stripe_spt"],
+  "trust_tier_required": 0,
+  "endpoints": {
+    "provision": "/osp/v1/provision",
+    "deprovision": "/osp/v1/resources/{resource_id}",
+    "credentials": "/osp/v1/resources/{resource_id}/credentials",
+    "rotate": "/osp/v1/resources/{resource_id}/credentials/rotate",
+    "status": "/osp/v1/resources/{resource_id}/status",
+    "usage": "/osp/v1/resources/{resource_id}/usage",
+    "health": "/osp/v1/health"
+  },
+  "extensions": {
+    "upstash:console_url": "https://console.upstash.com",
+    "upstash:rest_api_enabled": true,
+    "upstash:global_replication": true,
+    "upstash:cli_version": "0.5.0"
+  },
+  "effective_at": "2026-03-15T00:00:00Z",
+  "provider_signature": "dXBzdGFzaF9zaWduYXR1cmVfcGxhY2Vob2xkZXJfYmFzZTY0dXJsX2VuY29kZWRfZWQyNTUxOQ"
+}

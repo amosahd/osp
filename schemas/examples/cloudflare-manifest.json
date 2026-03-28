@@ -1,0 +1,337 @@
+{
+  "$schema": "https://osp.dev/schemas/service-manifest.schema.json",
+  "manifest_id": "mf_cloudflare_prod_v1",
+  "manifest_version": 3,
+  "previous_version": 2,
+  "provider_id": "cloudflare.com",
+  "display_name": "Cloudflare",
+  "provider_url": "https://cloudflare.com",
+  "provider_public_key": "Y2xvdWRmbGFyZV9lZDI1NTE5X3B1YmxpY19rZXlfYmFzZTY0dXJs",
+  "offerings": [
+    {
+      "offering_id": "cloudflare/workers",
+      "name": "Cloudflare Workers",
+      "description": "Edge compute platform running JavaScript, TypeScript, Python, Rust, and WASM at 300+ data centers worldwide. Sub-millisecond cold starts with V8 isolate architecture.",
+      "category": "compute",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "requests_per_day": 100000,
+            "cpu_time_ms_per_invocation": 10,
+            "worker_size_mb": 1,
+            "workers": 30,
+            "cron_triggers": 5,
+            "kv_reads_per_day": 100000,
+            "kv_writes_per_day": 1000
+          },
+          "features": [
+            "100,000 requests/day",
+            "10 ms CPU time per invocation",
+            "Up to 30 Workers",
+            "Workers KV (limited reads/writes)",
+            "Cron Triggers (5 max)",
+            "CLI (Wrangler) deployment",
+            "Community support"
+          ],
+          "rate_limit": "100,000 requests/day"
+        },
+        {
+          "tier_id": "paid",
+          "name": "Workers Paid",
+          "price": {
+            "amount": "5.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "requests_per_month": 10000000,
+            "cpu_time_ms_per_invocation": 30,
+            "worker_size_mb": 10,
+            "workers": null,
+            "cron_triggers": null,
+            "kv_reads_per_day": null,
+            "kv_writes_per_day": null
+          },
+          "features": [
+            "Everything in Free",
+            "10 million requests/month included",
+            "30 ms CPU time per invocation",
+            "$0.30 per additional million requests",
+            "10 MB worker size",
+            "Unlimited Workers",
+            "Durable Objects",
+            "Workers Analytics Engine",
+            "Unlimited KV operations (with overage billing)",
+            "Unlimited Cron Triggers",
+            "Standard support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 600,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["requests", "cpu_time_ms", "duration_gb_s", "kv_reads", "kv_writes"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"],
+        "properties": {
+          "CLOUDFLARE_API_TOKEN": {
+            "type": "string",
+            "description": "Cloudflare API token with Workers permissions"
+          },
+          "CLOUDFLARE_ACCOUNT_ID": {
+            "type": "string",
+            "description": "Cloudflare account identifier"
+          },
+          "CLOUDFLARE_WORKER_NAME": {
+            "type": "string",
+            "description": "Deployed Worker script name"
+          },
+          "CLOUDFLARE_WORKER_URL": {
+            "type": "string",
+            "format": "uri",
+            "description": "Worker route URL (e.g., https://my-worker.username.workers.dev)"
+          }
+        }
+      },
+      "estimated_provision_seconds": 15,
+      "fulfillment_proof_type": "health_check",
+      "regions": ["global"],
+      "documentation_url": "https://developers.cloudflare.com/workers/"
+    },
+    {
+      "offering_id": "cloudflare/r2",
+      "name": "Cloudflare R2",
+      "description": "S3-compatible object storage with zero egress fees. Automatic multi-region storage with global access and built-in CDN integration.",
+      "category": "storage",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "storage_gb": 10,
+            "class_a_operations_per_month": 1000000,
+            "class_b_operations_per_month": 10000000,
+            "egress_gb": null
+          },
+          "features": [
+            "10 GB storage included",
+            "1 million Class A operations/month (PUT, POST, LIST)",
+            "10 million Class B operations/month (GET)",
+            "Zero egress fees",
+            "S3-compatible API",
+            "Community support"
+          ],
+          "rate_limit": "10 GB storage"
+        },
+        {
+          "tier_id": "paid",
+          "name": "R2 Paid",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "storage_gb": null,
+            "class_a_operations_per_month": null,
+            "class_b_operations_per_month": null,
+            "egress_gb": null
+          },
+          "features": [
+            "Everything in Free",
+            "$0.015 per GB/month storage",
+            "$4.50 per million Class A operations",
+            "$0.36 per million Class B operations",
+            "Zero egress fees always",
+            "Custom domains",
+            "Event notifications",
+            "Object lifecycle management",
+            "Standard support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 600,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["storage_bytes", "class_a_operations", "class_b_operations"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"],
+        "properties": {
+          "CLOUDFLARE_API_TOKEN": {
+            "type": "string",
+            "description": "Cloudflare API token with R2 permissions"
+          },
+          "CLOUDFLARE_ACCOUNT_ID": {
+            "type": "string",
+            "description": "Cloudflare account identifier"
+          },
+          "R2_BUCKET_NAME": {
+            "type": "string",
+            "description": "R2 bucket name"
+          },
+          "R2_ACCESS_KEY_ID": {
+            "type": "string",
+            "description": "S3-compatible access key ID"
+          },
+          "R2_SECRET_ACCESS_KEY": {
+            "type": "string",
+            "description": "S3-compatible secret access key"
+          },
+          "R2_ENDPOINT": {
+            "type": "string",
+            "format": "uri",
+            "description": "S3-compatible endpoint URL (https://<account_id>.r2.cloudflarestorage.com)"
+          }
+        }
+      },
+      "estimated_provision_seconds": 10,
+      "fulfillment_proof_type": "api_key_delivery",
+      "regions": ["global"],
+      "documentation_url": "https://developers.cloudflare.com/r2/"
+    },
+    {
+      "offering_id": "cloudflare/d1",
+      "name": "Cloudflare D1",
+      "description": "Serverless SQLite database running at the edge with automatic read replication, point-in-time recovery, and seamless Workers integration.",
+      "category": "database",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "reads_per_day": 5000000,
+            "writes_per_day": 100000,
+            "storage_gb": 5,
+            "databases": 50,
+            "max_database_size_gb": 2
+          },
+          "features": [
+            "5 million reads/day",
+            "100,000 writes/day",
+            "5 GB total storage",
+            "Up to 50 databases",
+            "2 GB max per database",
+            "Time Travel (point-in-time recovery, 30 days)",
+            "Community support"
+          ],
+          "rate_limit": "5M reads/day, 100K writes/day"
+        },
+        {
+          "tier_id": "paid",
+          "name": "D1 Paid",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "reads_per_day": null,
+            "writes_per_day": null,
+            "storage_gb": null,
+            "databases": 50000,
+            "max_database_size_gb": 10
+          },
+          "features": [
+            "Everything in Free",
+            "$0.75 per million reads",
+            "$1.00 per million writes",
+            "$0.75 per GB storage/month",
+            "Up to 50,000 databases",
+            "10 GB max per database",
+            "Global read replication",
+            "Time Travel (point-in-time recovery, 30 days)",
+            "Export & import",
+            "Standard support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 600,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["rows_read", "rows_written", "storage_bytes"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"],
+        "properties": {
+          "CLOUDFLARE_API_TOKEN": {
+            "type": "string",
+            "description": "Cloudflare API token with D1 permissions"
+          },
+          "CLOUDFLARE_ACCOUNT_ID": {
+            "type": "string",
+            "description": "Cloudflare account identifier"
+          },
+          "CLOUDFLARE_D1_DATABASE_ID": {
+            "type": "string",
+            "description": "D1 database unique identifier"
+          },
+          "CLOUDFLARE_D1_DATABASE_NAME": {
+            "type": "string",
+            "description": "D1 database name"
+          }
+        }
+      },
+      "estimated_provision_seconds": 10,
+      "fulfillment_proof_type": "health_check",
+      "regions": ["global"],
+      "documentation_url": "https://developers.cloudflare.com/d1/"
+    }
+  ],
+  "accepted_payment_methods": ["free", "sardis_wallet", "stripe_spt"],
+  "trust_tier_required": 0,
+  "endpoints": {
+    "provision": "/osp/v1/provision",
+    "deprovision": "/osp/v1/resources/{resource_id}",
+    "credentials": "/osp/v1/resources/{resource_id}/credentials",
+    "rotate": "/osp/v1/resources/{resource_id}/credentials/rotate",
+    "status": "/osp/v1/resources/{resource_id}/status",
+    "usage": "/osp/v1/resources/{resource_id}/usage",
+    "health": "/osp/v1/health"
+  },
+  "extensions": {
+    "cloudflare:dashboard_url": "https://dash.cloudflare.com",
+    "cloudflare:wrangler_cli": true,
+    "cloudflare:zero_egress": true,
+    "cloudflare:edge_locations": 300,
+    "cloudflare:workers_ai_enabled": true
+  },
+  "effective_at": "2026-03-15T00:00:00Z",
+  "provider_signature": "Y2xvdWRmbGFyZV9zaWduYXR1cmVfcGxhY2Vob2xkZXJfYmFzZTY0dXJsX2VuY29kZWRfZWQyNTUxOQ"
+}

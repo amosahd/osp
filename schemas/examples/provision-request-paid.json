@@ -1,0 +1,21 @@
+{
+  "$schema": "https://osp.dev/schemas/provision-request.schema.json",
+  "offering_id": "neon/postgres",
+  "tier_id": "scale",
+  "project_name": "production-analytics-db",
+  "region": "eu-central-1",
+  "payment_method": "sardis_wallet",
+  "payment_proof": "sardis_tx_01J8KQZP5R4XMWN7VBCG3HT9YD_escrow_69.00_USD_neon.tech_2026-03-27T14:30:00Z",
+  "agent_public_key": "cHJvZHVjdGlvbl9hZ2VudF9lZDI1NTE5X3B1YmxpY19rZXlfYmFzZTY0",
+  "nonce": "cGFpZF9ub25jZV8xNzExMTIzOTk5MDAwX3NlY3VyZV9yYW5kb20",
+  "config": {
+    "postgres_version": "16",
+    "compute_size_cu": 4,
+    "autoscaling_min_cu": 0.5,
+    "autoscaling_max_cu": 8,
+    "enable_pooler": true,
+    "default_branch_name": "main",
+    "ip_allow_list": ["10.0.0.0/8", "172.16.0.0/12"]
+  },
+  "webhook_url": "https://prod-agent.example.com/webhooks/osp/provision-callback"
+}

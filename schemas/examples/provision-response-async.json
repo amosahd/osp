@@ -1,0 +1,16 @@
+{
+  "$schema": "https://osp.dev/schemas/provision-response.schema.json",
+  "request_id": "req_01J8KR9X3N7YPWQ2VHDF8JT4ZM",
+  "offering_id": "neon/postgres",
+  "tier_id": "scale",
+  "status": "provisioning",
+  "resource_id": "res_neon_proj_ep_cool_darkness_789012",
+  "credentials": null,
+  "fulfillment_proof": null,
+  "status_url": "https://neon.tech/osp/v1/resources/res_neon_proj_ep_cool_darkness_789012/status",
+  "estimated_ready_seconds": 30,
+  "region": "eu-central-1",
+  "created_at": "2026-03-27T15:45:00Z",
+  "expires_at": null,
+  "dashboard_url": "https://console.neon.tech/app/projects/ep-cool-darkness-789012"
+}

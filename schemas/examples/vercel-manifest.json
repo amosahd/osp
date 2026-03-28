@@ -1,0 +1,172 @@
+{
+  "$schema": "https://osp.dev/schemas/service-manifest.schema.json",
+  "manifest_id": "mf_vercel_prod_v1",
+  "manifest_version": 2,
+  "previous_version": 1,
+  "provider_id": "vercel.com",
+  "display_name": "Vercel",
+  "provider_url": "https://vercel.com",
+  "provider_public_key": "dmVyY2VsX2VkMjU1MTlfcHVibGljX2tleV9iYXNlNjR1cmw",
+  "offerings": [
+    {
+      "offering_id": "vercel/hosting",
+      "name": "Vercel Hosting",
+      "description": "Serverless hosting platform with edge functions, automatic CI/CD from Git, global CDN, and built-in support for Next.js, Nuxt, SvelteKit, and other frameworks.",
+      "category": "hosting",
+      "tiers": [
+        {
+          "tier_id": "hobby",
+          "name": "Hobby",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "bandwidth_gb": 100,
+            "serverless_function_invocations_per_day": 100,
+            "builds_per_day": 100,
+            "serverless_function_duration_seconds": 10,
+            "edge_function_invocations_per_day": 500000,
+            "projects": 200
+          },
+          "features": [
+            "Automatic HTTPS & SSL",
+            "Global Edge Network (CDN)",
+            "Serverless Functions",
+            "Edge Functions",
+            "Preview Deployments",
+            "Git integration (GitHub, GitLab, Bitbucket)",
+            "Community support"
+          ],
+          "rate_limit": "100 GB bandwidth/month"
+        },
+        {
+          "tier_id": "pro",
+          "name": "Pro",
+          "price": {
+            "amount": "20.00",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "bandwidth_gb": 1000,
+            "serverless_function_invocations_per_day": null,
+            "builds_per_day": 6000,
+            "serverless_function_duration_seconds": 60,
+            "edge_function_invocations_per_day": null,
+            "projects": null
+          },
+          "features": [
+            "Everything in Hobby",
+            "1 TB bandwidth included",
+            "Unlimited serverless function invocations",
+            "Unlimited edge function invocations",
+            "60s serverless function duration",
+            "Password protection",
+            "Vercel Analytics included",
+            "Cron jobs",
+            "Advanced DDoS protection",
+            "Email support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 900,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["bandwidth_bytes", "function_invocations", "edge_invocations", "build_minutes"],
+            "reporting_window": "PT1H",
+            "countersignature_required": false
+          }
+        },
+        {
+          "tier_id": "enterprise",
+          "name": "Enterprise",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "bandwidth_gb": null,
+            "serverless_function_invocations_per_day": null,
+            "builds_per_day": null,
+            "serverless_function_duration_seconds": 900,
+            "edge_function_invocations_per_day": null,
+            "projects": null
+          },
+          "features": [
+            "Everything in Pro",
+            "Custom bandwidth limits",
+            "Up to 900s serverless function duration",
+            "99.99% SLA",
+            "SOC 2 Type II compliance",
+            "SAML SSO",
+            "Multi-region failover",
+            "Dedicated support engineer",
+            "Custom contracts and invoicing",
+            "Audit logs"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 14400,
+            "verification_window_seconds": 3600,
+            "dispute_window_seconds": 259200
+          },
+          "rate_limit": "custom",
+          "usage_metering": {
+            "dimensions": ["bandwidth_bytes", "function_invocations", "edge_invocations", "build_minutes", "compute_hours"],
+            "reporting_window": "PT1H",
+            "countersignature_required": true
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["VERCEL_TOKEN", "VERCEL_PROJECT_ID", "VERCEL_URL"],
+        "properties": {
+          "VERCEL_TOKEN": {
+            "type": "string",
+            "description": "Vercel API token for deployments and management"
+          },
+          "VERCEL_PROJECT_ID": {
+            "type": "string",
+            "description": "Unique project identifier"
+          },
+          "VERCEL_ORG_ID": {
+            "type": "string",
+            "description": "Vercel team/organization identifier"
+          },
+          "VERCEL_URL": {
+            "type": "string",
+            "format": "uri",
+            "description": "Production deployment URL"
+          }
+        }
+      },
+      "estimated_provision_seconds": 30,
+      "fulfillment_proof_type": "health_check",
+      "regions": ["iad1", "sfo1", "cdg1", "hnd1"],
+      "documentation_url": "https://vercel.com/docs"
+    }
+  ],
+  "accepted_payment_methods": ["free", "sardis_wallet", "stripe_spt"],
+  "trust_tier_required": 0,
+  "endpoints": {
+    "provision": "/osp/v1/provision",
+    "deprovision": "/osp/v1/resources/{resource_id}",
+    "credentials": "/osp/v1/resources/{resource_id}/credentials",
+    "rotate": "/osp/v1/resources/{resource_id}/credentials/rotate",
+    "status": "/osp/v1/resources/{resource_id}/status",
+    "usage": "/osp/v1/resources/{resource_id}/usage",
+    "health": "/osp/v1/health"
+  },
+  "extensions": {
+    "vercel:framework_presets": ["next", "nuxt", "svelte", "astro", "remix", "vite"],
+    "vercel:dashboard_url": "https://vercel.com/dashboard",
+    "vercel:edge_config_enabled": true,
+    "vercel:speed_insights_enabled": true
+  },
+  "effective_at": "2026-03-15T00:00:00Z",
+  "provider_signature": "dmVyY2VsX3NpZ25hdHVyZV9wbGFjZWhvbGRlcl9iYXNlNjR1cmxfZW5jb2RlZF9lZDI1NTE5"
+}

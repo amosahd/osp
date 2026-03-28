@@ -1,0 +1,134 @@
+{
+  "$schema": "https://osp.dev/schemas/service-manifest.schema.json",
+  "manifest_id": "mf_posthog_prod_v1",
+  "manifest_version": 2,
+  "previous_version": 1,
+  "provider_id": "posthog.com",
+  "display_name": "PostHog",
+  "provider_url": "https://posthog.com",
+  "provider_public_key": "cG9zdGhvZ19lZDI1NTE5X3B1YmxpY19rZXlfYmFzZTY0dXJs",
+  "offerings": [
+    {
+      "offering_id": "posthog/analytics",
+      "name": "PostHog Product Analytics",
+      "description": "All-in-one product analytics platform with event tracking, funnels, user paths, retention analysis, feature flags, session recordings, and A/B testing. Self-serve analytics with autocapture and a warehouse-native architecture.",
+      "category": "analytics",
+      "tiers": [
+        {
+          "tier_id": "free",
+          "name": "Free",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": null
+          },
+          "limits": {
+            "events_per_month": 1000000,
+            "session_recordings_per_month": 5000,
+            "feature_flag_requests_per_month": 1000000,
+            "survey_responses_per_month": 250,
+            "team_members": null,
+            "data_retention_days": 365
+          },
+          "features": [
+            "1 million events/month",
+            "5,000 session recordings/month",
+            "Unlimited team members",
+            "Product analytics (trends, funnels, paths, retention)",
+            "Autocapture",
+            "Feature flags (1M requests/month)",
+            "A/B testing",
+            "Surveys (250 responses/month)",
+            "1 year data retention",
+            "Community support"
+          ],
+          "rate_limit": "1M events/month"
+        },
+        {
+          "tier_id": "pay_as_you_go",
+          "name": "Pay-as-you-go",
+          "price": {
+            "amount": "0",
+            "currency": "USD",
+            "interval": "P1M"
+          },
+          "limits": {
+            "events_per_month": null,
+            "session_recordings_per_month": null,
+            "feature_flag_requests_per_month": null,
+            "survey_responses_per_month": null,
+            "team_members": null,
+            "data_retention_days": null
+          },
+          "features": [
+            "Everything in Free",
+            "First 1M events/month free, then $0.00045/event",
+            "First 5K recordings/month free, then $0.005/recording",
+            "First 1M feature flag requests free, then $0.0001/request",
+            "Unlimited data retention",
+            "Group analytics",
+            "Correlation analysis",
+            "SQL querying (HogQL)",
+            "Data warehouse integrations",
+            "Reverse proxy support",
+            "Priority support"
+          ],
+          "escrow_profile": {
+            "timeout_seconds": 3600,
+            "verification_window_seconds": 900,
+            "dispute_window_seconds": 86400
+          },
+          "usage_metering": {
+            "dimensions": ["events_ingested", "session_recordings", "feature_flag_requests", "survey_responses"],
+            "reporting_window": "P1D",
+            "countersignature_required": false
+          }
+        }
+      ],
+      "credentials_schema": {
+        "type": "object",
+        "required": ["POSTHOG_API_KEY", "POSTHOG_HOST"],
+        "properties": {
+          "POSTHOG_API_KEY": {
+            "type": "string",
+            "description": "PostHog project API key for event ingestion (phc_...)"
+          },
+          "POSTHOG_HOST": {
+            "type": "string",
+            "format": "uri",
+            "description": "PostHog instance host URL (e.g., https://us.i.posthog.com or https://eu.i.posthog.com)"
+          },
+          "POSTHOG_PERSONAL_API_KEY": {
+            "type": "string",
+            "description": "Personal API key for accessing the PostHog API programmatically"
+          }
+        }
+      },
+      "estimated_provision_seconds": 10,
+      "fulfillment_proof_type": "api_key_delivery",
+      "regions": ["us-east-1", "eu-central-1"],
+      "documentation_url": "https://posthog.com/docs"
+    }
+  ],
+  "accepted_payment_methods": ["free", "sardis_wallet", "stripe_spt"],
+  "trust_tier_required": 0,
+  "endpoints": {
+    "provision": "/osp/v1/provision",
+    "deprovision": "/osp/v1/resources/{resource_id}",
+    "credentials": "/osp/v1/resources/{resource_id}/credentials",
+    "rotate": "/osp/v1/resources/{resource_id}/credentials/rotate",
+    "status": "/osp/v1/resources/{resource_id}/status",
+    "usage": "/osp/v1/resources/{resource_id}/usage",
+    "health": "/osp/v1/health"
+  },
+  "extensions": {
+    "posthog:dashboard_url": "https://us.posthog.com",
+    "posthog:autocapture_enabled": true,
+    "posthog:session_replay_enabled": true,
+    "posthog:feature_flags_enabled": true,
+    "posthog:hogql_enabled": true,
+    "posthog:supported_sdks": ["js", "react", "react-native", "ios", "android", "python", "node", "go", "ruby", "php", "flutter"]
+  },
+  "effective_at": "2026-03-15T00:00:00Z",
+  "provider_signature": "cG9zdGhvZ19zaWduYXR1cmVfcGxhY2Vob2xkZXJfYmFzZTY0dXJsX2VuY29kZWRfZWQyNTUxOQ"
+}

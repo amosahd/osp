@@ -1,0 +1,16 @@
+{
+  "$schema": "https://osp.dev/schemas/provision-request.schema.json",
+  "offering_id": "supabase/postgres",
+  "tier_id": "free",
+  "project_name": "my-todo-app-backend",
+  "region": "us-east-1",
+  "payment_method": "free",
+  "agent_public_key": "YWdlbnRfZWQyNTUxOV9wdWJsaWNfa2V5X2Jhc2U2NHVybF9lbmNvZGVk",
+  "nonce": "dW5pcXVlX25vbmNlXzE3MTExMjM0NTY3ODlfcmFuZG9t",
+  "config": {
+    "postgres_version": "16",
+    "extensions": ["pgvector", "postgis"],
+    "default_schema": "public"
+  },
+  "webhook_url": "https://agent.example.com/webhooks/osp/provision-callback"
+}

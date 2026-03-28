@@ -177,6 +177,56 @@
     "usage": "/osp/v1/resources/{resource_id}/usage",
     "health": "/osp/v1/health"
   },
+  "a2a": {
+    "agent_id": "neon-provisioner",
+    "capabilities": ["provision", "deprovision", "rotate"],
+    "delegation_endpoint": "/osp/v1/a2a/delegate",
+    "task_lifecycle": true,
+    "agent_public_key": "bmVvbl9hMmFfYWdlbnRfcHVibGljX2tleV9iYXNlNjR1cmw"
+  },
+  "nhi": {
+    "short_lived_tokens": true,
+    "token_ttl_seconds": 7200,
+    "orphan_detection": true,
+    "federation": ["oidc"],
+    "token_endpoint": "/osp/v1/nhi/token"
+  },
+  "finops": {
+    "budget_enforcement": true,
+    "cost_in_pr": true,
+    "anomaly_detection": false,
+    "burn_rate_tracking": true,
+    "budget_endpoint": "/osp/v1/finops/budget"
+  },
+  "dependency_graph": {
+    "auto_generate": true,
+    "impact_analysis": true,
+    "health_propagation": true,
+    "auto_docs": false
+  },
+  "scorecards": {
+    "maturity_scores": {
+      "monitoring": 90,
+      "backups": 95,
+      "rotation": 80,
+      "https": 100
+    },
+    "compliance": ["soc2"],
+    "guided_remediation": false
+  },
+  "observability": {
+    "otel_endpoint": "https://otel.neon.tech/v1/traces",
+    "trace_propagation": ["w3c"],
+    "audit_log": true,
+    "hitl_gates": false,
+    "cost_per_action": true
+  },
+  "mcp": {
+    "tools": ["neon_query", "neon_branch", "neon_migrate"],
+    "streamable_http": true,
+    "well_known_url": "https://neon.tech/.well-known/mcp.json",
+    "skills_url": "https://neon.tech/.well-known/osp-skills.md"
+  },
   "extensions": {
     "neon:branching_enabled": true,
     "neon:autoscaling_enabled": true,

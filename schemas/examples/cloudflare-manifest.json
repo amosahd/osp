@@ -325,6 +325,57 @@
     "usage": "/osp/v1/resources/{resource_id}/usage",
     "health": "/osp/v1/health"
   },
+  "a2a": {
+    "agent_id": "cloudflare-provisioner",
+    "capabilities": ["provision", "deprovision", "rotate", "monitor"],
+    "delegation_endpoint": "/osp/v1/a2a/delegate",
+    "task_lifecycle": true,
+    "agent_public_key": "Y2xvdWRmbGFyZV9hMmFfYWdlbnRfcHVibGljX2tleQ"
+  },
+  "nhi": {
+    "short_lived_tokens": true,
+    "token_ttl_seconds": 3600,
+    "orphan_detection": true,
+    "federation": ["oidc", "mtls"],
+    "token_endpoint": "/osp/v1/nhi/token"
+  },
+  "finops": {
+    "budget_enforcement": true,
+    "cost_in_pr": true,
+    "anomaly_detection": true,
+    "burn_rate_tracking": true,
+    "budget_endpoint": "/osp/v1/finops/budget"
+  },
+  "dependency_graph": {
+    "auto_generate": true,
+    "impact_analysis": true,
+    "health_propagation": true,
+    "auto_docs": true
+  },
+  "scorecards": {
+    "maturity_scores": {
+      "monitoring": 95,
+      "backups": 85,
+      "rotation": 90,
+      "https": 100,
+      "encryption_at_rest": 100
+    },
+    "compliance": ["soc2", "pci_dss", "gdpr", "iso27001"],
+    "guided_remediation": true
+  },
+  "observability": {
+    "otel_endpoint": "https://otel.cloudflare.com/v1/traces",
+    "trace_propagation": ["w3c", "b3"],
+    "audit_log": true,
+    "hitl_gates": true,
+    "cost_per_action": true
+  },
+  "mcp": {
+    "tools": ["cloudflare_deploy_worker", "cloudflare_r2_upload", "cloudflare_d1_query"],
+    "streamable_http": true,
+    "well_known_url": "https://cloudflare.com/.well-known/mcp.json",
+    "skills_url": "https://cloudflare.com/.well-known/osp-skills.md"
+  },
   "extensions": {
     "cloudflare:dashboard_url": "https://dash.cloudflare.com",
     "cloudflare:wrangler_cli": true,

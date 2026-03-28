@@ -17,5 +17,12 @@
     "default_branch_name": "main",
     "ip_allow_list": ["10.0.0.0/8", "172.16.0.0/12"]
   },
-  "webhook_url": "https://prod-agent.example.com/webhooks/osp/provision-callback"
+  "webhook_url": "https://prod-agent.example.com/webhooks/osp/provision-callback",
+  "nhi_token_mode": "short_lived",
+  "budget": {
+    "max_monthly_cost": "100.00",
+    "currency": "USD",
+    "alert_threshold_percent": 80
+  },
+  "trace_context": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
 }

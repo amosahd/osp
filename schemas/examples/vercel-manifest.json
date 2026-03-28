@@ -161,6 +161,50 @@
     "usage": "/osp/v1/resources/{resource_id}/usage",
     "health": "/osp/v1/health"
   },
+  "a2a": {
+    "agent_id": "vercel-provisioner",
+    "capabilities": ["provision", "deprovision", "monitor"],
+    "delegation_endpoint": "/osp/v1/a2a/delegate",
+    "task_lifecycle": true,
+    "agent_public_key": "dmVyY2VsX2EyYV9hZ2VudF9wdWJsaWNfa2V5"
+  },
+  "nhi": {
+    "short_lived_tokens": true,
+    "token_ttl_seconds": 3600,
+    "orphan_detection": true,
+    "federation": ["oidc"],
+    "token_endpoint": "/osp/v1/nhi/token"
+  },
+  "finops": {
+    "budget_enforcement": true,
+    "cost_in_pr": true,
+    "anomaly_detection": true,
+    "burn_rate_tracking": true,
+    "budget_endpoint": "/osp/v1/finops/budget"
+  },
+  "scorecards": {
+    "maturity_scores": {
+      "monitoring": 95,
+      "backups": 80,
+      "https": 100,
+      "encryption_at_rest": 95
+    },
+    "compliance": ["soc2", "gdpr"],
+    "guided_remediation": true
+  },
+  "observability": {
+    "otel_endpoint": "https://otel.vercel.com/v1/traces",
+    "trace_propagation": ["w3c"],
+    "audit_log": true,
+    "hitl_gates": true,
+    "cost_per_action": true
+  },
+  "mcp": {
+    "tools": ["vercel_deploy", "vercel_env", "vercel_logs"],
+    "streamable_http": true,
+    "well_known_url": "https://vercel.com/.well-known/mcp.json",
+    "skills_url": "https://vercel.com/.well-known/osp-skills.md"
+  },
   "extensions": {
     "vercel:framework_presets": ["next", "nuxt", "svelte", "astro", "remix", "vite"],
     "vercel:dashboard_url": "https://vercel.com/dashboard",

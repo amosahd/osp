@@ -104,6 +104,17 @@
     "usage": "/osp/v1/resources/{resource_id}/usage",
     "health": "/osp/v1/health"
   },
+  "finops": {
+    "budget_enforcement": true,
+    "cost_in_pr": false,
+    "anomaly_detection": false,
+    "burn_rate_tracking": false
+  },
+  "mcp": {
+    "tools": ["resend_send_email", "resend_list_emails"],
+    "streamable_http": false,
+    "skills_url": "https://resend.com/.well-known/osp-skills.md"
+  },
   "extensions": {
     "resend:dashboard_url": "https://resend.com/overview",
     "resend:react_email_support": true,

@@ -124,6 +124,17 @@
     "usage": "/osp/v1/resources/{resource_id}/usage",
     "health": "/osp/v1/health"
   },
+  "finops": {
+    "budget_enforcement": true,
+    "cost_in_pr": false,
+    "anomaly_detection": false,
+    "burn_rate_tracking": false
+  },
+  "mcp": {
+    "tools": ["turso_query", "turso_branch"],
+    "streamable_http": false,
+    "skills_url": "https://turso.tech/.well-known/osp-skills.md"
+  },
   "extensions": {
     "turso:dashboard_url": "https://turso.tech/app",
     "turso:embedded_replicas": true,

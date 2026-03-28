@@ -248,6 +248,34 @@
     "usage": "/osp/v1/resources/{resource_id}/usage",
     "health": "/osp/v1/health"
   },
+  "nhi": {
+    "short_lived_tokens": false,
+    "orphan_detection": false,
+    "federation": []
+  },
+  "finops": {
+    "budget_enforcement": true,
+    "cost_in_pr": false,
+    "anomaly_detection": false,
+    "burn_rate_tracking": true
+  },
+  "dependency_graph": {
+    "auto_generate": true,
+    "impact_analysis": true,
+    "health_propagation": true,
+    "auto_docs": false
+  },
+  "observability": {
+    "trace_propagation": ["w3c"],
+    "audit_log": true,
+    "hitl_gates": false,
+    "cost_per_action": true
+  },
+  "mcp": {
+    "tools": ["railway_deploy", "railway_logs"],
+    "streamable_http": false,
+    "skills_url": "https://railway.app/.well-known/osp-skills.md"
+  },
   "extensions": {
     "railway:dashboard_url": "https://railway.app/dashboard",
     "railway:nixpacks_enabled": true,

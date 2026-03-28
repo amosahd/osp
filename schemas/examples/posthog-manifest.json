@@ -121,6 +121,17 @@
     "usage": "/osp/v1/resources/{resource_id}/usage",
     "health": "/osp/v1/health"
   },
+  "finops": {
+    "budget_enforcement": true,
+    "cost_in_pr": false,
+    "anomaly_detection": true,
+    "burn_rate_tracking": false
+  },
+  "mcp": {
+    "tools": ["posthog_capture", "posthog_query", "posthog_feature_flag"],
+    "streamable_http": false,
+    "skills_url": "https://posthog.com/.well-known/osp-skills.md"
+  },
   "extensions": {
     "posthog:dashboard_url": "https://us.posthog.com",
     "posthog:autocapture_enabled": true,

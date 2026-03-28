@@ -115,6 +115,28 @@
     "usage": "/osp/v1/resources/{resource_id}/usage",
     "health": "/osp/v1/health"
   },
+  "nhi": {
+    "short_lived_tokens": true,
+    "token_ttl_seconds": 3600,
+    "orphan_detection": true,
+    "federation": ["oidc"],
+    "token_endpoint": "/osp/v1/nhi/token"
+  },
+  "scorecards": {
+    "maturity_scores": {
+      "monitoring": 85,
+      "https": 100,
+      "rotation": 90,
+      "encryption_at_rest": 100
+    },
+    "compliance": ["soc2", "gdpr"],
+    "guided_remediation": false
+  },
+  "mcp": {
+    "tools": ["clerk_create_user", "clerk_list_users"],
+    "streamable_http": false,
+    "skills_url": "https://clerk.com/.well-known/osp-skills.md"
+  },
   "extensions": {
     "clerk:dashboard_url": "https://dashboard.clerk.com",
     "clerk:jwt_templates_enabled": true,

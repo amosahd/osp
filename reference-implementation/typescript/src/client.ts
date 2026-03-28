@@ -2,6 +2,8 @@
  * OSPClient — the main entry point for AI agents to discover, provision,
  * and manage developer services via the Open Service Protocol.
  *
+ * v1.1 features: retries with exponential backoff, timeouts, abort support.
+ *
  * Usage:
  *
  * ```ts
@@ -34,6 +36,17 @@ import { fetchManifest } from "./manifest.js";
 // Options
 // ---------------------------------------------------------------------------
 
+export interface RetryOptions {
+  /** Maximum number of retry attempts (default: 3). */
+  maxRetries?: number;
+  /** Base delay in ms for exponential backoff (default: 500). */
+  baseDelayMs?: number;
+  /** Maximum delay in ms between retries (default: 10000). */
+  maxDelayMs?: number;
+  /** Jitter factor (0-1) to randomize backoff (default: 0.25). */
+  jitter?: number;
+}
+
 export interface OSPClientOptions {
   /**
    * URL of the OSP registry for federated discovery.
@@ -46,7 +59,25 @@ export interface OSPClientOptions {
    * agent authentication).
    */
   authToken?: string;
+
+  /** Request timeout in milliseconds (default: 30000). */
+  timeoutMs?: number;
+
+  /** Retry configuration for transient failures. */
+  retry?: RetryOptions;
 }
+
+// ---------------------------------------------------------------------------
+// Retry defaults
+// ---------------------------------------------------------------------------
+
+const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_RETRIES = 3;
+const DEFAULT_BASE_DELAY_MS = 500;
+const DEFAULT_MAX_DELAY_MS = 10_000;
+const DEFAULT_JITTER = 0.25;
+
+const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
 
 // ---------------------------------------------------------------------------
 // Client
@@ -55,6 +86,8 @@ export interface OSPClientOptions {
 export class OSPClient {
   private readonly registryUrl: string;
   private readonly authToken?: string;
+  private readonly timeoutMs: number;
+  private readonly retryConfig: Required<RetryOptions>;
 
   /** In-memory manifest cache keyed by normalized provider URL. */
   private readonly manifestCache = new Map<string, ServiceManifest>();
@@ -64,6 +97,13 @@ export class OSPClient {
       options?.registryUrl?.replace(/\/+$/, "") ??
       "https://registry.osp.dev";
     this.authToken = options?.authToken;
+    this.timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.retryConfig = {
+      maxRetries: options?.retry?.maxRetries ?? DEFAULT_MAX_RETRIES,
+      baseDelayMs: options?.retry?.baseDelayMs ?? DEFAULT_BASE_DELAY_MS,
+      maxDelayMs: options?.retry?.maxDelayMs ?? DEFAULT_MAX_DELAY_MS,
+      jitter: options?.retry?.jitter ?? DEFAULT_JITTER,
+    };
   }
 
   // -----------------------------------------------------------------------
@@ -98,7 +138,7 @@ export class OSPClient {
       url.searchParams.set("category", options.category);
     }
 
-    const response = await this.fetch(url.toString());
+    const response = await this.fetchWithRetry(url.toString());
     const body = await response.json();
     return body as ServiceManifest[];
   }
@@ -120,7 +160,7 @@ export class OSPClient {
     const manifest = await this.discover(providerUrl);
     const url = this.endpointUrl(providerUrl, manifest.endpoints.provision);
 
-    const response = await this.fetch(url, {
+    const response = await this.fetchWithRetry(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
@@ -144,7 +184,7 @@ export class OSPClient {
       manifest.endpoints.credentials.replace(":resource_id", resourceId),
     );
 
-    const response = await this.fetch(url);
+    const response = await this.fetchWithRetry(url);
     return response.json() as Promise<CredentialBundle>;
   }
 
@@ -160,7 +200,7 @@ export class OSPClient {
       rotate.replace(":resource_id", resourceId),
     );
 
-    const response = await this.fetch(url, { method: "POST" });
+    const response = await this.fetchWithRetry(url, { method: "POST" });
     return response.json() as Promise<CredentialBundle>;
   }
 
@@ -179,7 +219,7 @@ export class OSPClient {
       manifest.endpoints.status.replace(":resource_id", resourceId),
     );
 
-    const response = await this.fetch(url);
+    const response = await this.fetchWithRetry(url);
     return response.json() as Promise<ResourceStatus>;
   }
 
@@ -194,7 +234,7 @@ export class OSPClient {
       manifest.endpoints.deprovision.replace(":resource_id", resourceId),
     );
 
-    await this.fetch(url, { method: "DELETE" });
+    await this.fetchWithRetry(url, { method: "DELETE" });
   }
 
   // -----------------------------------------------------------------------
@@ -216,7 +256,7 @@ export class OSPClient {
       usage.replace(":resource_id", resourceId),
     );
 
-    const response = await this.fetch(url);
+    const response = await this.fetchWithRetry(url);
     return response.json() as Promise<UsageReport>;
   }
 
@@ -230,7 +270,7 @@ export class OSPClient {
     const url = this.endpointUrl(providerUrl, manifest.endpoints.health);
 
     const start = Date.now();
-    const response = await this.fetch(url);
+    const response = await this.fetchWithRetry(url);
     const latencyMs = Date.now() - start;
 
     const body = await response.json() as HealthStatus;
@@ -252,44 +292,91 @@ export class OSPClient {
   // -----------------------------------------------------------------------
 
   /**
-   * Central fetch wrapper that attaches auth headers and handles errors
-   * uniformly.
+   * Central fetch wrapper with retries, exponential backoff, timeouts,
+   * and error handling.
    */
-  private async fetch(
+  private async fetchWithRetry(
     url: string,
     init?: RequestInit,
   ): Promise<Response> {
-    const headers = new Headers(init?.headers);
-    if (this.authToken) {
-      headers.set("Authorization", `Bearer ${this.authToken}`);
-    }
-    headers.set("User-Agent", "@osp/client 0.1.0");
+    const { maxRetries, baseDelayMs, maxDelayMs, jitter } = this.retryConfig;
+    let lastError: Error | undefined;
 
-    const response = await fetch(url, { ...init, headers });
-
-    if (!response.ok) {
-      let errorBody: OSPErrorBody | undefined;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        errorBody = await response.json() as OSPErrorBody;
-      } catch {
-        // Response body may not be JSON — that's fine.
-      }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
-      throw new OSPError(
-        errorBody?.error ?? `HTTP ${response.status} ${response.statusText}`,
-        errorBody?.code ?? `HTTP_${response.status}`,
-        response.status,
-        errorBody?.details,
-      );
+        const headers = new Headers(init?.headers);
+        if (this.authToken) {
+          headers.set("Authorization", `Bearer ${this.authToken}`);
+        }
+        headers.set("User-Agent", "@osp/client 0.2.0");
+
+        const response = await fetch(url, {
+          ...init,
+          headers,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          // Check if retryable
+          if (attempt < maxRetries && RETRYABLE_STATUS_CODES.has(response.status)) {
+            // Respect Retry-After header from 429 responses
+            const retryAfter = response.headers.get("Retry-After");
+            if (retryAfter) {
+              const retryMs = parseInt(retryAfter, 10) * 1000;
+              if (!isNaN(retryMs) && retryMs > 0) {
+                await sleep(Math.min(retryMs, maxDelayMs));
+                continue;
+              }
+            }
+
+            await sleep(computeBackoff(attempt, baseDelayMs, maxDelayMs, jitter));
+            continue;
+          }
+
+          // Non-retryable or exhausted retries — throw structured error
+          let errorBody: OSPErrorBody | undefined;
+          try {
+            errorBody = await response.json() as OSPErrorBody;
+          } catch {
+            // Response body may not be JSON
+          }
+
+          throw new OSPError(
+            errorBody?.error ?? `HTTP ${response.status} ${response.statusText}`,
+            errorBody?.code ?? `HTTP_${response.status}`,
+            response.status,
+            errorBody?.details,
+          );
+        }
+
+        return response;
+      } catch (err) {
+        if (err instanceof OSPError) throw err;
+
+        lastError = err as Error;
+
+        // Abort errors and network errors are retryable
+        if (attempt < maxRetries) {
+          await sleep(computeBackoff(attempt, baseDelayMs, maxDelayMs, jitter));
+          continue;
+        }
+      }
     }
 
-    return response;
+    throw new OSPError(
+      lastError?.message ?? "Request failed after retries",
+      "RETRY_EXHAUSTED",
+    );
   }
 
   /** Resolve an endpoint path against the provider's base URL. */
   private endpointUrl(providerUrl: string, path: string): string {
     const base = normalizeUrl(providerUrl);
-    // Path may already be absolute or relative
     if (path.startsWith("http://") || path.startsWith("https://")) {
       return path;
     }
@@ -331,4 +418,20 @@ function normalizeUrl(url: string): string {
     normalized = `https://${normalized}`;
   }
   return normalized.replace(/\/+$/, "");
+}
+
+function computeBackoff(
+  attempt: number,
+  baseMs: number,
+  maxMs: number,
+  jitter: number,
+): number {
+  const exponential = baseMs * Math.pow(2, attempt);
+  const capped = Math.min(exponential, maxMs);
+  const jitterAmount = capped * jitter * Math.random();
+  return capped + jitterAmount;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

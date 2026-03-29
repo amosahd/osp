@@ -70,6 +70,7 @@ The Open Service Protocol (OSP) defines a standard interface through which AI ag
   - [6.15 GET /osp/v1/metrics/{resource_id}](#615-get-ospv1metricsresource_id)
   - [6.16 Resource Migration (Cross-Provider)](#616-resource-migration-cross-provider)
   - [6.17 Progressive Deployment / Canary Provisioning](#617-progressive-deployment--canary-provisioning)
+  - [6.18 GET /osp/v1/cost-summary](#618-get-ospv1cost-summary)
 - [7. Billing](#7-billing)
   - [7.1 Payment Methods](#71-payment-methods)
   - [7.2 Usage-Based Billing](#72-usage-based-billing)
@@ -3304,6 +3305,97 @@ On rollback:
 | `resource.canary_auto_rollback` | Automatic rollback triggered by threshold breach |
 
 These endpoints are OPTIONAL. Providers SHOULD declare canary support in the offering's `features` array: `"features": ["canary_deployment", "traffic_splitting"]`. Providers that support canary provisioning but not traffic splitting MUST indicate `"traffic_splitting_supported": false` in the canary response, in which case the agent is responsible for application-level traffic management.
+
+### 6.18 GET /osp/v1/cost-summary
+
+Returns an aggregate cost summary across all resources provisioned by an agent. This endpoint enables billing transparency — agents can programmatically monitor total spend, detect anomalies, and enforce budget policies.
+
+Providers SHOULD support this endpoint. Providers that do not support it MUST return `HTTP 501 Not Implemented`.
+
+**Request:**
+
+```http
+GET /osp/v1/cost-summary HTTP/1.1
+Host: api.supabase.com
+X-OSP-Version: 1.0
+Authorization: Bearer <agent_attestation>
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `period_start` | `string` | OPTIONAL | Start of the reporting period (RFC 3339). Default: first day of the current calendar month. |
+| `period_end` | `string` | OPTIONAL | End of the reporting period (RFC 3339). Default: current timestamp. |
+| `currency` | `string` | OPTIONAL | Preferred currency for the summary. Default: provider's base currency. |
+
+**Response:**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+X-OSP-Version: 1.0
+X-Request-Id: req_cost_7f3b1a2c
+
+{
+  "total_cost": 73.56,
+  "currency": "USD",
+  "period": {
+    "start": "2026-03-01T00:00:00Z",
+    "end": "2026-03-29T12:00:00Z"
+  },
+  "resources": [
+    {
+      "resource_id": "res_db_001",
+      "offering_id": "supabase/managed-postgres",
+      "tier_id": "pro",
+      "cost": 25.56,
+      "breakdown": [
+        {"dimension": "base_price", "amount": 25.00},
+        {"dimension": "storage_overage", "amount": 0.56}
+      ]
+    },
+    {
+      "resource_id": "res_auth_002",
+      "offering_id": "supabase/auth",
+      "tier_id": "pro",
+      "cost": 25.00,
+      "breakdown": [
+        {"dimension": "base_price", "amount": 25.00}
+      ]
+    },
+    {
+      "resource_id": "res_storage_003",
+      "offering_id": "supabase/storage",
+      "tier_id": "pro",
+      "cost": 23.00,
+      "breakdown": [
+        {"dimension": "base_price", "amount": 25.00},
+        {"dimension": "credit_adjustment", "amount": -2.00}
+      ]
+    }
+  ],
+  "projected_monthly": 78.25
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `total_cost` | `number` | REQUIRED | Aggregate cost across all resources for the period. |
+| `currency` | `string` | REQUIRED | ISO 4217 currency code (or stablecoin symbol). |
+| `period` | `object` | REQUIRED | Reporting period with `start` and `end` RFC 3339 timestamps. |
+| `resources` | `array` | REQUIRED | Per-resource cost breakdown. Each entry includes `resource_id`, `offering_id`, `tier_id`, `cost`, and an optional `breakdown` array. |
+| `projected_monthly` | `number` | REQUIRED | Projected total cost if current usage continues for a full calendar month. Providers calculate this by extrapolating the current period's burn rate. |
+
+**HTTP Status Codes:**
+
+| Status | Meaning |
+|--------|---------|
+| `200 OK` | Cost summary returned. |
+| `401 Unauthorized` | Agent identity could not be verified. |
+| `501 Not Implemented` | Provider does not support cost summary. |
 
 ---
 

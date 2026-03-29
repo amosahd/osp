@@ -97,9 +97,9 @@
       "$ref": "#/$defs/MCPConfig",
       "description": "MCP .well-known alignment and tool advertisement (v1.1)"
     },
-    "webhook_retry_policy": {
-      "$ref": "#/$defs/WebhookRetryPolicy",
-      "description": "Webhook retry policy declaration for informing agents of retry behavior (Section 8.5)"
+    "identity": {
+      "$ref": "#/$defs/IdentityConfig",
+      "description": "Identity verification methods supported by this provider"
     },
     "extensions": {
       "type": "object",
@@ -109,6 +109,10 @@
       "type": "string",
       "format": "date-time",
       "description": "When this manifest version becomes effective (ISO 8601)"
+    },
+    "provider_key_id": {
+      "type": "string",
+      "description": "Key ID for manifest signature verification against JWKS endpoint"
     },
     "provider_signature": {
       "type": "string",
@@ -582,45 +586,36 @@
         }
       }
     },
-    "WebhookRetryPolicy": {
+    "IdentityConfig": {
       "type": "object",
-      "description": "Webhook retry policy configuration declaring the provider's retry behavior for failed webhook deliveries (Section 8.5)",
+      "description": "Identity verification methods supported by the provider",
       "properties": {
-        "max_attempts": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 10,
-          "default": 6,
-          "description": "Maximum number of delivery attempts including the initial attempt"
+        "supported_methods": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["ed25519_did", "oauth2_client", "api_key"]
+          },
+          "description": "Identity verification methods the provider accepts"
         },
-        "backoff_multiplier": {
-          "type": "number",
-          "minimum": 1,
-          "default": 5,
-          "description": "Multiplier for exponential backoff between retry attempts"
+        "oauth2_issuers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Trusted OAuth2 token issuers (e.g., 'https://accounts.google.com')"
         },
-        "initial_delay_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 1,
-          "description": "Delay in seconds before the first retry attempt"
+        "api_key_registration_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL where agents can register for an API key"
         },
-        "max_delay_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 600,
-          "description": "Maximum delay in seconds between retry attempts"
-        },
-        "response_timeout_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 30,
-          "description": "How long the provider waits for a 2xx response before considering delivery failed"
-        },
-        "dead_letter_queue": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether the provider persists failed events in a dead letter queue for later replay"
+        "identity_required_for_tiers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tier IDs that require identity verification before provisioning"
         }
       }
     }

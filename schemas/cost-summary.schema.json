@@ -2,98 +2,137 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://osp.dev/schemas/cost-summary.schema.json",
   "title": "CostSummary",
-  "description": "Aggregate cost summary across all resources provisioned by an agent at a provider, returned by GET /osp/v1/cost-summary (Section 6.18)",
+  "description": "Cost summary response for a project, including per-resource breakdown and pagination for large result sets",
   "type": "object",
-  "required": ["total_cost", "currency", "period", "resources", "projected_monthly"],
+  "required": ["project_id", "period", "total", "by_resource"],
   "properties": {
-    "total_cost": {
-      "type": "number",
-      "minimum": 0,
-      "description": "Aggregate cost across all resources for the reporting period"
-    },
-    "currency": {
+    "project_id": {
       "type": "string",
-      "description": "ISO 4217 currency code or stablecoin identifier (e.g., 'USD', 'EUR', 'USDC')"
+      "description": "Project identifier"
     },
     "period": {
-      "$ref": "#/$defs/Period",
-      "description": "Reporting period with start and end timestamps"
+      "type": "object",
+      "required": ["start", "end"],
+      "description": "Billing period for this cost summary",
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date",
+          "description": "Start date of the billing period (ISO 8601 date)"
+        },
+        "end": {
+          "type": "string",
+          "format": "date",
+          "description": "End date of the billing period (ISO 8601 date)"
+        }
+      }
     },
-    "resources": {
+    "total": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "description": "Total cost for the period",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Total amount as decimal string"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "USDC", "EURC"],
+          "description": "ISO 4217 currency code or stablecoin identifier"
+        }
+      }
+    },
+    "by_resource": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/ResourceCost"
       },
-      "description": "Per-resource cost breakdown for all resources provisioned by the agent"
+      "description": "Per-resource cost breakdown"
     },
-    "projected_monthly": {
-      "type": "number",
-      "minimum": 0,
-      "description": "Projected total cost if current usage continues for a full calendar month, extrapolated from the current period's burn rate"
+    "comparison": {
+      "type": "object",
+      "description": "Comparison with previous billing period",
+      "properties": {
+        "previous_period": {
+          "type": "string",
+          "description": "Total cost of the previous period as decimal string"
+        },
+        "change_percent": {
+          "type": "string",
+          "description": "Percentage change from previous period (e.g., '+9.2%')"
+        },
+        "cost_alerts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "type": "string",
+                "description": "Resource ID triggering the alert"
+              },
+              "alert": {
+                "type": "string",
+                "description": "Human-readable cost alert message"
+              }
+            }
+          },
+          "description": "Cost alerts and recommendations"
+        }
+      }
+    },
+    "limit": {
+      "type": "integer",
+      "default": 100,
+      "description": "Maximum number of resources returned per page"
+    },
+    "offset": {
+      "type": "integer",
+      "default": 0,
+      "description": "Number of resources skipped for pagination"
+    },
+    "total_count": {
+      "type": "integer",
+      "description": "Total number of resources across all pages"
+    },
+    "next_cursor": {
+      "type": ["string", "null"],
+      "description": "Opaque cursor for fetching the next page, null when no more results"
     }
   },
   "$defs": {
-    "Period": {
-      "type": "object",
-      "required": ["start", "end"],
-      "description": "Reporting period boundaries",
-      "properties": {
-        "start": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Start of the reporting period (ISO 8601, inclusive)"
-        },
-        "end": {
-          "type": "string",
-          "format": "date-time",
-          "description": "End of the reporting period (ISO 8601, exclusive)"
-        }
-      }
-    },
     "ResourceCost": {
       "type": "object",
-      "required": ["resource_id", "offering_id", "tier_id", "cost"],
-      "description": "Cost breakdown for a single provisioned resource",
+      "required": ["resource_id", "service", "tier", "total"],
+      "description": "Cost breakdown for a single resource",
       "properties": {
         "resource_id": {
           "type": "string",
-          "description": "Provider-assigned resource identifier"
+          "description": "Resource identifier"
         },
-        "offering_id": {
+        "service": {
           "type": "string",
-          "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
-          "description": "The service offering this resource belongs to"
+          "description": "Service offering ID (e.g., 'supabase/managed-postgres')"
         },
-        "tier_id": {
+        "tier": {
           "type": "string",
-          "description": "The tier the resource is on during this period"
+          "description": "Tier ID for this resource"
         },
-        "cost": {
-          "type": "number",
-          "minimum": 0,
-          "description": "Total cost for this resource during the period"
-        },
-        "breakdown": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/CostLineItem"
-          },
-          "description": "Per-dimension cost breakdown for this resource"
-        }
-      }
-    },
-    "CostLineItem": {
-      "type": "object",
-      "required": ["dimension", "amount"],
-      "description": "A single cost line item within a resource's breakdown",
-      "properties": {
-        "dimension": {
+        "base_cost": {
           "type": "string",
-          "description": "Cost dimension name (e.g., 'base_price', 'storage_overage', 'bandwidth_overage', 'credit_adjustment')"
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Fixed base cost as decimal string"
         },
-        "amount": {
-          "type": "number",
-          "description": "Cost amount for this dimension (negative values represent credits or adjustments)"
+        "metered_cost": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Usage-based metered cost as decimal string"
+        },
+        "total": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Total cost for this resource as decimal string"
         }
       }
     }

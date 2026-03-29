@@ -256,6 +256,21 @@ X-OSP-Version: 1.0
 X-OSP-Version-Min: 1.0
 ```
 
+9. When `X-OSP-Version-Min` is higher than the provider's maximum supported version, the provider MUST return `406 Not Acceptable` with a body indicating supported versions:
+
+```json
+{
+  "error": {
+    "code": "version_not_supported",
+    "message": "Minimum requested version 2.0 exceeds provider's maximum supported version 1.1",
+    "supported_versions": ["1.0", "1.1"],
+    "recommended_version": "1.1"
+  }
+}
+```
+
+10. When multiple versions are acceptable (i.e., the intersection of agent-supported and provider-supported versions contains more than one version), the provider MUST select the highest mutually supported version and declare it in the `X-OSP-Version` response header.
+
 ---
 
 ## 2. Terminology
@@ -780,55 +795,23 @@ The object a provider returns after processing a provision request.
 
 #### Error Codes
 
-The following table defines the complete set of standard OSP error codes. Providers MUST use these codes for the corresponding error conditions. Providers MAY define additional error codes using reverse-domain notation (e.g., `com.acme.custom_error`) for provider-specific conditions.
-
-All error responses MUST conform to the [Error Response Schema](../schemas/error-response.schema.json).
-
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `invalid_request` | 400 | Malformed request body or missing required fields. |
-| `invalid_offering` | 400 | The specified `offering_id` does not exist in the provider's manifest. |
-| `invalid_tier` | 400 | The specified `tier_id` does not exist within the offering. |
-| `invalid_configuration` | 400 | The configuration object does not match the offering's `configuration_schema`. |
-| `invalid_region` | 400 | The specified region is not available for this offering. |
-| `sandbox_not_available` | 400 | The provider does not support sandbox mode for this offering. |
-| `tier_change_not_allowed` | 400 | The resource cannot be changed to the requested tier (e.g., downgrade not supported). |
-| `region_unavailable` | 400 | The requested region is temporarily unavailable for new provisioning. |
-| `deprecated_offering` | 410 | The offering has been sunset and is no longer available for new provisioning. |
-| `identity_required` | 401 | Agent identity (attestation or public key) is required but was not provided. |
-| `credentials_rotated` | 401 | The credentials used have been rotated; the agent must fetch new credentials. |
-| `nonce_reused` | 401 | The nonce has already been used (replay protection). |
-| `identity_verification_failed` | 403 | The agent's identity could not be verified (invalid signature, expired attestation). |
-| `insufficient_trust` | 403 | The agent's trust tier is too low for the requested offering or tier. |
-| `payment_required` | 402 | Valid payment proof is required but was not provided or is invalid. |
-| `payment_declined` | 402 | The payment method was declined by the payment processor. |
-| `insufficient_funds` | 402 | The payment method has insufficient funds. |
-| `resource_not_found` | 404 | The specified `resource_id` does not exist. |
-| `resource_already_exists` | 409 | An idempotency conflict occurred — a request with the same `idempotency_key` but different parameters was previously processed. |
-| `migration_in_progress` | 409 | The resource is currently being migrated and cannot be modified. |
-| `rate_limit_exceeded` | 429 | Too many requests. The agent MUST wait `retry_after_seconds` before retrying. See [Section 8.6](#86-rate-limiting). |
-| `quota_exceeded` | 429 | The principal has exceeded their quota for this offering. |
-| `provisioning_failed` | 500 | A provider-side error occurred during provisioning. |
-| `provider_error` | 500 | An internal provider error occurred. |
-| `capacity_exhausted` | 503 | The provider has no available capacity for the requested resource. |
-| `provider_unavailable` | 503 | The provider is temporarily unavailable. The agent SHOULD retry with exponential backoff. |
-
-**Error response example:**
-
-```json
-{
-  "error": "invalid_configuration",
-  "message": "Unknown configuration key 'postgres_version'. Valid keys: ['pg_version', 'enable_pooling'].",
-  "resource_id": null,
-  "retry_after_seconds": null,
-  "details": {
-    "invalid_keys": ["postgres_version"],
-    "valid_keys": ["pg_version", "enable_pooling"]
-  }
-}
-```
-
-**Retryable errors:** Agents SHOULD automatically retry requests that fail with `rate_limit_exceeded`, `provider_unavailable`, or `provisioning_failed` (when `retryable` is `true`). All other errors indicate a client-side issue that requires correction before retrying.
+| Code | Description |
+|------|-------------|
+| `invalid_offering` | The specified `offering_id` does not exist. |
+| `invalid_tier` | The specified `tier_id` does not exist within the offering. |
+| `invalid_region` | The specified region is not available for this offering. |
+| `invalid_configuration` | The configuration object does not match the offering's `configuration_schema`. |
+| `payment_required` | Payment proof is missing or invalid. |
+| `payment_declined` | The payment method was declined. |
+| `insufficient_funds` | The payment method has insufficient funds. |
+| `trust_tier_insufficient` | The agent's trust tier does not meet the minimum requirement. |
+| `quota_exceeded` | The principal has exceeded their quota for this offering. |
+| `region_unavailable` | The requested region is temporarily unavailable. |
+| `nonce_reused` | The nonce has already been used. |
+| `rate_limited` | Too many requests. Check `retry_after_seconds`. |
+| `provider_error` | An internal provider error occurred. |
+| `capacity_exhausted` | The provider has no available capacity. |
+| `identity_verification_failed` | Agent identity verification failed (HTTP 403). The provided identity proof is invalid, expired, or uses an unsupported method. |
 
 #### Example: Synchronous Success
 
@@ -2274,7 +2257,17 @@ Rotate credentials for a resource. The old credentials MUST remain valid for a g
 1. The grace period MUST be at least 5 minutes (RECOMMENDED: 15 minutes).
 2. The provider MUST include the `old_credentials_valid_until` timestamp in the rotation response.
 3. During the grace period, BOTH old and new credentials MUST work.
-4. After the grace period, the old credentials MUST return HTTP 401 with the header `X-OSP-Credentials-Rotated: true` and the body SHOULD include the `resource_id` so the agent knows which resource's credentials expired (rather than interpreting it as an authorization failure).
+4. After the grace period, the old credentials MUST return HTTP 401 with the header `X-OSP-Credentials-Rotated: true`. The response body MUST use the following structure so the agent can distinguish a rotation from a genuine authorization failure:
+
+```json
+{
+  "error": "credentials_rotated",
+  "resource_id": "res_7f3b1a2c-4d5e-6f78-90ab-cdef12345678",
+  "message": "Credentials have been rotated. Use GET /osp/v1/credentials/{id} to retrieve new credentials.",
+  "rotated_at": "2026-03-27T18:00:00Z"
+}
+```
+
 5. The provider MUST NOT invalidate old credentials before `old_credentials_valid_until`.
 
 **Request:**
@@ -6737,6 +6730,10 @@ Sandbox resources:
 - Send `resource.sandbox_expiring` webhook 1 hour before TTL expires
 - Are excluded from billing (when on free tier) or charged at sandbox rates
 - Can be promoted to permanent: `POST /osp/v1/promote/{resource_id}`
+
+**Sandbox deprovision and tier change semantics:**
+
+Sandbox resources do NOT have a deprovision grace period. Auto-deprovisioning occurs immediately at TTL expiry without prior warning beyond the `resource.sandbox_expiring` webhook. Attempting to deprovision an already-expired sandbox resource MUST return `404 Not Found` with error code `resource_not_found`. Tier changes on sandbox resources MUST return `400 Bad Request` with error code `invalid_request` — agents MUST deprovision and re-provision with the desired tier instead.
 
 #### PR Preview Environments
 

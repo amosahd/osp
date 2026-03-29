@@ -26,7 +26,7 @@ from typing import Any, Self
 
 import httpx
 
-from osp.manifest import WELL_KNOWN_PATH, fetch_manifest
+from osp.manifest import WELL_KNOWN_PATH, ManifestCache, fetch_manifest
 from osp.types import (
     CostSummary,
     CredentialBundle,
@@ -118,7 +118,7 @@ class OSPClient:
         if headers:
             extra_headers.update(headers)
         self._http = httpx.AsyncClient(timeout=timeout, headers=extra_headers)
-        self._manifest_cache: dict[str, ServiceManifest] = {}
+        self._manifest_cache = ManifestCache()
 
     # -- context manager -----------------------------------------------------
 
@@ -138,13 +138,14 @@ class OSPClient:
     async def discover(self, provider_url: str) -> ServiceManifest:
         """Fetch a provider's manifest from /.well-known/osp.json.
 
-        Results are cached in-memory for the lifetime of this client.
+        Results are cached in-memory with a 1-hour TTL.
         """
         key = _normalize_url(provider_url)
-        if key in self._manifest_cache:
-            return self._manifest_cache[key]
+        cached = self._manifest_cache.get(key)
+        if cached is not None:
+            return cached
         manifest = await fetch_manifest(provider_url, client=self._http)
-        self._manifest_cache[key] = manifest
+        self._manifest_cache.set(key, manifest)
         return manifest
 
     async def discover_from_registry(
@@ -334,7 +335,7 @@ class OSPClient:
 
     def clear_cache(self) -> None:
         """Clear the in-memory manifest cache."""
-        self._manifest_cache.clear()
+        self._manifest_cache.clear_cache()
 
     # -- lifecycle -----------------------------------------------------------
 

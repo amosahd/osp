@@ -98,6 +98,7 @@ from osp.types import (
 from osp.client import OSPClient, OSPClientError, RetryConfig
 from osp.manifest import (
     WELL_KNOWN_PATH,
+    ManifestCache,
     canonical_json,
     fetch_manifest,
     find_offering,
@@ -192,6 +193,7 @@ __all__ = [
     "OSPClientError",
     "RetryConfig",
     # Manifest utilities
+    "ManifestCache",
     "WELL_KNOWN_PATH",
     "canonical_json",
     "fetch_manifest",

@@ -93,6 +93,19 @@ export type {
   CostResource,
   HealthResponse,
   HealthCheck,
+  EstimateRequest,
+  EstimateResponse,
+  DisputeReasonCode,
+  DisputeRequest,
+  DisputeResponse,
+  ResourceEvent,
+  EventsResponse,
+  GetEventsOptions,
+  WebhookRegistration,
+  WebhookResponse,
+  ExportRequest,
+  ExportResponse,
+  RateLimitInfo,
 } from "./types.js";
 
 // Manifest utilities

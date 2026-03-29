@@ -699,6 +699,157 @@ export type WarningType =
   | "ttl_expiring";
 
 // ---------------------------------------------------------------------------
+// v1.2: Estimate
+// ---------------------------------------------------------------------------
+
+/** Request to estimate provisioning cost without actually provisioning. */
+export interface EstimateRequest {
+  offering_id: string;
+  tier_id: string;
+  region?: string;
+  configuration?: Record<string, unknown>;
+  estimated_usage?: Record<string, number>;
+  billing_periods?: number;
+}
+
+/** Cost estimate response from the provider. */
+export interface EstimateResponse {
+  offering_id: string;
+  tier_id: string;
+  estimate: {
+    base_cost: { amount: string; currency: string; interval: string };
+    metered_cost?: Record<string, { quantity: number; unit_price: string; subtotal: string; note?: string }>;
+    total_monthly: string;
+    total_for_period: string;
+    currency: string;
+    billing_periods: number;
+  };
+  comparison_hint?: string;
+  valid_until: string;
+}
+
+// ---------------------------------------------------------------------------
+// v1.2: Dispute
+// ---------------------------------------------------------------------------
+
+/** Dispute reason codes. */
+export type DisputeReasonCode =
+  | "service_not_delivered"
+  | "credentials_invalid"
+  | "wrong_tier"
+  | "billing_mismatch"
+  | "unauthorized_charge"
+  | "quality_degraded";
+
+/** Request to file a dispute for a provisioned resource. */
+export interface DisputeRequest {
+  reason_code: DisputeReasonCode;
+  description: string;
+  evidence_hash?: string;
+  evidence_url?: string;
+}
+
+/** Response after filing a dispute. */
+export interface DisputeResponse {
+  dispute_id: string;
+  resource_id: string;
+  reason_code: DisputeReasonCode;
+  status: "filed";
+  filed_at: string;
+  osp_dispute_receipt: string;
+  settlement_rails: string[];
+  provider_response_deadline: string;
+}
+
+// ---------------------------------------------------------------------------
+// v1.2: Events
+// ---------------------------------------------------------------------------
+
+/** A single event from the event audit trail. */
+export interface ResourceEvent {
+  event_id: string;
+  event_type: string;
+  timestamp: string;
+  details?: Record<string, unknown>;
+}
+
+/** Response from the events endpoint. */
+export interface EventsResponse {
+  resource_id: string;
+  events: ResourceEvent[];
+  has_more: boolean;
+  cursor?: string;
+}
+
+/** Options for fetching events. */
+export interface GetEventsOptions {
+  since?: string;
+  until?: string;
+  limit?: number;
+  starting_after?: string;
+  event_type?: string;
+}
+
+// ---------------------------------------------------------------------------
+// v1.2: Webhook Management
+// ---------------------------------------------------------------------------
+
+/** Request to register or update a webhook. */
+export interface WebhookRegistration {
+  webhook_url: string;
+  events?: string[];
+  secret_rotation?: boolean;
+}
+
+/** Response after registering a webhook. */
+export interface WebhookResponse {
+  webhook_id: string;
+  resource_id: string;
+  webhook_url: string;
+  events: string[];
+  secret?: string;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// v1.2: Export
+// ---------------------------------------------------------------------------
+
+/** Request to export a resource. */
+export interface ExportRequest {
+  format: string;
+  include_data?: boolean;
+  include_schema?: boolean;
+  encryption_key?: string;
+}
+
+/** Response after initiating an export. */
+export interface ExportResponse {
+  export_id: string;
+  resource_id: string;
+  status: "exporting" | "ready" | "failed";
+  format: string;
+  estimated_ready_seconds?: number;
+  poll_url?: string;
+  download_url?: string;
+  download_expires_at?: string;
+  size_bytes?: number;
+  checksum?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// v1.2: Rate Limit Info
+// ---------------------------------------------------------------------------
+
+/** Parsed rate limit information from response headers. */
+export interface RateLimitInfo {
+  limit: number;
+  remaining: number;
+  reset: number;
+}
+
+// ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
 

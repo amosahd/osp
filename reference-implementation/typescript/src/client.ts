@@ -24,14 +24,25 @@ import type {
   AgentIdentity,
   CostSummary,
   CredentialBundle,
+  DisputeRequest,
+  DisputeResponse,
+  EstimateRequest,
+  EstimateResponse,
+  EventsResponse,
+  ExportRequest,
+  ExportResponse,
+  GetEventsOptions,
   HealthResponse,
   HealthStatus,
   OSPErrorBody,
   ProvisionRequest,
   ProvisionResponse,
+  RateLimitInfo,
   ResourceStatus,
   ServiceManifest,
   UsageReport,
+  WebhookRegistration,
+  WebhookResponse,
 } from "./types.js";
 import { fetchManifest } from "./manifest.js";
 
@@ -68,6 +79,24 @@ export interface OSPClientOptions {
 
   /** Retry configuration for transient failures. */
   retry?: RetryOptions;
+
+  /**
+   * Agent attestation token (TAP or equivalent) proving the agent's
+   * identity and trust tier. Sent as `Authorization: Bearer <token>`.
+   */
+  agentAttestation?: string;
+
+  /**
+   * When true, provisions resources in sandbox/testing mode.
+   * Adds `mode: "sandbox"` to provision requests.
+   */
+  sandbox?: boolean;
+
+  /**
+   * OSP spec version to declare in `X-OSP-Version` header.
+   * Defaults to "1.0".
+   */
+  ospVersion?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,8 +127,14 @@ interface CachedManifest {
 export class OSPClient {
   private readonly registryUrl: string;
   private readonly authToken?: string;
+  private readonly agentAttestation?: string;
+  private readonly sandboxMode: boolean;
+  private readonly ospVersion: string;
   private readonly timeoutMs: number;
   private readonly retryConfig: Required<RetryOptions>;
+
+  /** Rate limit info parsed from the most recent response. */
+  lastRateLimit?: RateLimitInfo;
 
   /** In-memory manifest cache keyed by normalized provider URL (with TTL). */
   private readonly manifestCache = new Map<string, CachedManifest>();
@@ -109,6 +144,9 @@ export class OSPClient {
       options?.registryUrl?.replace(/\/+$/, "") ??
       "https://registry.osp.dev";
     this.authToken = options?.authToken;
+    this.agentAttestation = options?.agentAttestation;
+    this.sandboxMode = options?.sandbox ?? false;
+    this.ospVersion = options?.ospVersion ?? "1.0";
     this.timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.retryConfig = {
       maxRetries: options?.retry?.maxRetries ?? DEFAULT_MAX_RETRIES,
@@ -185,10 +223,15 @@ export class OSPClient {
       headers["Idempotency-Key"] = request.idempotency_key;
     }
 
+    const body = { ...request };
+    if (this.sandboxMode && !body.mode) {
+      body.mode = "sandbox";
+    }
+
     const response = await this.fetchWithRetry(url, {
       method: "POST",
       headers,
-      body: JSON.stringify(request),
+      body: JSON.stringify(body),
     });
 
     return response.json() as Promise<ProvisionResponse>;
@@ -359,6 +402,137 @@ export class OSPClient {
   }
 
   // -----------------------------------------------------------------------
+  // Estimate
+  // -----------------------------------------------------------------------
+
+  /**
+   * Estimate the cost of provisioning a service without actually provisioning it.
+   *
+   * Agents use this to compare pricing across providers before committing.
+   */
+  async estimate(
+    providerUrl: string,
+    request: EstimateRequest,
+  ): Promise<EstimateResponse> {
+    const url = this.endpointUrl(providerUrl, "/osp/v1/estimate");
+
+    const response = await this.fetchWithRetry(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+
+    return response.json() as Promise<EstimateResponse>;
+  }
+
+  // -----------------------------------------------------------------------
+  // Dispute
+  // -----------------------------------------------------------------------
+
+  /**
+   * File a dispute for a provisioned resource.
+   *
+   * This does NOT resolve disputes — it creates an `osp_dispute_receipt`
+   * that the agent carries to the settlement rail for resolution.
+   */
+  async dispute(
+    providerUrl: string,
+    resourceId: string,
+    request: DisputeRequest,
+  ): Promise<DisputeResponse> {
+    const url = this.endpointUrl(providerUrl, `/osp/v1/dispute/${resourceId}`);
+
+    const response = await this.fetchWithRetry(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+
+    return response.json() as Promise<DisputeResponse>;
+  }
+
+  // -----------------------------------------------------------------------
+  // Events
+  // -----------------------------------------------------------------------
+
+  /**
+   * Retrieve an audit trail of all lifecycle events for a resource.
+   */
+  async getEvents(
+    providerUrl: string,
+    resourceId: string,
+    options?: GetEventsOptions,
+  ): Promise<EventsResponse> {
+    const base = this.endpointUrl(providerUrl, `/osp/v1/events/${resourceId}`);
+    const url = new URL(base);
+    if (options?.since) url.searchParams.set("since", options.since);
+    if (options?.until) url.searchParams.set("until", options.until);
+    if (options?.limit != null) url.searchParams.set("limit", String(options.limit));
+    if (options?.starting_after) url.searchParams.set("starting_after", options.starting_after);
+    if (options?.event_type) url.searchParams.set("event_type", options.event_type);
+
+    const response = await this.fetchWithRetry(url.toString());
+    return response.json() as Promise<EventsResponse>;
+  }
+
+  // -----------------------------------------------------------------------
+  // Webhook Management
+  // -----------------------------------------------------------------------
+
+  /**
+   * Register or update a webhook for a provisioned resource.
+   */
+  async registerWebhook(
+    providerUrl: string,
+    resourceId: string,
+    registration: WebhookRegistration,
+  ): Promise<WebhookResponse> {
+    const url = this.endpointUrl(providerUrl, `/osp/v1/webhooks/${resourceId}`);
+
+    const response = await this.fetchWithRetry(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(registration),
+    });
+
+    return response.json() as Promise<WebhookResponse>;
+  }
+
+  /**
+   * Remove webhook registration for a resource.
+   */
+  async deleteWebhook(
+    providerUrl: string,
+    resourceId: string,
+  ): Promise<void> {
+    const url = this.endpointUrl(providerUrl, `/osp/v1/webhooks/${resourceId}`);
+    await this.fetchWithRetry(url, { method: "DELETE" });
+  }
+
+  // -----------------------------------------------------------------------
+  // Export
+  // -----------------------------------------------------------------------
+
+  /**
+   * Request an export bundle from the provider for a provisioned resource.
+   */
+  async exportResource(
+    providerUrl: string,
+    resourceId: string,
+    request: ExportRequest,
+  ): Promise<ExportResponse> {
+    const url = this.endpointUrl(providerUrl, `/osp/v1/export/${resourceId}`);
+
+    const response = await this.fetchWithRetry(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+
+    return response.json() as Promise<ExportResponse>;
+  }
+
+  // -----------------------------------------------------------------------
   // Cache management
   // -----------------------------------------------------------------------
 
@@ -400,10 +574,13 @@ export class OSPClient {
         const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
         const headers = new Headers(init?.headers);
-        if (this.authToken) {
+        if (this.agentAttestation) {
+          headers.set("Authorization", `Bearer ${this.agentAttestation}`);
+        } else if (this.authToken) {
           headers.set("Authorization", `Bearer ${this.authToken}`);
         }
         headers.set("User-Agent", "@osp/client 0.2.0");
+        headers.set("X-OSP-Version", this.ospVersion);
 
         const response = await fetch(url, {
           ...init,
@@ -412,6 +589,9 @@ export class OSPClient {
         });
 
         clearTimeout(timeoutId);
+
+        // Parse rate limit headers
+        this.lastRateLimit = parseRateLimitHeaders(response.headers);
 
         if (!response.ok) {
           // Check if retryable
@@ -526,4 +706,24 @@ function computeBackoff(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseRateLimitHeaders(headers: Headers): RateLimitInfo | undefined {
+  const limit = headers.get("X-OSP-RateLimit-Limit") ?? headers.get("RateLimit-Limit");
+  const remaining = headers.get("X-OSP-RateLimit-Remaining") ?? headers.get("RateLimit-Remaining");
+  const reset = headers.get("X-OSP-RateLimit-Reset") ?? headers.get("RateLimit-Reset");
+
+  if (limit == null || remaining == null || reset == null) {
+    return undefined;
+  }
+
+  const parsedLimit = parseInt(limit, 10);
+  const parsedRemaining = parseInt(remaining, 10);
+  const parsedReset = parseInt(reset, 10);
+
+  if (isNaN(parsedLimit) || isNaN(parsedRemaining) || isNaN(parsedReset)) {
+    return undefined;
+  }
+
+  return { limit: parsedLimit, remaining: parsedRemaining, reset: parsedReset };
 }

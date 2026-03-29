@@ -1,52 +1,131 @@
 import type { Metadata } from "next";
+import { Space_Grotesk, DM_Sans, JetBrains_Mono } from "next/font/google";
+import {
+  Github,
+  BookOpen,
+  Layers,
+  Cpu,
+  ArrowUpRight,
+  MessageSquare,
+} from "lucide-react";
 import "./globals.css";
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space-grotesk",
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "OSP - Open Service Protocol",
   description:
-    "An open standard for AI agents to discover, provision, and manage developer services.",
+    "The open standard for AI agents to discover, provision, and manage developer services. No gatekeeping. No lock-in.",
   openGraph: {
     title: "OSP - Open Service Protocol",
     description:
-      "An open standard for AI agents to discover, provision, and manage developer services.",
+      "The open standard for AI agents to discover, provision, and manage developer services.",
     url: "https://osp.dev",
     siteName: "OSP",
     type: "website",
   },
 };
 
+const navLinks = [
+  { href: "/spec", label: "Spec", icon: BookOpen },
+  { href: "/providers", label: "Providers", icon: Layers },
+  { href: "/skills", label: "Skills", icon: Cpu },
+];
+
+const footerSections = [
+  {
+    title: "Protocol",
+    links: [
+      { href: "/spec", label: "Specification" },
+      { href: "/providers", label: "Provider Directory" },
+      { href: "/skills", label: "Skill Browser" },
+    ],
+  },
+  {
+    title: "Developers",
+    links: [
+      {
+        href: "https://github.com/openserviceprotocol/osp",
+        label: "GitHub",
+        external: true,
+      },
+      {
+        href: "https://github.com/openserviceprotocol/osp/blob/main/docs/getting-started.md",
+        label: "Getting Started",
+        external: true,
+      },
+      {
+        href: "https://github.com/openserviceprotocol/osp/blob/main/CONTRIBUTING.md",
+        label: "Contributing",
+        external: true,
+      },
+    ],
+  },
+  {
+    title: "Community",
+    links: [
+      {
+        href: "https://github.com/openserviceprotocol/osp/discussions",
+        label: "Discussions",
+        external: true,
+      },
+      {
+        href: "https://github.com/openserviceprotocol/osp/issues",
+        label: "Issues",
+        external: true,
+      },
+    ],
+  },
+];
+
 function Header() {
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-surface-700/50 bg-surface-900/80 backdrop-blur-xl">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <a href="/" className="text-xl font-bold tracking-tight">
-          OSP
+        <a href="/" className="flex items-center gap-2.5 group">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent-500 font-sans text-sm font-bold text-white transition-transform duration-200 group-hover:scale-105">
+            O
+          </div>
+          <span className="font-sans text-lg font-bold tracking-tight text-surface-100">
+            OSP
+          </span>
         </a>
-        <div className="flex items-center gap-8">
-          <a
-            href="/spec"
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            Specification
-          </a>
-          <a
-            href="/providers"
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            Providers
-          </a>
-          <a
-            href="/skills"
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            Skills
-          </a>
+
+        <div className="flex items-center gap-1">
+          {navLinks.map(({ href, label, icon: Icon }) => (
+            <a
+              key={href}
+              href={href}
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-surface-300 transition-colors duration-150 hover:bg-surface-800 hover:text-surface-100"
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </a>
+          ))}
+          <div className="ml-3 h-5 w-px bg-surface-700" />
           <a
             href="https://github.com/openserviceprotocol/osp"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            className="ml-3 flex items-center gap-2 rounded-md bg-surface-800 px-4 py-2 text-sm font-medium text-surface-100 transition-colors duration-150 hover:bg-surface-700"
           >
+            <Github className="h-4 w-4" />
             GitHub
           </a>
         </div>
@@ -57,93 +136,64 @@ function Header() {
 
 function Footer() {
   return (
-    <footer className="border-t border-gray-200 bg-gray-50">
-      <div className="mx-auto max-w-7xl px-6 py-12">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
-          <div>
-            <h3 className="font-bold">OSP</h3>
-            <p className="mt-2 text-sm text-gray-600">
-              Open Service Protocol. Apache 2.0 licensed.
+    <footer className="border-t border-surface-700/50 bg-surface-950">
+      <div className="mx-auto max-w-7xl px-6 py-16">
+        <div className="grid grid-cols-1 gap-12 md:grid-cols-5">
+          {/* Brand */}
+          <div className="md:col-span-2">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent-500 font-sans text-sm font-bold text-white">
+                O
+              </div>
+              <span className="font-sans text-lg font-bold tracking-tight text-surface-100">
+                OSP
+              </span>
+            </div>
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-surface-400">
+              Open Service Protocol. The open standard for AI agents to
+              discover and provision developer services.
             </p>
+            <p className="mt-3 text-xs text-surface-500">Apache 2.0 Licensed</p>
           </div>
-          <div>
-            <h4 className="text-sm font-semibold text-gray-900">Protocol</h4>
-            <ul className="mt-2 space-y-2 text-sm text-gray-600">
-              <li>
-                <a href="/spec" className="hover:text-gray-900">
-                  Specification
-                </a>
-              </li>
-              <li>
-                <a href="/providers" className="hover:text-gray-900">
-                  Provider Directory
-                </a>
-              </li>
-              <li>
-                <a href="/skills" className="hover:text-gray-900">
-                  Skill Browser
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-gray-900">Developers</h4>
-            <ul className="mt-2 space-y-2 text-sm text-gray-600">
-              <li>
-                <a
-                  href="https://github.com/openserviceprotocol/osp"
-                  className="hover:text-gray-900"
-                >
-                  GitHub
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://github.com/openserviceprotocol/osp/blob/main/docs/getting-started.md"
-                  className="hover:text-gray-900"
-                >
-                  Getting Started
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://github.com/openserviceprotocol/osp/blob/main/CONTRIBUTING.md"
-                  className="hover:text-gray-900"
-                >
-                  Contributing
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-gray-900">Community</h4>
-            <ul className="mt-2 space-y-2 text-sm text-gray-600">
-              <li>
-                <a
-                  href="https://github.com/openserviceprotocol/osp/discussions"
-                  className="hover:text-gray-900"
-                >
-                  Discussions
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://github.com/openserviceprotocol/osp/issues"
-                  className="hover:text-gray-900"
-                >
-                  Issues
-                </a>
-              </li>
-            </ul>
-          </div>
+
+          {/* Link columns */}
+          {footerSections.map((section) => (
+            <div key={section.title}>
+              <h4 className="font-sans text-xs font-semibold uppercase tracking-widest text-surface-400">
+                {section.title}
+              </h4>
+              <ul className="mt-4 space-y-3">
+                {section.links.map((link) => (
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      {...("external" in link && link.external
+                        ? { target: "_blank", rel: "noopener noreferrer" }
+                        : {})}
+                      className="group flex items-center gap-1 text-sm text-surface-400 transition-colors duration-150 hover:text-surface-100"
+                    >
+                      {link.label}
+                      {"external" in link && link.external && (
+                        <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+                      )}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
-        <div className="mt-8 border-t border-gray-200 pt-8 text-center text-sm text-gray-500">
-          Built by the OSP community. Founding maintainer:{" "}
+
+        <div className="mt-12 flex items-center justify-between border-t border-surface-800 pt-8">
+          <p className="text-xs text-surface-500">
+            Built by the OSP community
+          </p>
           <a
             href="https://sardis.sh"
-            className="text-gray-700 hover:text-gray-900"
+            className="flex items-center gap-1.5 text-xs text-surface-500 transition-colors duration-150 hover:text-surface-300"
           >
-            Sardis
+            Founding maintainer: Sardis
+            <ArrowUpRight className="h-3 w-3" />
           </a>
         </div>
       </div>
@@ -157,7 +207,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${spaceGrotesk.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
+    >
       <body>
         <Header />
         <main>{children}</main>

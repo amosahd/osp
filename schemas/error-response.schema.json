@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://osp.dev/schemas/error-response.schema.json",
+  "title": "ErrorResponse",
+  "description": "Standard error response returned by OSP provider endpoints when a request fails",
+  "type": "object",
+  "required": ["error", "message"],
+  "properties": {
+    "error": {
+      "type": "string",
+      "description": "Machine-readable error code from the OSP error taxonomy (e.g., 'invalid_request', 'rate_limit_exceeded', 'provider_error')",
+      "enum": [
+        "invalid_request",
+        "invalid_offering",
+        "invalid_tier",
+        "invalid_configuration",
+        "invalid_region",
+        "sandbox_not_available",
+        "tier_change_not_allowed",
+        "region_unavailable",
+        "deprecated_offering",
+        "identity_required",
+        "credentials_rotated",
+        "nonce_reused",
+        "identity_verification_failed",
+        "insufficient_trust",
+        "payment_required",
+        "payment_declined",
+        "insufficient_funds",
+        "resource_not_found",
+        "resource_already_exists",
+        "migration_in_progress",
+        "rate_limit_exceeded",
+        "quota_exceeded",
+        "provisioning_failed",
+        "provider_error",
+        "capacity_exhausted",
+        "provider_unavailable"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable error message providing additional context about the failure"
+    },
+    "resource_id": {
+      "type": ["string", "null"],
+      "description": "The resource ID associated with the error, if applicable"
+    },
+    "retry_after_seconds": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Number of seconds the agent should wait before retrying. Present for rate_limit_exceeded, provider_unavailable, and other retryable errors"
+    },
+    "details": {
+      "type": ["object", "null"],
+      "description": "Additional error context with provider-specific details (e.g., invalid field names, validation errors, constraint violations)"
+    }
+  },
+  "additionalProperties": false
+}

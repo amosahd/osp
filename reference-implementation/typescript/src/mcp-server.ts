@@ -1,12 +1,14 @@
 /**
  * OSP MCP Server — exposes OSP operations as MCP tools.
  *
- * Provides 5 tools:
+ * Provides 7 tools:
  * - osp_discover: Search for and discover OSP providers
  * - osp_provision: Provision a new service resource
  * - osp_env: Generate environment variables from provisioned credentials
  * - osp_status: Check the status of a provisioned resource
  * - osp_skills: Retrieve a provider's LLM integration skill document
+ * - osp_cost_summary: Fetch aggregated cost summary from a provider
+ * - osp_health: Check the structured health of a provider
  *
  * Usage:
  *
@@ -21,6 +23,9 @@
 import { OSPClient } from "./client.js";
 import { OSPResolver } from "./resolver.js";
 import type {
+  AgentIdentity,
+  CostSummary,
+  HealthResponse,
   ServiceManifest,
   ProvisionResponse,
   ResourceStatus,
@@ -95,6 +100,30 @@ export const OSP_TOOL_DEFINITIONS: MCPToolDefinition[] = [
           type: "object",
           description: "Offering-specific configuration",
         },
+        mode: {
+          type: "string",
+          enum: ["live", "sandbox"],
+          description: "Provisioning mode: 'live' for production, 'sandbox' for testing (default: live)",
+        },
+        idempotency_key: {
+          type: "string",
+          description: "Unique key to ensure idempotent provisioning (prevents duplicate resources on retry)",
+        },
+        agent_identity: {
+          type: "object",
+          description: "Agent identity for authenticated provisioning",
+          properties: {
+            method: {
+              type: "string",
+              enum: ["ed25519_did", "oauth2_client", "api_key"],
+              description: "Identity verification method",
+            },
+            credential: {
+              type: "string",
+              description: "Identity credential (DID, OAuth2 client_id, or API key)",
+            },
+          },
+        },
       },
     },
   },
@@ -160,6 +189,48 @@ export const OSP_TOOL_DEFINITIONS: MCPToolDefinition[] = [
       },
     },
   },
+  {
+    name: "osp_cost_summary",
+    description:
+      "Fetch an aggregated cost summary from a provider. Shows total cost, per-resource breakdown, and projected monthly spend.",
+    inputSchema: {
+      type: "object",
+      required: ["provider_url"],
+      properties: {
+        provider_url: {
+          type: "string",
+          description: "URL of the provider",
+        },
+        period_start: {
+          type: "string",
+          description: "Start of billing period (ISO 8601 date, e.g. '2026-03-01')",
+        },
+        period_end: {
+          type: "string",
+          description: "End of billing period (ISO 8601 date, e.g. '2026-03-31')",
+        },
+        currency: {
+          type: "string",
+          description: "Currency code (e.g. 'USD', 'EUR')",
+        },
+      },
+    },
+  },
+  {
+    name: "osp_health",
+    description:
+      "Check the structured health of a provider. Returns status, version, supported protocol versions, uptime, and individual health checks.",
+    inputSchema: {
+      type: "object",
+      required: ["provider_url"],
+      properties: {
+        provider_url: {
+          type: "string",
+          description: "URL of the provider",
+        },
+      },
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -197,6 +268,10 @@ export class OSPMCPHandler {
           return await this.handleStatus(args);
         case "osp_skills":
           return await this.handleSkills(args);
+        case "osp_cost_summary":
+          return await this.handleCostSummary(args);
+        case "osp_health":
+          return await this.handleHealth(args);
         default:
           return this.errorResult(`Unknown tool: ${name}`);
       }
@@ -258,6 +333,9 @@ export class OSPMCPHandler {
     const projectName = args.project_name as string;
     const region = args.region as string | undefined;
     const config = args.config as Record<string, unknown> | undefined;
+    const mode = args.mode as "live" | "sandbox" | undefined;
+    const idempotencyKey = args.idempotency_key as string | undefined;
+    const agentIdentity = args.agent_identity as AgentIdentity | undefined;
 
     const nonce = typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
@@ -271,6 +349,9 @@ export class OSPMCPHandler {
       config,
       nonce,
       payment_method: "free",
+      mode,
+      idempotency_key: idempotencyKey,
+      agent_identity: agentIdentity,
     });
 
     // Store credentials in resolver if available
@@ -383,6 +464,45 @@ export class OSPMCPHandler {
     }
     const text = await response.text();
     return this.textResult(text);
+  }
+
+  private async handleCostSummary(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
+    const providerUrl = args.provider_url as string;
+    const periodStart = args.period_start as string | undefined;
+    const periodEnd = args.period_end as string | undefined;
+    const currency = args.currency as string | undefined;
+
+    const summary: CostSummary = await this.client.getCostSummary(providerUrl, {
+      period_start: periodStart,
+      period_end: periodEnd,
+      currency,
+    });
+
+    return this.textResult(JSON.stringify({
+      total_cost: summary.total_cost,
+      currency: summary.currency,
+      period: summary.period,
+      projected_monthly: summary.projected_monthly,
+      resources: summary.resources,
+    }, null, 2));
+  }
+
+  private async handleHealth(
+    args: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
+    const providerUrl = args.provider_url as string;
+
+    const health: HealthResponse = await this.client.getHealth(providerUrl);
+
+    return this.textResult(JSON.stringify({
+      status: health.status,
+      version: health.version,
+      supported_versions: health.supported_versions,
+      uptime_seconds: health.uptime_seconds,
+      checks: health.checks,
+    }, null, 2));
   }
 
   // -----------------------------------------------------------------------

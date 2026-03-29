@@ -7,6 +7,11 @@
   "display_name": "Resend",
   "provider_url": "https://resend.com",
   "provider_public_key": "cmVzZW5kX2VkMjU1MTlfcHVibGljX2tleV9iYXNlNjR1cmw",
+  "provider_key_id": "key-2026-03",
+  "identity": {
+    "supported_methods": ["ed25519_did", "api_key"],
+    "identity_required_for_tiers": ["pro", "enterprise"]
+  },
   "offerings": [
     {
       "offering_id": "resend/email",
@@ -90,6 +95,9 @@
       "estimated_provision_seconds": 5,
       "fulfillment_proof_type": "api_key_delivery",
       "regions": ["us-east-1", "eu-west-1", "sa-east-1"],
+      "available_regions": ["us-east-1", "eu-west-1", "sa-east-1"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://resend.com/docs"
     }
   ],
@@ -114,6 +122,12 @@
     "tools": ["resend_send_email", "resend_list_emails"],
     "streamable_http": false,
     "skills_url": "https://resend.com/.well-known/osp-skills.md"
+  },
+  "webhook_retry_policy": {
+    "max_attempts": 6,
+    "backoff_multiplier": 5,
+    "initial_delay_seconds": 1,
+    "max_delay_seconds": 3600
   },
   "extensions": {
     "resend:dashboard_url": "https://resend.com/overview",

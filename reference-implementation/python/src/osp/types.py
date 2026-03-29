@@ -739,6 +739,121 @@ class WebhookEvent(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Dispute
+# ---------------------------------------------------------------------------
+
+class DisputeRequest(BaseModel):
+    """Request to file a dispute for a provisioned resource."""
+    reason_code: str
+    description: str | None = None
+    evidence_hash: str | None = None
+    evidence_url: str | None = None
+
+
+class DisputeResponse(BaseModel):
+    """Response from filing a dispute."""
+    dispute_id: str
+    resource_id: str
+    reason_code: str
+    status: str
+    filed_at: str
+    osp_dispute_receipt: str | None = None
+    settlement_rails: list[str] | None = None
+    provider_response_deadline: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Webhook Management
+# ---------------------------------------------------------------------------
+
+class WebhookRegistrationRequest(BaseModel):
+    """Request to register or update a webhook."""
+    webhook_url: str
+    events: list[str] | None = None
+    secret_rotation: bool | None = None
+
+
+class WebhookRegistrationResponse(BaseModel):
+    """Response from webhook registration."""
+    webhook_id: str
+    resource_id: str
+    webhook_url: str
+    events: list[str] | None = None
+    secret: str | None = None
+    created_at: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Events
+# ---------------------------------------------------------------------------
+
+class ResourceEvent(BaseModel):
+    """A single lifecycle event for a resource."""
+    event_id: str
+    event_type: str
+    timestamp: str
+    details: dict[str, Any] | None = None
+
+
+class EventsResponse(BaseModel):
+    """Paginated list of resource lifecycle events."""
+    resource_id: str
+    events: list[ResourceEvent]
+    has_more: bool | None = None
+    cursor: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Cost Estimate
+# ---------------------------------------------------------------------------
+
+class EstimateRequest(BaseModel):
+    """Request body for cost estimation."""
+    offering_id: str
+    tier_id: str
+    region: str | None = None
+    configuration: dict[str, Any] | None = None
+    estimated_usage: dict[str, Any] | None = None
+    billing_periods: int | None = None
+
+
+class EstimateResponse(BaseModel):
+    """Response from cost estimation."""
+    offering_id: str
+    tier_id: str
+    estimate: dict[str, Any]
+    comparison_hint: str | None = None
+    valid_until: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------------
+
+class ExportRequest(BaseModel):
+    """Request to export resource data."""
+    format: str
+    include_data: bool | None = None
+    include_schema: bool | None = None
+    encryption_key: str | None = None
+
+
+class ExportResponse(BaseModel):
+    """Response from an export request."""
+    export_id: str
+    resource_id: str
+    status: str
+    format: str | None = None
+    estimated_ready_seconds: int | None = None
+    poll_url: str | None = None
+    download_url: str | None = None
+    download_expires_at: str | None = None
+    size_bytes: int | None = None
+    checksum: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+# ---------------------------------------------------------------------------
 # Error
 # ---------------------------------------------------------------------------
 

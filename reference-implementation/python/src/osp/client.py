@@ -30,6 +30,13 @@ from osp.manifest import WELL_KNOWN_PATH, ManifestCache, fetch_manifest
 from osp.types import (
     CostSummary,
     CredentialBundle,
+    DisputeRequest,
+    DisputeResponse,
+    EstimateRequest,
+    EstimateResponse,
+    EventsResponse,
+    ExportRequest,
+    ExportResponse,
     HealthResponse,
     HealthStatus,
     OSPErrorBody,
@@ -38,6 +45,8 @@ from osp.types import (
     ResourceStatus,
     ServiceManifest,
     UsageReport,
+    WebhookRegistrationRequest,
+    WebhookRegistrationResponse,
 )
 
 DEFAULT_TIMEOUT = 30.0
@@ -330,6 +339,117 @@ class OSPClient:
             params["offset"] = str(offset)
         response = await self._fetch_with_retry("GET", url, params=params or None)
         return CostSummary.model_validate(response.json())
+
+    # -- estimate ------------------------------------------------------------
+
+    async def estimate(
+        self,
+        provider_url: str,
+        request: EstimateRequest,
+    ) -> EstimateResponse:
+        """Get a cost estimate without provisioning."""
+        manifest = await self.discover(provider_url)
+        url = self._endpoint_url(provider_url, "/osp/v1/estimate")
+        response = await self._fetch_with_retry(
+            "POST",
+            url,
+            json=request.model_dump(mode="json", exclude_none=True),
+        )
+        return EstimateResponse.model_validate(response.json())
+
+    # -- dispute -------------------------------------------------------------
+
+    async def dispute(
+        self,
+        provider_url: str,
+        resource_id: str,
+        request: DisputeRequest,
+    ) -> DisputeResponse:
+        """File a dispute for a provisioned resource."""
+        await self.discover(provider_url)
+        url = self._endpoint_url(provider_url, f"/osp/v1/dispute/{resource_id}")
+        response = await self._fetch_with_retry(
+            "POST",
+            url,
+            json=request.model_dump(mode="json", exclude_none=True),
+        )
+        return DisputeResponse.model_validate(response.json())
+
+    # -- events --------------------------------------------------------------
+
+    async def get_events(
+        self,
+        provider_url: str,
+        resource_id: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int | None = None,
+        starting_after: str | None = None,
+        event_type: str | None = None,
+    ) -> EventsResponse:
+        """Retrieve lifecycle events for a resource."""
+        await self.discover(provider_url)
+        url = self._endpoint_url(provider_url, f"/osp/v1/events/{resource_id}")
+        params: dict[str, str] = {}
+        if since:
+            params["since"] = since
+        if until:
+            params["until"] = until
+        if limit is not None:
+            params["limit"] = str(limit)
+        if starting_after:
+            params["starting_after"] = starting_after
+        if event_type:
+            params["event_type"] = event_type
+        response = await self._fetch_with_retry("GET", url, params=params or None)
+        return EventsResponse.model_validate(response.json())
+
+    # -- webhooks ------------------------------------------------------------
+
+    async def register_webhook(
+        self,
+        provider_url: str,
+        resource_id: str,
+        request: WebhookRegistrationRequest,
+    ) -> WebhookRegistrationResponse:
+        """Register or update a webhook for a resource."""
+        await self.discover(provider_url)
+        url = self._endpoint_url(provider_url, f"/osp/v1/webhooks/{resource_id}")
+        response = await self._fetch_with_retry(
+            "POST",
+            url,
+            json=request.model_dump(mode="json", exclude_none=True),
+        )
+        return WebhookRegistrationResponse.model_validate(response.json())
+
+    async def delete_webhook(
+        self,
+        provider_url: str,
+        resource_id: str,
+    ) -> None:
+        """Remove webhook registration for a resource."""
+        await self.discover(provider_url)
+        url = self._endpoint_url(provider_url, f"/osp/v1/webhooks/{resource_id}")
+        await self._fetch_with_retry("DELETE", url)
+
+    # -- export --------------------------------------------------------------
+
+    async def export_resource(
+        self,
+        provider_url: str,
+        resource_id: str,
+        request: ExportRequest,
+    ) -> ExportResponse:
+        """Request an export bundle for a resource."""
+        await self.discover(provider_url)
+        url = self._endpoint_url(provider_url, f"/osp/v1/export/{resource_id}")
+        response = await self._fetch_with_retry(
+            "POST",
+            url,
+            json=request.model_dump(mode="json", exclude_none=True),
+        )
+        return ExportResponse.model_validate(response.json())
 
     # -- cache ---------------------------------------------------------------
 

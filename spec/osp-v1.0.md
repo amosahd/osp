@@ -6327,6 +6327,10 @@ Sandbox resources:
 - Are excluded from billing (when on free tier) or charged at sandbox rates
 - Can be promoted to permanent: `POST /osp/v1/promote/{resource_id}`
 
+**Sandbox deprovision and tier change semantics:**
+
+Sandbox resources do NOT have a deprovision grace period. Auto-deprovisioning occurs immediately at TTL expiry without prior warning beyond the `resource.sandbox_expiring` webhook. Attempting to deprovision an already-expired sandbox resource MUST return `404 Not Found` with error code `resource_not_found`. Tier changes on sandbox resources MUST return `400 Bad Request` with error code `invalid_request` — agents MUST deprovision and re-provision with the desired tier instead.
+
 #### PR Preview Environments
 
 Integration with CI/CD:

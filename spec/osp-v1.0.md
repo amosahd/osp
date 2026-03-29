@@ -50,7 +50,8 @@ The Open Service Protocol (OSP) defines a standard interface through which AI ag
   - [5.5 Idempotency](#55-idempotency)
   - [5.6 Deprovisioning](#56-deprovisioning)
   - [5.7 Geographic Compliance](#57-geographic-compliance)
-  - [5.8 Multi-Resource Provisioning](#58-multi-resource-provisioning)
+  - [5.8 Multi-Region Provisioning](#58-multi-region-provisioning)
+  - [5.9 Multi-Resource Provisioning](#59-multi-resource-provisioning)
 - [6. Provider Endpoints](#6-provider-endpoints)
   - [6.1 POST /osp/v1/provision](#61-post-ospv1provision)
   - [6.2 DELETE /osp/v1/deprovision/{resource_id}](#62-delete-ospv1deprovisionresource_id)
@@ -380,6 +381,7 @@ A specific service within a provider's manifest.
 | `tags` | `array<string>` | OPTIONAL | Freeform tags for discovery (e.g., `["postgres", "sql", "relational"]`). Max 20 tags, each max 32 characters. |
 | `tiers` | `array<ServiceTier>` | REQUIRED | Available pricing tiers. MUST contain at least one tier. |
 | `regions` | `array<string \| RegionObject>` | OPTIONAL | Available deployment regions. Each element is either a string (e.g., `"us-east-1"`) or a RegionObject with jurisdiction metadata (see Section 5.7). Providers SHOULD use RegionObjects when geographic compliance is relevant. If omitted, the provider selects the region. |
+| `available_regions` | `array<string>` | OPTIONAL | Simple list of available region identifiers for quick enumeration (e.g., `["us-east-1", "eu-west-1"]`). See [Section 5.8](#58-multi-region-provisioning). |
 | `credentials_schema` | `object` | REQUIRED | JSON Schema describing the shape of credentials delivered upon provisioning. This tells agents what keys to expect. |
 | `configuration_schema` | `object` | OPTIONAL | JSON Schema describing optional configuration parameters the agent can pass in the provision request. |
 | `estimated_provision_seconds` | `integer` | OPTIONAL | Estimated time to provision in seconds. `0` means synchronous. Default: `0`. |
@@ -661,7 +663,8 @@ The object an agent sends to provision a service.
 | `offering_id` | `string` | REQUIRED | The `offering_id` from the provider's manifest. |
 | `tier_id` | `string` | REQUIRED | The `tier_id` from the selected offering. |
 | `project_name` | `string` | OPTIONAL | A human-readable name for the resource (e.g., `"my-app-db"`). Max 64 characters, `[a-z0-9-]+`. |
-| `region` | `string` | OPTIONAL | Desired deployment region. MUST be one of the offering's `regions`. If omitted, the provider selects. |
+| `region` | `string` | OPTIONAL | Desired deployment region (hard constraint). MUST be one of the offering's `regions`. If omitted, the provider selects. |
+| `preferred_region` | `string` | OPTIONAL | Soft region preference. Provider SHOULD honor when possible but MAY select an alternative. See [Section 5.8](#58-multi-region-provisioning). |
 | `configuration` | `object` | OPTIONAL | Configuration parameters matching the offering's `configuration_schema`. |
 | `payment_method` | `string` | REQUIRED | The payment method being used. MUST be one of the tier's `accepted_payment_methods`. |
 | `payment_proof` | `object` | OPTIONAL | Proof of payment or payment authorization. Structure depends on `payment_method`. Required when `payment_method` is not `free`. See [Section 7.1](#71-payment-methods). |
@@ -1742,7 +1745,80 @@ When the provisioned resource has compliance implications, providers SHOULD incl
 }
 ```
 
-### 5.8 Multi-Resource Provisioning
+### 5.8 Multi-Region Provisioning
+
+Agents MAY express a region preference without requiring a strict match by using the `preferred_region` field in the `ProvisionRequest`. This complements the existing `region` field which enforces a hard constraint.
+
+#### Region Selection Behavior
+
+| Field | Behavior |
+|-------|----------|
+| `region` | Hard constraint. Provider MUST provision in this region or return `invalid_region`. |
+| `preferred_region` | Soft preference. Provider SHOULD provision in this region if available. If unavailable, the provider MAY provision in the nearest available region. |
+| Neither specified | Provider selects the optimal region based on its own heuristics. |
+
+When `preferred_region` is specified and the provider cannot honor it, the provider MUST:
+1. Provision the resource in the nearest available region (or provider-selected region).
+2. Include the actual `region` in the `ProvisionResponse` so the agent knows where the resource was deployed.
+3. NOT return an error solely because the preferred region is unavailable.
+
+If both `region` and `preferred_region` are specified, `region` takes precedence and `preferred_region` is ignored.
+
+#### ProvisionRequest Addition
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `preferred_region` | `string` | OPTIONAL | Soft region preference. Provider SHOULD honor this when possible but MAY select an alternative region. |
+
+#### ProvisionResponse: Region Field
+
+The existing `region` field (see [Section 3.5](#35-provisionresponse)) MUST be included in the `ProvisionResponse` whenever a resource is deployed to a specific region. This is especially important when the agent used `preferred_region`, so it can verify the actual deployment location.
+
+#### ServiceOffering: Available Regions
+
+Providers MUST declare available regions in the `ServiceOffering` using the `available_regions` field or the existing `regions` field. The `available_regions` field provides a simple string array for quick region enumeration, while `regions` supports the richer `RegionObject` format with jurisdiction metadata (see [Section 5.7](#57-geographic-compliance)).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `available_regions` | `array<string>` | OPTIONAL | Simple list of available region identifiers (e.g., `["us-east-1", "eu-west-1", "ap-southeast-1"]`). |
+
+Agents SHOULD use `available_regions` (or `regions`) to validate region preferences before sending a `ProvisionRequest`.
+
+#### Example: Preferred Region Provisioning
+
+**Request:**
+
+```json
+{
+  "offering_id": "supabase/managed-postgres",
+  "tier_id": "pro",
+  "preferred_region": "eu-central-1",
+  "payment_method": "stripe_spt",
+  "nonce": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+}
+```
+
+**Response (preferred region available):**
+
+```json
+{
+  "resource_id": "res_abc123",
+  "status": "provisioned",
+  "region": "eu-central-1"
+}
+```
+
+**Response (preferred region unavailable, nearest selected):**
+
+```json
+{
+  "resource_id": "res_abc123",
+  "status": "provisioned",
+  "region": "eu-west-1"
+}
+```
+
+### 5.9 Multi-Resource Provisioning
 
 Agents frequently need to provision multiple related services (database + hosting + auth) as a single logical unit. OSP v1.0 handles this through a **saga pattern** with compensation, not distributed transactions.
 

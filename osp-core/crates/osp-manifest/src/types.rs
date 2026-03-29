@@ -20,7 +20,110 @@ pub enum Category {
     Ml,
     Email,
     Dns,
+    Ai,
     Other,
+}
+
+// --- v1.1 Enums ---
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SandboxEnvironment {
+    Sandbox,
+    Live,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NHIFederationType {
+    Oidc,
+    Spiffe,
+    Mtls,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NHITokenType {
+    Bearer,
+    Dpop,
+    Mtls,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NHITokenMode {
+    Static,
+    ShortLived,
+    Federated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum A2ACapability {
+    Provision,
+    Deprovision,
+    Rotate,
+    Monitor,
+    Delegate,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CanaryStrategy {
+    Percentage,
+    BlueGreen,
+    Rolling,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CanaryState {
+    Inactive,
+    Active,
+    Promoting,
+    RollingBack,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TracePropagationFormat {
+    W3c,
+    B3,
+    Jaeger,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComplianceFramework {
+    Soc2,
+    Hipaa,
+    Gdpr,
+    PciDss,
+    Iso27001,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentIdentityMethod {
+    Ed25519Did,
+    Oauth2Client,
+    ApiKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BudgetAlertAction {
+    Alert,
+    Throttle,
+    Block,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DependencyEdgeKind {
+    Requires,
+    Optional,
+    Enhances,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -341,6 +444,25 @@ pub struct ServiceManifest {
     pub extensions: Option<HashMap<String, serde_json::Value>>,
     pub provider_signature: String,
     pub provider_public_key: String,
+    // v1.1 fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub a2a: Option<A2AAgentCard>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nhi: Option<NHIConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finops: Option<FinOpsConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dependency_graph: Option<DependencyGraph>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scorecards: Option<Scorecard>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub observability: Option<ObservabilityConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mcp: Option<MCPConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sandbox: Option<SandboxConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub webhooks: Option<Vec<WebhookRegistration>>,
 }
 
 // --- TierChange Object ---
@@ -504,6 +626,460 @@ pub struct UsageReport {
     pub currency: String,
     pub provider_signature: String,
     pub generated_at: DateTime<Utc>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Sandbox Configuration
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct SandboxConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub environment: Option<SandboxEnvironment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ttl_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_cleanup: Option<bool>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Agent Attestation & Identity
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AgentAttestation {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attestation_token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issued_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issuer: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AgentIdentity {
+    pub method: AgentIdentityMethod,
+    pub credential: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub did_document: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce_signature: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Non-Human Identity (NHI)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct NHIConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub short_lived_tokens: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_ttl_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub orphan_detection: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub federation: Option<Vec<NHIFederationType>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_endpoint: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct NHIToken {
+    pub token: String,
+    pub token_type: NHITokenType,
+    pub expires_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_endpoint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identity_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct OrphanDetectionConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub check_interval_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grace_period_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_deprovision: Option<bool>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: FinOps / Cost-as-Code
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct FinOpsConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub budget_enforcement: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_in_pr: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anomaly_detection: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub burn_rate_tracking: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub budget_endpoint: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct BudgetGuardrail {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_monthly_cost: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_total_cost: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alert_threshold_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<BudgetAlertAction>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct CostAnomaly {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detected_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_cost: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actual_cost: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deviation_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: A2A Agent Delegation
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct A2AAgentCard {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capabilities: Option<Vec<A2ACapability>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delegation_endpoint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_lifecycle: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_public_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct DelegationChain {
+    pub steps: Vec<DelegationStep>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub root_agent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct DelegationStep {
+    pub from_agent_id: String,
+    pub to_agent_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delegated_capabilities: Option<Vec<A2ACapability>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delegated_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Canary / Progressive Deployment
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct CanaryConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strategies: Option<Vec<CanaryStrategy>>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Observability / Audit
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ObservabilityConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub otel_endpoint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace_propagation: Option<Vec<TracePropagationFormat>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audit_log: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hitl_gates: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_per_action: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AuditLogEntry {
+    pub entry_id: String,
+    pub timestamp: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct OTelSpanConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub propagation_format: Option<TracePropagationFormat>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sample_rate: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attributes: Option<HashMap<String, String>>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: MCP Alignment
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct MCPConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub streamable_http: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub well_known_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skills_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct MCPCapability {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_schema: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_schema: Option<serde_json::Value>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Cost Estimate / Summary / Breakdown
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct CostEstimate {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monthly_estimate: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub breakdown: Option<Vec<CostBreakdown>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct CostSummary {
+    pub total_cost: f64,
+    pub currency: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub period_start: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub period_end: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resources: Option<Vec<CostResource>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub projected_monthly: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct CostResource {
+    pub resource_id: String,
+    pub offering_id: String,
+    pub cost: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage_summary: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct CostBreakdown {
+    pub dimension: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimated_usage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unit_price: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimated_cost: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Dependency Graph
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct DependencyGraph {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_generate: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub impact_analysis: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub health_propagation: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_docs: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nodes: Option<Vec<DependencyNode>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edges: Option<Vec<DependencyEdge>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct DependencyNode {
+    pub node_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offering_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub health_status: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct DependencyEdge {
+    pub from_node: String,
+    pub to_node: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<DependencyEdgeKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Scorecard & Compliance
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct Scorecard {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub maturity_scores: Option<HashMap<String, f64>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compliance: Option<Vec<ComplianceFramework>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guided_remediation: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dimensions: Option<Vec<ScorecardDimension>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ScorecardDimension {
+    pub name: String,
+    pub score: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_score: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ComplianceCheck {
+    pub framework: ComplianceFramework,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub passed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checked_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remediation: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Webhook Registration
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct WebhookRegistration {
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub events: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_policy: Option<WebhookRetryPolicy>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct WebhookRetryPolicy {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_retries: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initial_delay_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backoff_multiplier: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_delay_seconds: Option<u64>,
 }
 
 #[cfg(test)]

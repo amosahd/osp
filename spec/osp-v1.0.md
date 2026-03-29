@@ -247,6 +247,21 @@ X-OSP-Version: 1.0
 X-OSP-Version-Min: 1.0
 ```
 
+9. When `X-OSP-Version-Min` is higher than the provider's maximum supported version, the provider MUST return `406 Not Acceptable` with a body indicating supported versions:
+
+```json
+{
+  "error": {
+    "code": "version_not_supported",
+    "message": "Minimum requested version 2.0 exceeds provider's maximum supported version 1.1",
+    "supported_versions": ["1.0", "1.1"],
+    "recommended_version": "1.1"
+  }
+}
+```
+
+10. When multiple versions are acceptable (i.e., the intersection of agent-supported and provider-supported versions contains more than one version), the provider MUST select the highest mutually supported version and declare it in the `X-OSP-Version` response header.
+
 ---
 
 ## 2. Terminology

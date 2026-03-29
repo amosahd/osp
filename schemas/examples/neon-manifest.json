@@ -168,6 +168,9 @@
       "estimated_provision_seconds": 10,
       "fulfillment_proof_type": "health_check",
       "regions": ["us-east-1", "us-east-2", "us-west-2", "eu-central-1", "ap-southeast-1"],
+      "available_regions": ["us-east-1", "us-east-2", "us-west-2", "eu-central-1", "ap-southeast-1"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://neon.tech/docs"
     }
   ],

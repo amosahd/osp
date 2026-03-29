@@ -1,4 +1,14 @@
 import type { Metadata } from "next";
+import {
+  ArrowRight,
+  Database,
+  Cloud,
+  Server,
+  Mail,
+  Lock,
+  BarChart3,
+  Globe,
+} from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Provider Directory - OSP",
@@ -100,7 +110,8 @@ const providers = [
     name: "Resend",
     domain: "resend.com",
     category: "Email",
-    description: "Modern email API for developers. Transactional and marketing email.",
+    description:
+      "Modern email API for developers. Transactional and marketing email.",
     offerings: [
       { name: "Transactional Email", tiers: ["Free", "Pro", "Enterprise"] },
     ],
@@ -130,96 +141,112 @@ const providers = [
   },
 ];
 
-const categories = [
-  "All",
-  ...Array.from(new Set(providers.map((p) => p.category))),
-];
+const categoryIcons: Record<string, typeof Database> = {
+  Database,
+  Infrastructure: Cloud,
+  Hosting: Server,
+  Email: Mail,
+  Auth: Lock,
+  Analytics: BarChart3,
+};
 
 export default function ProvidersPage() {
   return (
-    <div className="mx-auto max-w-7xl px-6 py-16">
-      <div className="max-w-2xl">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900">
-          Provider Directory
-        </h1>
-        <p className="mt-4 text-lg text-gray-600">
-          Services with example OSP manifests. Any provider can self-register by
-          publishing a ServiceManifest at{" "}
-          <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm font-mono">
-            /.well-known/osp.json
-          </code>
-          .
-        </p>
-      </div>
+    <div>
+      {/* Header */}
+      <section className="relative border-b border-surface-800 py-20 lg:py-24">
+        <div className="absolute inset-0 grid-pattern opacity-50" />
+        <div className="relative mx-auto max-w-7xl px-6">
+          <p className="font-sans text-xs font-semibold uppercase tracking-widest text-accent-400">
+            Ecosystem
+          </p>
+          <h1 className="mt-4 font-sans text-4xl font-bold tracking-tight text-surface-50 lg:text-5xl">
+            Provider Directory
+          </h1>
+          <p className="mt-4 max-w-xl text-lg text-surface-400">
+            Services with example OSP manifests. Any provider can self-register
+            by publishing a ServiceManifest at{" "}
+            <code className="rounded bg-surface-800 px-1.5 py-0.5 text-sm font-mono text-surface-300">
+              /.well-known/osp.json
+            </code>
+          </p>
+        </div>
+      </section>
 
-      <div className="mt-8 flex flex-wrap gap-2">
-        {categories.map((cat) => (
-          <span
-            key={cat}
-            className="rounded-full border border-gray-200 bg-white px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-          >
-            {cat}
-          </span>
-        ))}
-      </div>
-
-      <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {providers.map((provider) => (
-          <div
-            key={provider.id}
-            className="flex flex-col rounded-xl border border-gray-200 bg-white p-6"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {provider.name}
-                </h2>
-                <p className="text-sm text-gray-500">{provider.domain}</p>
-              </div>
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
-                {provider.category}
-              </span>
-            </div>
-            <p className="mt-3 flex-1 text-sm text-gray-600">
-              {provider.description}
-            </p>
-            <div className="mt-4 border-t border-gray-100 pt-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Offerings
-              </h3>
-              <ul className="mt-2 space-y-1">
-                {provider.offerings.map((o) => (
-                  <li
-                    key={o.name}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span className="text-gray-700">{o.name}</span>
-                    <span className="text-xs text-gray-400">
-                      {o.tiers.join(" / ")}
+      {/* Provider grid */}
+      <section className="py-20 lg:py-24">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {providers.map((provider) => {
+              const Icon = categoryIcons[provider.category] || Globe;
+              return (
+                <div
+                  key={provider.id}
+                  className="flex flex-col rounded-xl border border-surface-700/50 bg-surface-800/30 p-6 transition-colors duration-200 hover:border-surface-600 hover:bg-surface-800/50"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <Icon className="h-5 w-5 text-surface-500" />
+                      <div>
+                        <h2 className="font-sans text-lg font-semibold text-surface-100">
+                          {provider.name}
+                        </h2>
+                        <p className="text-xs text-surface-500">
+                          {provider.domain}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="rounded-full border border-surface-700 bg-surface-800 px-3 py-1 text-xs font-medium text-surface-400">
+                      {provider.category}
                     </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        ))}
-      </div>
+                  </div>
 
-      <div className="mt-16 rounded-xl border border-gray-200 bg-gray-50 p-8 text-center">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Want to add your service?
-        </h3>
-        <p className="mt-2 text-sm text-gray-600">
-          Publish a ServiceManifest at your domain and submit a PR to the OSP
-          repository.
-        </p>
-        <a
-          href="https://github.com/openserviceprotocol/osp/blob/main/docs/for-providers.md"
-          className="mt-4 inline-block rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800"
-        >
-          Provider Guide
-        </a>
-      </div>
+                  <p className="mt-4 flex-1 text-sm leading-relaxed text-surface-400">
+                    {provider.description}
+                  </p>
+
+                  <div className="mt-5 border-t border-surface-700/50 pt-5">
+                    <h3 className="font-sans text-xs font-semibold uppercase tracking-widest text-surface-500">
+                      Offerings
+                    </h3>
+                    <ul className="mt-3 space-y-2">
+                      {provider.offerings.map((o) => (
+                        <li
+                          key={o.name}
+                          className="flex items-center justify-between text-sm"
+                        >
+                          <span className="text-surface-300">{o.name}</span>
+                          <span className="font-mono text-xs text-surface-500">
+                            {o.tiers.join(" / ")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* CTA */}
+          <div className="mt-20 rounded-xl border border-surface-700 bg-surface-800/30 p-10 text-center">
+            <h3 className="font-sans text-xl font-bold text-surface-100">
+              Want to add your service?
+            </h3>
+            <p className="mt-3 text-sm text-surface-400">
+              Publish a ServiceManifest at your domain and let every AI agent
+              discover your service.
+            </p>
+            <a
+              href="https://github.com/openserviceprotocol/osp/blob/main/docs/for-providers.md"
+              className="group mt-8 inline-flex items-center gap-2 rounded-lg bg-accent-500 px-7 py-3.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-accent-600"
+            >
+              Become a Provider
+              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </a>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

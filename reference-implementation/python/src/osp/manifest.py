@@ -7,12 +7,67 @@ directly when you need lower-level manifest operations.
 from __future__ import annotations
 
 import json
+import time
+from dataclasses import dataclass, field
 
 import httpx
 
 from osp.types import ServiceManifest, ServiceOffering, ServiceTier
 
 WELL_KNOWN_PATH = "/.well-known/osp.json"
+DEFAULT_CACHE_TTL = 3600.0  # 1 hour in seconds
+
+
+# ---------------------------------------------------------------------------
+# Manifest Cache with TTL
+# ---------------------------------------------------------------------------
+
+@dataclass
+class _CacheEntry:
+    """Internal cache entry storing a manifest and its fetch timestamp."""
+    manifest: ServiceManifest
+    fetched_at: float
+
+
+class ManifestCache:
+    """In-memory manifest cache with a configurable TTL (default 1 hour).
+
+    Usage::
+
+        cache = ManifestCache()
+        cache.set("https://provider.com", manifest)
+        hit = cache.get("https://provider.com")  # returns manifest or None
+        cache.clear()
+    """
+
+    def __init__(self, ttl: float = DEFAULT_CACHE_TTL) -> None:
+        self._ttl = ttl
+        self._entries: dict[str, _CacheEntry] = {}
+
+    def get(self, key: str) -> ServiceManifest | None:
+        """Return a cached manifest if present and not expired."""
+        entry = self._entries.get(key)
+        if entry is None:
+            return None
+        if (time.monotonic() - entry.fetched_at) > self._ttl:
+            del self._entries[key]
+            return None
+        return entry.manifest
+
+    def set(self, key: str, manifest: ServiceManifest) -> None:
+        """Store a manifest in the cache with the current timestamp."""
+        self._entries[key] = _CacheEntry(
+            manifest=manifest,
+            fetched_at=time.monotonic(),
+        )
+
+    def clear(self) -> None:
+        """Remove all cached manifests."""
+        self._entries.clear()
+
+    def clear_cache(self) -> None:
+        """Alias for :meth:`clear` — removes all cached manifests."""
+        self.clear()
 
 
 async def fetch_manifest(

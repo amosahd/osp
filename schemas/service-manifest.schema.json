@@ -97,6 +97,10 @@
       "$ref": "#/$defs/MCPConfig",
       "description": "MCP .well-known alignment and tool advertisement (v1.1)"
     },
+    "identity": {
+      "$ref": "#/$defs/IdentityConfig",
+      "description": "Identity verification methods supported by this provider"
+    },
     "extensions": {
       "type": "object",
       "description": "Provider-specific metadata and custom extensions"
@@ -568,6 +572,39 @@
             "enum": ["percentage", "blue_green", "rolling"]
           },
           "description": "Supported deployment strategies"
+        }
+      }
+    },
+    "IdentityConfig": {
+      "type": "object",
+      "description": "Identity verification methods supported by the provider",
+      "properties": {
+        "supported_methods": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["ed25519_did", "oauth2_client", "api_key"]
+          },
+          "description": "Identity verification methods the provider accepts"
+        },
+        "oauth2_issuers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Trusted OAuth2 token issuers (e.g., 'https://accounts.google.com')"
+        },
+        "api_key_registration_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL where agents can register for an API key"
+        },
+        "identity_required_for_tiers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tier IDs that require identity verification before provisioning"
         }
       }
     }

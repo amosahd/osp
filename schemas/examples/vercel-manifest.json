@@ -7,6 +7,11 @@
   "display_name": "Vercel",
   "provider_url": "https://vercel.com",
   "provider_public_key": "dmVyY2VsX2VkMjU1MTlfcHVibGljX2tleV9iYXNlNjR1cmw",
+  "provider_key_id": "key-2026-03",
+  "identity": {
+    "supported_methods": ["ed25519_did", "api_key"],
+    "identity_required_for_tiers": ["pro", "enterprise"]
+  },
   "offerings": [
     {
       "offering_id": "vercel/hosting",
@@ -147,6 +152,7 @@
       "estimated_provision_seconds": 30,
       "fulfillment_proof_type": "health_check",
       "regions": ["iad1", "sfo1", "cdg1", "hnd1"],
+      "available_regions": ["iad1", "sfo1", "cdg1", "hnd1"],
       "sandbox_available": true,
       "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://vercel.com/docs"

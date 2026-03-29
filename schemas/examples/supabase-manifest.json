@@ -7,6 +7,11 @@
   "display_name": "Supabase",
   "provider_url": "https://supabase.com",
   "provider_public_key": "dGhpcyBpcyBhIGZha2UgZWQyNTUxOSBwdWJsaWMga2V5",
+  "provider_key_id": "key-2026-03",
+  "identity": {
+    "supported_methods": ["ed25519_did", "api_key"],
+    "identity_required_for_tiers": ["pro", "enterprise"]
+  },
   "offerings": [
     {
       "offering_id": "supabase/postgres",
@@ -141,6 +146,7 @@
       "estimated_provision_seconds": 45,
       "fulfillment_proof_type": "health_check",
       "regions": ["us-east-1", "us-west-1", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"],
+      "available_regions": ["us-east-1", "us-west-1", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"],
       "sandbox_available": true,
       "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://supabase.com/docs/guides/database"
@@ -227,6 +233,9 @@
       "estimated_provision_seconds": 15,
       "fulfillment_proof_type": "api_key_delivery",
       "regions": ["us-east-1", "us-west-1", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"],
+      "available_regions": ["us-east-1", "us-west-1", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://supabase.com/docs/guides/auth"
     },
     {
@@ -321,6 +330,9 @@
       "estimated_provision_seconds": 15,
       "fulfillment_proof_type": "api_key_delivery",
       "regions": ["us-east-1", "us-west-1", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"],
+      "available_regions": ["us-east-1", "us-west-1", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://supabase.com/docs/guides/storage"
     }
   ],

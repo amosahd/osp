@@ -3414,26 +3414,74 @@ X-OSP-Timestamp: 1711540800
 
 Providers MUST implement rate limiting on all OSP endpoints.
 
+#### 8.6.1 Rate Limit Response Headers
+
+Providers MUST include the following OSP-specific rate limit headers on **all** responses (both success and error):
+
+| Header | Type | Description |
+|--------|------|-------------|
+| `X-OSP-RateLimit-Limit` | `integer` | Maximum number of requests allowed in the current window. |
+| `X-OSP-RateLimit-Remaining` | `integer` | Number of requests remaining in the current window. |
+| `X-OSP-RateLimit-Reset` | `integer` | UTC epoch timestamp (seconds) when the current rate limit window resets. |
+
+Providers SHOULD also include the IETF standard headers (per [draft-ietf-httpapi-ratelimit-headers](https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/)) for broader HTTP client compatibility:
+- `RateLimit-Limit`: Maximum requests per window.
+- `RateLimit-Remaining`: Remaining requests in the current window.
+- `RateLimit-Reset`: Seconds until the window resets.
+
+**Example response headers:**
+
+```http
+HTTP/1.1 200 OK
+X-OSP-RateLimit-Limit: 60
+X-OSP-RateLimit-Remaining: 42
+X-OSP-RateLimit-Reset: 1711540860
+RateLimit-Limit: 60
+RateLimit-Remaining: 42
+RateLimit-Reset: 60
+```
+
+#### 8.6.2 Rate Limit Exceeded Response
+
 1. Rate limit responses MUST use HTTP status `429 Too Many Requests`.
 2. Rate limit responses MUST include the `Retry-After` header with the number of seconds to wait.
-3. Providers SHOULD include rate limit information using the IETF standard headers (per [draft-ietf-httpapi-ratelimit-headers](https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/)):
-   - `RateLimit-Limit`: Maximum requests per window.
-   - `RateLimit-Remaining`: Remaining requests in the current window.
-   - `RateLimit-Reset`: Seconds until the window resets.
+3. The response body MUST conform to the following structure:
 
-   Note: The `X-RateLimit-*` prefix is deprecated per modern HTTP conventions. Providers MAY include both prefixed and unprefixed headers during a transition period, but MUST include the unprefixed versions.
+```json
+{
+  "error": "rate_limit_exceeded",
+  "message": "Rate limit exceeded. Try again in 30 seconds.",
+  "retry_after_seconds": 30,
+  "limit": 60,
+  "window_seconds": 60
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `error` | `string` | REQUIRED | MUST be `"rate_limit_exceeded"`. |
+| `message` | `string` | REQUIRED | Human-readable error message. |
+| `retry_after_seconds` | `integer` | REQUIRED | Number of seconds the agent SHOULD wait before retrying. |
+| `limit` | `integer` | REQUIRED | Maximum requests allowed in the rate limit window. |
+| `window_seconds` | `integer` | REQUIRED | Duration of the rate limit window in seconds. |
+
+#### 8.6.3 Per-Endpoint Rate Limits
+
+Providers SHOULD support per-endpoint rate limits to allow higher throughput on read-heavy endpoints while protecting mutation endpoints from abuse. Providers MAY advertise per-endpoint rate limits in the ServiceManifest `extensions` field.
 
 **Recommended minimum rate limits:**
 
-| Endpoint | Minimum Rate Limit |
-|----------|-------------------|
-| `POST /osp/v1/provision` | 10 requests per minute per principal |
-| `DELETE /osp/v1/deprovision/{id}` | 10 requests per minute per principal |
-| `GET /osp/v1/credentials/{id}` | 30 requests per minute per resource |
-| `POST /osp/v1/rotate/{id}` | 5 requests per hour per resource |
-| `GET /osp/v1/status/{id}` | 60 requests per minute per resource |
-| `GET /osp/v1/usage/{id}` | 30 requests per minute per resource |
-| `GET /osp/v1/health` | 60 requests per minute per IP |
+| Endpoint Category | Endpoints | Recommended Rate Limit |
+|-------------------|-----------|----------------------|
+| Discovery | `GET /.well-known/osp.json`, `GET /osp/v1/health` | 100 requests per minute per IP |
+| Provisioning | `POST /osp/v1/provision`, `DELETE /osp/v1/deprovision/{id}` | 10 requests per minute per principal |
+| Credential Operations | `GET /osp/v1/credentials/{id}`, `POST /osp/v1/rotate/{id}` | 30 requests per minute per resource |
+| Status & Usage | `GET /osp/v1/status/{id}`, `GET /osp/v1/usage/{id}` | 60 requests per minute per resource |
+| Webhook Management | `POST /osp/v1/webhooks/{id}`, `DELETE /osp/v1/webhooks/{id}` | 10 requests per minute per principal |
+
+Providers MUST scope rate limits to the most specific identity available: per-resource for resource-specific endpoints, per-principal for authenticated endpoints, and per-IP for unauthenticated endpoints.
+
+Agents MUST respect `Retry-After` headers and SHOULD implement exponential backoff when receiving `429` responses. Agents MUST NOT retry faster than the `retry_after_seconds` value in the response body.
 
 ### 8.7 Agent Identity Revocation
 

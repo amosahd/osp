@@ -23,7 +23,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from osp.types import (
+    CostSummary,
     CredentialBundle,
+    HealthResponse,
     HealthStatus,
     OSPErrorBody,
     ProvisionRequest,
@@ -115,6 +117,18 @@ class OSPProvider:
             health = await self.on_health_check()
             return health.model_dump(mode="json", exclude_none=True)
 
+        @app.get("/osp/v1/health/detailed")
+        async def health_detailed() -> dict[str, Any]:
+            response = await self.on_handle_health()
+            return response.model_dump(mode="json", exclude_none=True)
+
+        # --- cost summary -------------------------------------------------
+
+        @app.get("/osp/v1/cost-summary")
+        async def cost_summary(request: Request) -> dict[str, Any]:
+            summary = await self.on_handle_cost_summary(request)
+            return summary.model_dump(mode="json", exclude_none=True)
+
         return app
 
     # ------------------------------------------------------------------
@@ -144,3 +158,20 @@ class OSPProvider:
             status="healthy",
             checked_at="",
         )
+
+    async def on_handle_cost_summary(self, request: Request) -> CostSummary:
+        """Return an aggregated cost summary.
+
+        Override in your subclass.  The ``request`` is the raw FastAPI
+        ``Request`` so you can read query-string parameters like
+        ``period_start``, ``period_end``, ``currency``, ``limit``, and
+        ``offset``.
+        """
+        raise NotImplementedError("on_handle_cost_summary")
+
+    async def on_handle_health(self) -> HealthResponse:
+        """Return a detailed health response with sub-checks.
+
+        Override in your subclass.
+        """
+        raise NotImplementedError("on_handle_health")

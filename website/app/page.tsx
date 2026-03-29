@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   ArrowRight,
   Globe,
@@ -265,20 +266,20 @@ export default function HomePage() {
                 self-register by publishing a manifest at their domain.
               </p>
             </div>
-            <a
+            <Link
               href="/providers"
               className="group inline-flex items-center gap-1.5 text-sm font-medium text-accent-400 transition-colors duration-150 hover:text-accent-300"
             >
               View all providers
               <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </a>
+            </Link>
           </div>
 
           <div className="mt-12 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
             {providers.map((p) => {
               const Icon = categoryIcons[p.category] || Globe;
               return (
-                <a
+                <Link
                   key={p.name}
                   href="/providers"
                   className="group rounded-xl border border-surface-700/50 bg-surface-800/30 p-5 transition-colors duration-200 hover:border-surface-600 hover:bg-surface-800/60 cursor-pointer"
@@ -288,7 +289,7 @@ export default function HomePage() {
                     {p.name}
                   </h3>
                   <p className="mt-1 text-xs text-surface-500">{p.category}</p>
-                </a>
+                </Link>
               );
             })}
           </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, DM_Sans, JetBrains_Mono } from "next/font/google";
+import Link from "next/link";
 import { BookOpen, Layers, Cpu, ArrowUpRight } from "lucide-react";
 import "./globals.css";
 
@@ -91,25 +92,25 @@ function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-surface-700/50 bg-surface-900/80 backdrop-blur-xl">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <a href="/" className="flex items-center gap-3 group">
+        <Link href="/" className="flex items-center gap-3 group">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-500 font-sans text-base font-bold text-white">
             O
           </div>
           <span className="font-sans text-xl font-bold tracking-tight text-surface-50">
             OSP
           </span>
-        </a>
+        </Link>
 
         <div className="flex items-center gap-1">
           {navLinks.map(({ href, label, icon: Icon }) => (
-            <a
+            <Link
               key={href}
               href={href}
               className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-surface-300 transition-colors duration-150 hover:bg-surface-800 hover:text-surface-100"
             >
               <Icon className="h-4 w-4" />
               {label}
-            </a>
+            </Link>
           ))}
           <div className="ml-3 h-5 w-px bg-surface-700" />
           <a
@@ -133,14 +134,14 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-5">
           <div className="md:col-span-2">
-            <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-500 font-sans text-base font-bold text-white">
                 O
               </div>
               <span className="font-sans text-xl font-bold tracking-tight text-surface-50">
                 OSP
               </span>
-            </div>
+            </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-surface-400">
               The open standard for AI agents to discover and provision
               developer services.
@@ -154,22 +155,31 @@ function Footer() {
                 {section.title}
               </h4>
               <ul className="mt-4 space-y-3">
-                {section.links.map((link) => (
-                  <li key={link.label}>
-                    <a
-                      href={link.href}
-                      {...("external" in link && link.external
-                        ? { target: "_blank", rel: "noopener noreferrer" }
-                        : {})}
-                      className="group flex items-center gap-1 text-sm text-surface-400 transition-colors duration-150 hover:text-surface-100"
-                    >
-                      {link.label}
-                      {"external" in link && link.external && (
-                        <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+                {section.links.map((link) => {
+                  const isExternal = "external" in link && link.external;
+                  return (
+                    <li key={link.label}>
+                      {isExternal ? (
+                        <a
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-center gap-1 text-sm text-surface-400 transition-colors duration-150 hover:text-surface-100"
+                        >
+                          {link.label}
+                          <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+                        </a>
+                      ) : (
+                        <Link
+                          href={link.href}
+                          className="text-sm text-surface-400 transition-colors duration-150 hover:text-surface-100"
+                        >
+                          {link.label}
+                        </Link>
                       )}
-                    </a>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}

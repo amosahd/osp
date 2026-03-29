@@ -1,0 +1,59 @@
+{
+  "name": "@osp/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server exposing OSP (Open Service Protocol) tools for AI agents — discover, provision, and manage developer services",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "osp-mcp-server": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server.js",
+      "types": "./dist/server.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "osp",
+    "mcp",
+    "model-context-protocol",
+    "ai-agent",
+    "developer-services",
+    "provisioning",
+    "open-service-protocol",
+    "claude",
+    "gpt"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/open-service-protocol/osp",
+    "directory": "packages/mcp-server"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
+}

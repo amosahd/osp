@@ -7,6 +7,11 @@
   "display_name": "Turso",
   "provider_url": "https://turso.tech",
   "provider_public_key": "dHVyc29fZWQyNTUxOV9wdWJsaWNfa2V5X2Jhc2U2NHVybA",
+  "provider_key_id": "key-2026-03",
+  "identity": {
+    "supported_methods": ["ed25519_did", "api_key"],
+    "identity_required_for_tiers": ["pro", "enterprise"]
+  },
   "offerings": [
     {
       "offering_id": "turso/libsql",
@@ -110,6 +115,9 @@
       "estimated_provision_seconds": 8,
       "fulfillment_proof_type": "health_check",
       "regions": ["us-east-1", "us-west-2", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1", "sa-east-1"],
+      "available_regions": ["us-east-1", "us-west-2", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1", "sa-east-1"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://docs.turso.tech"
     }
   ],

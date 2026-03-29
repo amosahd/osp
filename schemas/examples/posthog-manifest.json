@@ -7,6 +7,11 @@
   "display_name": "PostHog",
   "provider_url": "https://posthog.com",
   "provider_public_key": "cG9zdGhvZ19lZDI1NTE5X3B1YmxpY19rZXlfYmFzZTY0dXJs",
+  "provider_key_id": "key-2026-03",
+  "identity": {
+    "supported_methods": ["ed25519_did", "api_key"],
+    "identity_required_for_tiers": ["pro", "enterprise"]
+  },
   "offerings": [
     {
       "offering_id": "posthog/analytics",
@@ -107,6 +112,9 @@
       "estimated_provision_seconds": 10,
       "fulfillment_proof_type": "api_key_delivery",
       "regions": ["us-east-1", "eu-central-1"],
+      "available_regions": ["us-east-1", "eu-central-1"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://posthog.com/docs"
     }
   ],

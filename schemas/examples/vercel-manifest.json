@@ -147,6 +147,8 @@
       "estimated_provision_seconds": 30,
       "fulfillment_proof_type": "health_check",
       "regions": ["iad1", "sfo1", "cdg1", "hnd1"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://vercel.com/docs"
     }
   ],

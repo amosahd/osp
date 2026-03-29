@@ -92,6 +92,11 @@
         "type": "string"
       },
       "description": "List of resources affected by this provisioning (v1.1)"
+    },
+    "sandbox": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this is a sandbox resource. Sandbox resources are free, time-limited, and auto-deprovision after TTL (Section 5.9)"
     }
   },
   "$defs": {

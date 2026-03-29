@@ -80,6 +80,12 @@
     "agent_identity": {
       "$ref": "#/$defs/AgentIdentity",
       "description": "Agent identity claim for provider verification (Section 16)"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["live", "sandbox"],
+      "default": "live",
+      "description": "Provisioning mode: 'live' for real billable resources (default), 'sandbox' for free time-limited test resources (Section 5.9)"
     }
   },
   "$defs": {

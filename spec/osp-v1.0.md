@@ -51,6 +51,7 @@ The Open Service Protocol (OSP) defines a standard interface through which AI ag
   - [5.6 Deprovisioning](#56-deprovisioning)
   - [5.7 Geographic Compliance](#57-geographic-compliance)
   - [5.8 Multi-Resource Provisioning](#58-multi-resource-provisioning)
+  - [5.9 Sandbox Mode](#59-sandbox-mode)
 - [6. Provider Endpoints](#6-provider-endpoints)
   - [6.1 POST /osp/v1/provision](#61-post-ospv1provision)
   - [6.2 DELETE /osp/v1/deprovision/{resource_id}](#62-delete-ospv1deprovisionresource_id)
@@ -1771,6 +1772,121 @@ The `osp_stack_id` and `osp_stack_step` metadata fields are OPTIONAL but RECOMME
 #### Future: Batch Endpoint (Planned for OSP v1.1)
 
 A `POST /osp/v1/provision-batch` endpoint for atomic multi-resource provisioning within a single provider is planned for v1.1. This would allow provisioning database + auth from the same provider in one call. Cross-provider atomicity remains a client-side saga.
+
+### 5.9 Sandbox Mode
+
+Agents developing integrations need a safe environment to test provisioning flows without incurring cost or affecting production resources. OSP defines a **sandbox mode** that providers SHOULD support.
+
+#### Mode Field
+
+The `ProvisionRequest` includes an optional `mode` field:
+
+| Value | Description |
+|-------|-------------|
+| `"live"` | (Default) Provision a real, billable resource. |
+| `"sandbox"` | Provision a sandbox resource for testing. Free, time-limited, clearly marked. |
+
+If `mode` is omitted, the provider MUST treat the request as `"live"`.
+
+#### Sandbox Resource Behavior
+
+Sandbox resources:
+
+1. MUST be free of charge. Providers MUST NOT require `payment_method` or `payment_proof` for sandbox requests.
+2. MUST be time-limited. Providers MUST set `expires_at` on sandbox resources. The maximum TTL is 24 hours (86400 seconds). Providers MAY use shorter TTLs.
+3. MUST auto-deprovision after the TTL expires. Providers MUST NOT retain sandbox data beyond the TTL.
+4. MUST be clearly marked. The `ProvisionResponse` and `CredentialBundle` MUST include `"sandbox": true`.
+5. SHOULD be functionally equivalent to live resources within their TTL. Sandbox databases should accept real queries; sandbox hosting should serve real traffic.
+6. MAY have reduced limits compared to the selected tier (e.g., lower connection limits, smaller storage).
+7. MUST NOT be upgradeable to live resources. To go live, the agent provisions a new `"live"` resource.
+
+#### Sandbox Provisioning Flow
+
+```
+Agent                                Provider
+  |                                     |
+  |  1. POST /osp/v1/provision          |
+  |     mode: "sandbox"                 |
+  |     (no payment_method required)    |
+  |------------------------------------>|
+  |  2. ProvisionResponse               |
+  |     status: "active"                |
+  |     sandbox: true                   |
+  |     expires_at: "+24h"              |
+  |     credentials_bundle:             |
+  |       sandbox: true                 |
+  |<------------------------------------|
+  |                                     |
+  |  3. [Agent tests integration]       |
+  |                                     |
+  |  4. [TTL expires]                   |
+  |     → Resource auto-deprovisioned   |
+  |                                     |
+```
+
+**Example ProvisionRequest:**
+
+```json
+{
+  "offering_id": "supabase/managed-postgres",
+  "tier_id": "pro",
+  "project_name": "test-my-integration",
+  "mode": "sandbox",
+  "nonce": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+```
+
+**Example ProvisionResponse:**
+
+```json
+{
+  "resource_id": "res_sandbox_7f3b1a2c",
+  "offering_id": "supabase/managed-postgres",
+  "tier_id": "pro",
+  "status": "active",
+  "sandbox": true,
+  "credentials_bundle": {
+    "format": "plaintext",
+    "sandbox": true,
+    "credentials": {
+      "connection_uri": "postgresql://sandbox_user:sandbox_pass@sandbox-db.supabase.co:5432/postgres",
+      "host": "sandbox-db.supabase.co",
+      "port": 5432,
+      "database": "postgres",
+      "username": "sandbox_user",
+      "password": "sandbox_pass"
+    },
+    "issued_at": "2026-03-27T12:00:00Z"
+  },
+  "region": "us-east-1",
+  "created_at": "2026-03-27T12:00:00Z",
+  "expires_at": "2026-03-28T12:00:00Z"
+}
+```
+
+#### Rate Limiting for Sandbox
+
+Providers SHOULD impose rate limits on sandbox provisioning to prevent abuse:
+
+- RECOMMENDED: Maximum 5 concurrent sandbox resources per agent identity.
+- RECOMMENDED: Maximum 20 sandbox provisions per agent per day.
+- Providers MUST return `429 Too Many Requests` with `Retry-After` when sandbox limits are exceeded.
+
+#### Manifest Declaration
+
+Providers that support sandbox mode declare it in their offerings:
+
+```json
+{
+  "offering_id": "supabase/managed-postgres",
+  "sandbox_available": true,
+  "sandbox_ttl_seconds": 86400,
+  "sandbox_limits": {
+    "max_concurrent": 5,
+    "max_per_day": 20
+  }
+}
+```
 
 ---
 

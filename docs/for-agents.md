@@ -404,9 +404,294 @@ if result["status"] == "provisioned":
 5. **Validate manifests**: Check the `osp_version` and validate against the JSON Schema before trusting a manifest.
 6. **Use idempotency keys**: Always include an `idempotency_key` to prevent accidental duplicate provisioning.
 
+## Using Sandbox Mode for Testing
+
+Sandbox mode lets your agent create temporary, isolated environments for testing integrations before going to production. Sandbox resources auto-destroy after a configurable TTL and are excluded from billing (or charged at reduced sandbox rates).
+
+### Creating a Sandbox Resource
+
+Add a `sandbox` object to your provision request:
+
+```json
+{
+  "offering_id": "supabase/postgres",
+  "tier_id": "free",
+  "project_name": "test-integration-42",
+  "sandbox": {
+    "enabled": true,
+    "ttl_hours": 24,
+    "auto_destroy": true,
+    "seed_from": "res_db_production",
+    "seed_mode": "schema_only"
+  },
+  "nonce": "..."
+}
+```
+
+### Sandbox Options
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `boolean` | Set to `true` to create a sandbox resource |
+| `ttl_hours` | `integer` | Auto-destroy after this many hours (max: 720 / 30 days) |
+| `auto_destroy` | `boolean` | Whether to auto-destroy on TTL expiry |
+| `seed_from` | `string` | Resource ID to copy schema/data from |
+| `seed_mode` | `string` | `schema_only`, `schema_and_sample_data`, or `full_clone` |
+
+### What to Expect
+
+- Sandbox resources are tagged with `osp_sandbox: true` in metadata.
+- The provider sends a `resource.sandbox_expiring` webhook 1 hour before TTL expires.
+- You can promote a sandbox to permanent: `POST /osp/v1/promote/{resource_id}`.
+- Sandbox resources work identically to production resources for API testing purposes.
+
+### CI/CD Integration Example
+
+```yaml
+# .github/workflows/preview.yml
+- name: Create preview environment
+  run: |
+    osp projects create --name "pr-${{ github.event.number }}" --environment preview --sandbox --ttl 48h
+    osp provision supabase/managed-postgres --tier free --sandbox --seed-from prod --seed-mode schema_only
+    osp env pull --format github-actions >> $GITHUB_ENV
+
+- name: Destroy preview environment
+  if: github.event.action == 'closed'
+  run: osp projects delete "pr-${{ github.event.number }}" --force --deprovision
+```
+
+## Agent Identity
+
+OSP supports three methods for agents to authenticate with providers. The method you use depends on your security requirements and infrastructure.
+
+### Method 1: Ed25519 DID (via `agent_attestation`)
+
+The recommended approach for production agents. Present a TAP (Trust & Attestation Protocol) attestation token that binds your Ed25519 key pair to a verified identity.
+
+```bash
+POST https://api.provider.com/osp/v1/provision
+Authorization: Bearer <agent_attestation_token>
+Content-Type: application/json
+
+{
+  "offering_id": "provider/service",
+  "tier_id": "free",
+  "agent_public_key": "base64url_encoded_ed25519_public_key",
+  "agent_attestation": "<tap_attestation_token>",
+  "nonce": "..."
+}
+```
+
+The attestation token proves your agent's identity and trust tier (`none`, `basic`, `verified`, `enterprise`). Some offerings require a minimum trust tier.
+
+**Best practice:** Use short-lived attestations (1-hour expiry with refresh) to limit the blast radius of key compromise.
+
+### Method 2: OAuth / OIDC Federation
+
+Authenticate using federated identity tokens from cloud platforms (GCP, Azure, AWS) or CI/CD systems (GitHub Actions).
+
+```json
+{
+  "offering_id": "provider/service",
+  "tier_id": "free",
+  "authentication": {
+    "method": "oidc",
+    "token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "issuer": "https://accounts.google.com",
+    "audience": "com.provider",
+    "subject": "agent@my-org.iam.gserviceaccount.com"
+  },
+  "nonce": "..."
+}
+```
+
+Supported federation methods:
+
+| Method | Protocol | Use Case |
+|--------|----------|----------|
+| `oidc` | OpenID Connect | Cloud platform agents (GCP, Azure, AWS IAM) |
+| `spiffe` | SPIFFE/SPIRE | Kubernetes workloads, service mesh environments |
+| `github_actions` | GitHub OIDC | CI/CD pipelines on GitHub Actions |
+| `tap` | Trust & Attestation Protocol | OSP-native agent identity |
+
+### Method 3: API Key
+
+For simple integrations, use a provider-issued API key or `resource_access_token` from the credential bundle:
+
+```bash
+GET https://api.provider.com/osp/v1/resources/res_abc123
+Authorization: Bearer <resource_access_token>
+```
+
+This is the simplest method but provides less identity verification. Use it for development or when the provider does not support attestation.
+
+## Querying Cost Summary
+
+Track your infrastructure spending across all provisioned resources with the cost summary endpoint.
+
+### GET /osp/v1/projects/{project_id}/cost
+
+```bash
+GET https://api.provider.com/osp/v1/projects/proj_my-saas/cost
+Authorization: Bearer <agent_attestation>
+```
+
+```json
+{
+  "project_id": "proj_my-saas",
+  "period": {"start": "2026-03-01", "end": "2026-03-31"},
+  "total": {"amount": "74.50", "currency": "USD"},
+  "by_resource": [
+    {
+      "resource_id": "res_db",
+      "service": "supabase/managed-postgres",
+      "tier": "pro",
+      "base_cost": "25.00",
+      "metered_cost": "7.50",
+      "total": "32.50"
+    }
+  ],
+  "comparison": {
+    "previous_period": "68.20",
+    "change_percent": "+9.2%",
+    "cost_alerts": [
+      {
+        "resource": "res_db",
+        "alert": "Storage overage increasing — consider upgrading to Team tier"
+      }
+    ]
+  }
+}
+```
+
+**Best practices:**
+- Poll cost summaries periodically to detect spending anomalies.
+- Use `cost_alerts` to proactively recommend tier changes to the user.
+- Respect budget guardrails: if your organization has set budgets, provisioning requests that exceed the limit will return `402 Payment Required` with a `budget_exceeded` error.
+
+## Handling Rate Limits
+
+Providers implement rate limiting on all OSP endpoints. Your agent should read and respect rate limit headers on every response.
+
+### Rate Limit Headers
+
+Every response from an OSP provider includes these IETF-standard headers:
+
+| Header | Description |
+|--------|-------------|
+| `RateLimit-Limit` | Maximum requests allowed per window |
+| `RateLimit-Remaining` | Remaining requests in the current window |
+| `RateLimit-Reset` | Seconds until the window resets |
+
+### Handling 429 Responses
+
+When you receive `429 Too Many Requests`, read the `Retry-After` header and wait:
+
+```python
+import httpx
+import time
+
+def osp_request(client: httpx.Client, method: str, url: str, **kwargs) -> httpx.Response:
+    """Make an OSP request with automatic rate limit handling."""
+    response = client.request(method, url, **kwargs)
+
+    if response.status_code == 429:
+        retry_after = int(response.headers.get("Retry-After", 60))
+        time.sleep(retry_after)
+        response = client.request(method, url, **kwargs)
+
+    return response
+```
+
+### Typical Rate Limits
+
+| Endpoint | Expected Minimum |
+|----------|-----------------|
+| `POST /provision` | 10/min per principal |
+| `GET /status/{id}` | 60/min per resource |
+| `GET /credentials/{id}` | 30/min per resource |
+| `POST /rotate/{id}` | 5/hour per resource |
+
+## Idempotency Keys for Safe Retries
+
+Always include an `idempotency_key` in provision requests to prevent duplicate resources if your request is retried due to network failures.
+
+### How It Works
+
+1. Generate a deterministic key from the principal, offering, and project name.
+2. Include it in the `ProvisionRequest`.
+3. If you retry the same request within 24 hours, the provider returns the original response without creating a new resource.
+
+```python
+import hashlib
+
+def make_idempotency_key(principal_id: str, offering_id: str, project_name: str) -> str:
+    """Generate a deterministic idempotency key."""
+    raw = f"{principal_id}:{offering_id}:{project_name}"
+    return hashlib.sha256(raw.encode()).hexdigest()
+```
+
+### Example Request
+
+```json
+{
+  "offering_id": "supabase/postgres",
+  "tier_id": "free",
+  "project_name": "my-agent-app",
+  "idempotency_key": "provision-my-agent-app-postgres-001",
+  "nonce": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+}
+```
+
+### Key Rules
+
+- The idempotency key is scoped to the provider. Different providers may receive the same key without conflict.
+- Providers store the response for at least 24 hours.
+- If the original request is still processing, the provider returns the in-progress response with `status: "provisioning"`.
+- The `idempotency_key` and `nonce` serve different purposes: the nonce prevents replay attacks, while the idempotency key ensures safe retries. Both should be present.
+
+## Multi-Region Preferences
+
+When provisioning resources with specific data residency or latency requirements, specify a `region` in your provision request.
+
+### Specifying a Region
+
+```json
+{
+  "offering_id": "supabase/postgres",
+  "tier_id": "pro",
+  "project_name": "eu-app",
+  "region": "eu-west-1",
+  "nonce": "..."
+}
+```
+
+### Discovering Available Regions
+
+Check the provider's manifest for each offering's `regions` array:
+
+```json
+{
+  "regions": [
+    {"id": "us-east-1", "jurisdiction": "US", "provider_region": "aws-us-east-1"},
+    {"id": "eu-west-1", "jurisdiction": "EU", "provider_region": "aws-eu-west-1", "gdpr_compliant": true},
+    {"id": "ap-southeast-1", "jurisdiction": "SG", "provider_region": "aws-ap-southeast-1"}
+  ]
+}
+```
+
+### Region Selection Best Practices
+
+- **Data residency:** If operating under GDPR or other data residency constraints, always specify a `region` and check the `gdpr_compliant` flag.
+- **Latency:** Choose regions close to your users or other services.
+- **Failover:** For production, consider provisioning resources in multiple regions.
+- **Error handling:** If the provider cannot honor your region choice, it returns `invalid_region` — it will never silently provision in a different region.
+- The `ProvisionResponse` always includes the actual `region` where the resource was deployed.
+
 ## Next Steps
 
 - Read the full [Protocol Specification](../spec/osp-v1.0.md)
 - Explore the [JSON Schemas](../schemas/) for request/response validation
 - Try the [reference implementations](../reference-implementation/) for working SDK code
 - Run the [conformance tests](../conformance-tests/) against your agent
+- See the [Error Code Reference](error-reference.md) for a complete list of error codes

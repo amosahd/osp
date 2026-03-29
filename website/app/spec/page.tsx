@@ -106,7 +106,7 @@ export default function SpecPage() {
             <h2 className="font-sans text-xs font-semibold uppercase tracking-widest text-surface-400">
               Contents
             </h2>
-            <ul className="mt-4 columns-2 gap-8 space-y-2">
+            <ul className="mt-4 columns-1 gap-8 space-y-2 sm:columns-2">
               {sections.map((s) => (
                 <li key={s.id}>
                   <a
@@ -162,7 +162,7 @@ export default function SpecPage() {
             <h2 className="font-sans text-2xl font-bold text-surface-100">
               Endpoint Reference
             </h2>
-            <div className="mt-8 overflow-hidden rounded-xl border border-surface-700">
+            <div className="mt-8 overflow-x-auto rounded-xl border border-surface-700">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-surface-700 bg-surface-800/50">

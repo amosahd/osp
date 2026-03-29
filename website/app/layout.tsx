@@ -190,7 +190,7 @@ function Footer() {
           ))}
         </div>
 
-        <div className="mt-12 flex items-center justify-between border-t border-surface-800 pt-8">
+        <div className="mt-12 flex flex-col items-center gap-4 border-t border-surface-800 pt-8 sm:flex-row sm:justify-between">
           <p className="text-xs text-surface-500">
             Built by the OSP community
           </p>

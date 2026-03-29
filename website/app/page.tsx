@@ -89,7 +89,7 @@ export default function HomePage() {
 
         <div className="relative mx-auto max-w-7xl px-6 pt-24 pb-20 lg:pt-32 lg:pb-28">
           <div className="max-w-3xl">
-            <h1 className="font-sans text-5xl font-bold leading-[1.08] tracking-tight text-surface-50 lg:text-7xl">
+            <h1 className="font-sans text-4xl font-bold leading-[1.08] tracking-tight text-surface-50 md:text-5xl lg:text-7xl">
               One protocol for
               <br />
               every AI agent
@@ -203,7 +203,7 @@ export default function HomePage() {
                     {step.desc}
                   </p>
                 </div>
-                <div className="rounded-lg bg-surface-950 border border-surface-700/50 p-5 font-mono text-xs leading-6 text-surface-300 whitespace-pre">
+                <div className="rounded-lg bg-surface-950 border border-surface-700/50 p-5 font-mono text-xs leading-6 text-surface-300 whitespace-pre overflow-x-auto">
                   {step.code}
                 </div>
               </div>

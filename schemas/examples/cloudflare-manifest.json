@@ -7,6 +7,11 @@
   "display_name": "Cloudflare",
   "provider_url": "https://cloudflare.com",
   "provider_public_key": "Y2xvdWRmbGFyZV9lZDI1NTE5X3B1YmxpY19rZXlfYmFzZTY0dXJs",
+  "provider_key_id": "key-2026-03",
+  "identity": {
+    "supported_methods": ["ed25519_did", "api_key"],
+    "identity_required_for_tiers": ["pro", "enterprise"]
+  },
   "offerings": [
     {
       "offering_id": "cloudflare/workers",
@@ -110,6 +115,9 @@
       "estimated_provision_seconds": 15,
       "fulfillment_proof_type": "health_check",
       "regions": ["global"],
+      "available_regions": ["global"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://developers.cloudflare.com/workers/"
     },
     {
@@ -213,6 +221,9 @@
       "estimated_provision_seconds": 10,
       "fulfillment_proof_type": "api_key_delivery",
       "regions": ["global"],
+      "available_regions": ["global"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://developers.cloudflare.com/r2/"
     },
     {
@@ -311,6 +322,9 @@
       "estimated_provision_seconds": 10,
       "fulfillment_proof_type": "health_check",
       "regions": ["global"],
+      "available_regions": ["global"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://developers.cloudflare.com/d1/"
     }
   ],

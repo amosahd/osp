@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -397,9 +397,23 @@ class ServiceManifest(BaseModel):
     scorecards: Scorecards | None = None
     observability: ObservabilityConfig | None = None
     mcp: MCPConfig | None = None
+    identity: ManifestIdentity | None = None
+    provider_key_id: str | None = None
     extensions: dict[str, Any] | None = None
     effective_at: str | None = None
     provider_signature: str = Field(default="")
+
+
+# ---------------------------------------------------------------------------
+# Agent Identity
+# ---------------------------------------------------------------------------
+
+class AgentIdentity(BaseModel):
+    """Identity verification for the requesting agent."""
+    method: Literal["ed25519_did", "oauth2_client", "api_key"]
+    credential: str
+    did_document: dict | None = None
+    nonce_signature: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -424,6 +438,10 @@ class ProvisionRequest(BaseModel):
     budget: BudgetConstraint | None = None
     ttl_seconds: int | None = None
     trace_context: str | None = None
+    # v1.2: identity, sandbox, idempotency
+    idempotency_key: str | None = None
+    mode: Literal["live", "sandbox"] | None = Field(default="live")
+    agent_identity: AgentIdentity | None = None
 
 
 class FulfillmentProof(BaseModel):
@@ -475,6 +493,8 @@ class ProvisionResponse(BaseModel):
     cost_estimate: CostEstimate | None = None
     trace_id: str | None = None
     dependency_impact: list[str] | None = None
+    # v1.2: sandbox
+    sandbox: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -503,6 +523,8 @@ class CredentialBundle(BaseModel):
     nhi_identity_id: str | None = None
     token_refresh_endpoint: str | None = None
     osp_uri: str | None = None
+    # v1.2: sandbox
+    sandbox: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -561,6 +583,59 @@ class HealthStatus(BaseModel):
     latency_ms: float | None = None
     checked_at: str
     details: dict[str, Any] | None = None
+
+
+# ---------------------------------------------------------------------------
+# Cost Summary
+# ---------------------------------------------------------------------------
+
+class CostResource(BaseModel):
+    """Cost data for a single provisioned resource."""
+    resource_id: str
+    offering_id: str
+    cost: float
+    usage_summary: str | None = None
+
+
+class CostSummary(BaseModel):
+    """Aggregated cost summary across resources for a billing period."""
+    total_cost: float
+    currency: str
+    period: dict[str, str]
+    resources: list[CostResource]
+    projected_monthly: float
+
+
+# ---------------------------------------------------------------------------
+# Health (extended)
+# ---------------------------------------------------------------------------
+
+class HealthCheck(BaseModel):
+    """Individual health check result."""
+    name: str
+    status: str
+    latency_ms: int
+
+
+class HealthResponse(BaseModel):
+    """Detailed health response with sub-checks."""
+    status: Literal["healthy", "degraded", "unhealthy"]
+    version: str
+    supported_versions: list[str]
+    uptime_seconds: int
+    checks: list[HealthCheck]
+
+
+# ---------------------------------------------------------------------------
+# Manifest Identity
+# ---------------------------------------------------------------------------
+
+class ManifestIdentity(BaseModel):
+    """Identity verification configuration advertised in the manifest."""
+    supported_methods: list[str]
+    oauth2_issuers: list[str] | None = None
+    api_key_registration_url: str | None = None
+    identity_required_for_tiers: list[str] | None = None
 
 
 # ---------------------------------------------------------------------------

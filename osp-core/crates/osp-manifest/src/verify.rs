@@ -116,6 +116,15 @@ mod tests {
             extensions: None,
             provider_signature: String::new(),
             provider_public_key: public_key.to_string(),
+            a2a: None,
+            nhi: None,
+            finops: None,
+            dependency_graph: None,
+            scorecards: None,
+            observability: None,
+            mcp: None,
+            sandbox: None,
+            webhooks: None,
         }
     }
 

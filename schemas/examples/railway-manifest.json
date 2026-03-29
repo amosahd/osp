@@ -7,6 +7,11 @@
   "display_name": "Railway",
   "provider_url": "https://railway.app",
   "provider_public_key": "cmFpbHdheV9lZDI1NTE5X3B1YmxpY19rZXlfYmFzZTY0dXJs",
+  "provider_key_id": "key-2026-03",
+  "identity": {
+    "supported_methods": ["ed25519_did", "api_key"],
+    "identity_required_for_tiers": ["pro", "enterprise"]
+  },
   "offerings": [
     {
       "offering_id": "railway/hosting",
@@ -115,6 +120,9 @@
       "estimated_provision_seconds": 30,
       "fulfillment_proof_type": "health_check",
       "regions": ["us-west1", "us-east4", "europe-west4", "asia-southeast1"],
+      "available_regions": ["us-west1", "us-east4", "europe-west4", "asia-southeast1"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://docs.railway.app"
     },
     {
@@ -234,6 +242,9 @@
       "estimated_provision_seconds": 20,
       "fulfillment_proof_type": "health_check",
       "regions": ["us-west1", "us-east4", "europe-west4", "asia-southeast1"],
+      "available_regions": ["us-west1", "us-east4", "europe-west4", "asia-southeast1"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://docs.railway.app/databases/postgresql"
     }
   ],

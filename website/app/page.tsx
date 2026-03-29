@@ -1,7 +1,5 @@
 import {
   ArrowRight,
-  Check,
-  X,
   Globe,
   Shield,
   Zap,
@@ -11,9 +9,11 @@ import {
   Lock,
   BarChart3,
   Server,
-  Terminal,
-  ChevronRight,
 } from "lucide-react";
+
+/* ────────────────────────────────────────────────────────────────────────────
+   DATA
+   ──────────────────────────────────────────────────────────────────────────── */
 
 const providers = [
   { name: "Supabase", category: "Database", count: 4 },
@@ -29,7 +29,7 @@ const providers = [
 ];
 
 const categoryIcons: Record<string, typeof Database> = {
-  Database: Database,
+  Database,
   Infrastructure: Cloud,
   Hosting: Server,
   Email: Mail,
@@ -37,141 +37,94 @@ const categoryIcons: Record<string, typeof Database> = {
   Analytics: BarChart3,
 };
 
-const comparisonRows = [
-  {
-    feature: "Provider onboarding",
-    old: "Invite-only",
-    osp: "Self-registration via .well-known",
-  },
-  {
-    feature: "Protocol",
-    old: "Proprietary & closed",
-    osp: "Open standard (Apache 2.0)",
-  },
-  {
-    feature: "Payment rail",
-    old: "Single provider lock-in",
-    osp: "Any rail (pluggable)",
-  },
-  {
-    feature: "Service discovery",
-    old: "CLI catalog or docs",
-    osp: "Machine-readable manifests",
-  },
-  {
-    feature: "Credential security",
-    old: "Proprietary vault",
-    osp: "Ed25519 encrypted bundles",
-  },
-  {
-    feature: "Agent integration",
-    old: "Custom per provider",
-    osp: "Single standard protocol",
-  },
-];
-
 const steps = [
   {
     num: "01",
     title: "Discover",
-    desc: "Providers publish a ServiceManifest at /.well-known/osp.json. Agents fetch it to see offerings, tiers, and pricing.",
-    code: "GET https://api.supabase.com/.well-known/osp.json",
+    desc: "Providers publish a machine-readable manifest at a well-known URL. Agents fetch it to see every offering, tier, and price.",
+    code: `GET /.well-known/osp.json
+
+{
+  "provider": "supabase",
+  "offerings": [{
+    "id": "postgres",
+    "tiers": ["free", "pro", "team"]
+  }]
+}`,
   },
   {
     num: "02",
-    title: "Choose",
-    desc: "Agents compare offerings across providers. Standard schema means no custom integration per provider.",
-    code: '{ "offerings": [{ "id": "postgres", "tiers": ["free", "pro"] }] }',
+    title: "Provision",
+    desc: "One POST request creates the resource. Credentials come back encrypted with the agent\u2019s own Ed25519 key.",
+    code: `POST /osp/v1/provision
+{
+  "offering_id": "supabase/postgres",
+  "tier_id": "free",
+  "agent_public_key": "ed25519_key"
+}`,
   },
   {
     num: "03",
-    title: "Provision",
-    desc: "A single POST request provisions the resource. Credentials come back encrypted with the agent's Ed25519 key.",
-    code: 'POST /osp/v1/provision\n{ "offering_id": "supabase/postgres", "tier_id": "free" }',
-  },
-  {
-    num: "04",
     title: "Manage",
-    desc: "Standard endpoints for status, rotation, upgrades, usage tracking, and deprovisioning. One protocol for everything.",
-    code: "GET /osp/v1/status/proj_abc123\nPOST /osp/v1/rotate/proj_abc123",
+    desc: "Status checks, credential rotation, usage tracking, tier upgrades, and deprovisioning\u2014all through the same standard endpoints.",
+    code: `GET  /osp/v1/status/proj_abc123
+POST /osp/v1/rotate/proj_abc123
+GET  /osp/v1/usage/proj_abc123`,
   },
 ];
+
+/* ────────────────────────────────────────────────────────────────────────────
+   PAGE
+   ──────────────────────────────────────────────────────────────────────────── */
 
 export default function HomePage() {
   return (
     <div>
-      {/* Hero */}
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
-        {/* Background grid */}
         <div className="absolute inset-0 grid-pattern" />
-        {/* Gradient orb */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[800px] rounded-full bg-accent-500/[0.07] blur-[120px] animate-pulse_slow" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[700px] rounded-full bg-accent-500/[0.05] blur-[100px]" />
 
         <div className="relative mx-auto max-w-7xl px-6 pt-24 pb-20 lg:pt-32 lg:pb-28">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-surface-700 bg-surface-800/60 px-3.5 py-1.5 text-xs text-surface-300 backdrop-blur-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent-400 animate-pulse_slow" />
-              v1.0 Draft &mdash; Open for feedback
-            </div>
-
-            <h1 className="mt-8 font-sans text-5xl font-bold leading-[1.08] tracking-tight text-surface-100 lg:text-7xl">
-              The open standard
+            <h1 className="font-sans text-5xl font-bold leading-[1.08] tracking-tight text-surface-50 lg:text-7xl">
+              One protocol for
               <br />
-              for AI agent
+              every AI agent
               <br />
-              <span className="text-accent-400">services</span>
+              <span className="text-accent-400">service</span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-surface-300">
-              OSP lets AI agents discover, provision, and manage developer
-              services through a single open protocol. No gatekeeping. No
-              proprietary APIs. No payment-rail lock-in.
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-surface-300">
+              OSP is an open standard that lets AI agents discover, provision,
+              and manage developer services&mdash;databases, hosting, auth,
+              and more&mdash;through a single protocol.
             </p>
 
-            <div className="mt-10 flex flex-wrap items-center gap-4">
-              <a
-                href="https://github.com/openserviceprotocol/osp/blob/main/docs/for-providers.md"
-                className="group inline-flex items-center gap-2 rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-accent-600 hover:shadow-lg hover:shadow-accent-500/20"
-              >
-                Become a Provider
-                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-              </a>
-              <a
-                href="https://github.com/openserviceprotocol/osp"
-                className="inline-flex items-center gap-2 rounded-lg border border-surface-600 bg-surface-800/50 px-6 py-3 text-sm font-semibold text-surface-200 transition-all duration-200 hover:border-surface-500 hover:bg-surface-800"
-              >
-                View on GitHub
-              </a>
-              <a
-                href="/spec"
-                className="inline-flex items-center gap-1 px-2 py-3 text-sm text-surface-400 transition-colors duration-200 hover:text-surface-200"
-              >
-                Read the Spec
-                <ChevronRight className="h-3.5 w-3.5" />
-              </a>
-            </div>
+            <a
+              href="https://github.com/openserviceprotocol/osp/blob/main/docs/for-providers.md"
+              className="group mt-10 inline-flex items-center gap-2 rounded-lg bg-accent-500 px-7 py-3.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-accent-600"
+            >
+              Become a Provider
+              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </a>
           </div>
 
-          {/* Hero code block */}
+          {/* Inline demo */}
           <div className="mt-16 lg:mt-20">
-            <div className="rounded-xl border border-surface-700 bg-surface-950 shadow-2xl shadow-black/30 overflow-hidden">
-              {/* Terminal chrome */}
+            <div className="rounded-xl border border-surface-700 bg-surface-950 overflow-hidden shadow-2xl shadow-black/40">
               <div className="flex items-center gap-2 border-b border-surface-700/60 px-4 py-3">
                 <div className="flex gap-1.5">
                   <div className="h-3 w-3 rounded-full bg-surface-600" />
                   <div className="h-3 w-3 rounded-full bg-surface-600" />
                   <div className="h-3 w-3 rounded-full bg-surface-600" />
                 </div>
-                <div className="flex-1 text-center">
-                  <span className="font-mono text-xs text-surface-500">
-                    osp-provision.sh
-                  </span>
-                </div>
+                <span className="flex-1 text-center font-mono text-xs text-surface-500">
+                  terminal
+                </span>
               </div>
               <div className="p-6 font-mono text-sm leading-7">
-                <div className="text-surface-500">
-                  # Discover what Supabase offers via OSP
-                </div>
+                <div className="text-surface-500"># Discover offerings</div>
                 <div>
                   <span className="text-accent-400">$</span>{" "}
                   <span className="text-surface-200">
@@ -179,33 +132,23 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="mt-4 text-surface-500">
-                  # Provision a Postgres database in one request
+                  # Provision a database with one request
                 </div>
                 <div>
                   <span className="text-accent-400">$</span>{" "}
                   <span className="text-surface-200">
-                    curl -X POST https://api.supabase.com/osp/v1/provision \
+                    curl -X POST /osp/v1/provision \
                   </span>
                 </div>
                 <div className="pl-4 text-surface-200">
                   -d &#39;{"{"}&quot;offering_id&quot;:
-                  &quot;supabase/postgres&quot;,
-                  &quot;tier_id&quot;: &quot;free&quot;,
+                  &quot;supabase/postgres&quot;, &quot;tier_id&quot;:
+                  &quot;free&quot;{"}"}&#39;
                 </div>
-                <div className="pl-8 text-surface-200">
-                  &quot;agent_public_key&quot;:
-                  &quot;base64url_ed25519_key&quot;{"}"}&#39;
-                </div>
-                <div className="mt-4 text-surface-500"># Response</div>
+                <div className="mt-4 text-surface-500"># Done.</div>
                 <div className="text-warm-500">
                   {"{"} &quot;resource_id&quot;: &quot;proj_abc123&quot;,
-                </div>
-                <div className="pl-2 text-warm-500">
-                  &quot;status&quot;: &quot;provisioned&quot;,
-                </div>
-                <div className="pl-2 text-warm-500">
-                  &quot;credentials_bundle&quot;: {"{"} &quot;encrypted&quot;:
-                  true {"}"} {"}"}
+                  &quot;status&quot;: &quot;provisioned&quot; {"}"}
                 </div>
               </div>
             </div>
@@ -213,62 +156,68 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Problem */}
-      <section className="relative border-t border-surface-800 bg-surface-950 py-24 lg:py-32">
+      {/* ── What & Who ───────────────────────────────────────────────────── */}
+      <section className="border-t border-surface-800 bg-surface-950 py-24 lg:py-32">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="max-w-2xl">
-            <p className="font-sans text-xs font-semibold uppercase tracking-widest text-accent-400">
-              The problem
-            </p>
-            <h2 className="mt-4 font-sans text-3xl font-bold tracking-tight text-surface-100 lg:text-4xl">
-              AI agents are becoming autonomous economic actors.
-              <br />
-              <span className="text-surface-400">
-                Service provisioning is still broken.
-              </span>
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="font-sans text-3xl font-bold tracking-tight text-surface-100 lg:text-4xl">
+              What is OSP?
             </h2>
+            <p className="mt-6 text-lg leading-relaxed text-surface-300">
+              Today, every cloud provider has a different API. Every integration
+              is custom. Every agent needs bespoke code for each service it
+              wants to use. OSP solves this by defining a{" "}
+              <strong className="text-surface-100">
+                single, open protocol
+              </strong>{" "}
+              for service discovery, provisioning, and lifecycle management.
+            </p>
           </div>
 
           <div className="mt-16 grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-surface-700 bg-surface-700 md:grid-cols-3">
             {[
               {
-                title: "Gated ecosystems",
-                desc: "Existing solutions require invite-only onboarding and lock providers to a single payment rail.",
+                icon: Globe,
+                title: "For service providers",
+                desc: "Publish a manifest at a well-known URL. Any AI agent in the world can discover and provision your service.",
               },
               {
-                title: "Manual signup flows",
-                desc: "Agents break their workflow to open browsers, fill forms, and verify emails just to get an API key.",
+                icon: Zap,
+                title: "For agent builders",
+                desc: "Integrate once with OSP. Your agent can provision databases, hosting, auth, email, and analytics from any provider.",
               },
               {
-                title: "Fragmented integrations",
-                desc: "Every provider has a different API. Every integration is custom, fragile, and non-standard.",
+                icon: Shield,
+                title: "For the ecosystem",
+                desc: "An open standard with Ed25519 encryption, Apache 2.0 license, and zero payment-rail lock-in.",
               },
-            ].map((item, i) => (
-              <div key={item.title} className="bg-surface-900 p-8 lg:p-10">
-                <span className="font-mono text-xs text-surface-500">
-                  0{i + 1}
-                </span>
-                <h3 className="mt-3 font-sans text-lg font-semibold text-surface-100">
-                  {item.title}
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-surface-400">
-                  {item.desc}
-                </p>
-              </div>
-            ))}
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.title} className="bg-surface-900 p-8 lg:p-10">
+                  <Icon className="h-5 w-5 text-accent-400" />
+                  <h3 className="mt-4 font-sans text-lg font-semibold text-surface-100">
+                    {item.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-surface-400">
+                    {item.desc}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* How it works */}
+      {/* ── How it works ─────────────────────────────────────────────────── */}
       <section className="border-t border-surface-800 py-24 lg:py-32">
         <div className="mx-auto max-w-7xl px-6">
           <div className="max-w-2xl">
             <p className="font-sans text-xs font-semibold uppercase tracking-widest text-accent-400">
-              How OSP works
+              How it works
             </p>
             <h2 className="mt-4 font-sans text-3xl font-bold tracking-tight text-surface-100 lg:text-4xl">
-              Four steps from discovery to provisioning
+              Three steps to a running service
             </h2>
           </div>
 
@@ -276,7 +225,7 @@ export default function HomePage() {
             {steps.map((step) => (
               <div
                 key={step.num}
-                className="group grid grid-cols-1 gap-6 rounded-xl border border-surface-700/50 bg-surface-800/30 p-6 transition-colors duration-200 hover:border-surface-600/50 hover:bg-surface-800/50 lg:grid-cols-2 lg:p-8"
+                className="grid grid-cols-1 gap-6 rounded-xl border border-surface-700/50 bg-surface-800/30 p-6 lg:grid-cols-2 lg:p-8"
               >
                 <div>
                   <div className="flex items-center gap-3">
@@ -291,10 +240,8 @@ export default function HomePage() {
                     {step.desc}
                   </p>
                 </div>
-                <div className="rounded-lg bg-surface-950 border border-surface-700/50 p-4 font-mono text-xs leading-6 text-surface-300">
-                  {step.code.split("\n").map((line, i) => (
-                    <div key={i}>{line}</div>
-                  ))}
+                <div className="rounded-lg bg-surface-950 border border-surface-700/50 p-5 font-mono text-xs leading-6 text-surface-300 whitespace-pre">
+                  {step.code}
                 </div>
               </div>
             ))}
@@ -302,64 +249,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Comparison */}
+      {/* ── Provider ecosystem ────────────────────────────────────────────── */}
       <section className="border-t border-surface-800 bg-surface-950 py-24 lg:py-32">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="max-w-2xl">
-            <p className="font-sans text-xs font-semibold uppercase tracking-widest text-accent-400">
-              Why OSP
-            </p>
-            <h2 className="mt-4 font-sans text-3xl font-bold tracking-tight text-surface-100 lg:text-4xl">
-              An open protocol that works for everyone
-            </h2>
-          </div>
-
-          <div className="mt-12 overflow-hidden rounded-xl border border-surface-700">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-surface-700 bg-surface-800/50">
-                  <th className="px-6 py-4 font-sans text-xs font-semibold uppercase tracking-widest text-surface-400">
-                    Feature
-                  </th>
-                  <th className="px-6 py-4 font-sans text-xs font-semibold uppercase tracking-widest text-surface-500">
-                    Status Quo
-                  </th>
-                  <th className="px-6 py-4 font-sans text-xs font-semibold uppercase tracking-widest text-accent-400">
-                    OSP
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-800">
-                {comparisonRows.map((row) => (
-                  <tr
-                    key={row.feature}
-                    className="transition-colors duration-150 hover:bg-surface-800/30"
-                  >
-                    <td className="px-6 py-4 font-medium text-surface-200">
-                      {row.feature}
-                    </td>
-                    <td className="px-6 py-4 text-surface-500">
-                      <span className="inline-flex items-center gap-1.5">
-                        <X className="h-3.5 w-3.5 text-red-400/60" />
-                        {row.old}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-surface-200">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Check className="h-3.5 w-3.5 text-emerald-400" />
-                        {row.osp}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      {/* Provider grid */}
-      <section className="border-t border-surface-800 py-24 lg:py-32">
         <div className="mx-auto max-w-7xl px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
@@ -369,9 +260,9 @@ export default function HomePage() {
               <h2 className="mt-4 font-sans text-3xl font-bold tracking-tight text-surface-100 lg:text-4xl">
                 Growing provider ecosystem
               </h2>
-              <p className="mt-3 text-surface-400">
-                Example manifests for real services. Any provider can
-                self-register.
+              <p className="mt-3 max-w-lg text-surface-400">
+                Example manifests ship for real services. Any provider can
+                self-register by publishing a manifest at their domain.
               </p>
             </div>
             <a
@@ -387,91 +278,40 @@ export default function HomePage() {
             {providers.map((p) => {
               const Icon = categoryIcons[p.category] || Globe;
               return (
-                <div
+                <a
                   key={p.name}
-                  className="group rounded-xl border border-surface-700/50 bg-surface-800/30 p-5 transition-all duration-200 hover:border-surface-600 hover:bg-surface-800/60 cursor-pointer"
+                  href="/providers"
+                  className="group rounded-xl border border-surface-700/50 bg-surface-800/30 p-5 transition-colors duration-200 hover:border-surface-600 hover:bg-surface-800/60 cursor-pointer"
                 >
                   <Icon className="h-5 w-5 text-surface-500 transition-colors duration-200 group-hover:text-accent-400" />
                   <h3 className="mt-3 font-sans text-sm font-semibold text-surface-200">
                     {p.name}
                   </h3>
                   <p className="mt-1 text-xs text-surface-500">{p.category}</p>
-                  <p className="mt-2 font-mono text-xs text-surface-500">
-                    {p.count} offering{p.count > 1 ? "s" : ""}
-                  </p>
-                </div>
+                </a>
               );
             })}
           </div>
         </div>
       </section>
 
-      {/* Dual CTA */}
-      <section className="border-t border-surface-800 bg-surface-950 py-24 lg:py-32">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* Provider CTA */}
-            <div className="relative overflow-hidden rounded-2xl border border-accent-500/20 bg-gradient-to-br from-accent-500/[0.08] to-transparent p-10 lg:p-12">
-              <div className="absolute top-0 right-0 h-40 w-40 bg-accent-500/[0.06] blur-[80px]" />
-              <div className="relative">
-                <Globe className="h-8 w-8 text-accent-400" />
-                <h3 className="mt-5 font-sans text-2xl font-bold text-surface-100">
-                  I run a service
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-surface-400">
-                  Publish a ServiceManifest and let any AI agent discover and
-                  provision your service. No middleman. No rev-share.
-                </p>
-                <a
-                  href="https://github.com/openserviceprotocol/osp/blob/main/docs/for-providers.md"
-                  className="group mt-8 inline-flex items-center gap-2 rounded-lg bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-accent-600 hover:shadow-lg hover:shadow-accent-500/20"
-                >
-                  Provider Guide
-                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </a>
-              </div>
-            </div>
-
-            {/* Agent CTA */}
-            <div className="rounded-2xl border border-surface-700 bg-surface-800/30 p-10 lg:p-12">
-              <Terminal className="h-8 w-8 text-surface-400" />
-              <h3 className="mt-5 font-sans text-2xl font-bold text-surface-100">
-                I am building an agent
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-surface-400">
-                Give your agent the ability to discover and provision any
-                OSP-compatible service with a single protocol integration.
-              </p>
-              <a
-                href="https://github.com/openserviceprotocol/osp/blob/main/docs/for-agents.md"
-                className="group mt-8 inline-flex items-center gap-2 rounded-lg border border-surface-600 bg-surface-800 px-6 py-3 text-sm font-semibold text-surface-200 transition-all duration-200 hover:border-surface-500 hover:bg-surface-700"
-              >
-                Agent Guide
-                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Trust strip */}
-      <section className="border-t border-surface-800 py-16">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4 text-center">
-            {[
-              { icon: Shield, label: "Ed25519 encryption" },
-              { icon: Globe, label: "Payment-rail agnostic" },
-              { icon: Zap, label: "Single POST to provision" },
-            ].map(({ icon: Icon, label }) => (
-              <div
-                key={label}
-                className="flex items-center gap-2.5 text-sm text-surface-400"
-              >
-                <Icon className="h-4 w-4 text-surface-500" />
-                {label}
-              </div>
-            ))}
-          </div>
+      {/* ── CTA ──────────────────────────────────────────────────────────── */}
+      <section className="border-t border-surface-800 py-24 lg:py-32">
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <h2 className="font-sans text-3xl font-bold tracking-tight text-surface-100 lg:text-4xl">
+            Ready to join the ecosystem?
+          </h2>
+          <p className="mt-4 text-lg text-surface-400">
+            Publish a ServiceManifest and let every AI agent in the world
+            discover your service.
+          </p>
+          <a
+            href="https://github.com/openserviceprotocol/osp/blob/main/docs/for-providers.md"
+            className="group mt-10 inline-flex items-center gap-2 rounded-lg bg-accent-500 px-7 py-3.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-accent-600"
+          >
+            Become a Provider
+            <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+          </a>
         </div>
       </section>
     </div>

@@ -1,13 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, DM_Sans, JetBrains_Mono } from "next/font/google";
-import {
-  Github,
-  BookOpen,
-  Layers,
-  Cpu,
-  ArrowUpRight,
-  MessageSquare,
-} from "lucide-react";
+import { Github, BookOpen, Layers, Cpu, ArrowUpRight } from "lucide-react";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -31,7 +24,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "OSP - Open Service Protocol",
   description:
-    "The open standard for AI agents to discover, provision, and manage developer services. No gatekeeping. No lock-in.",
+    "The open standard for AI agents to discover, provision, and manage developer services.",
   openGraph: {
     title: "OSP - Open Service Protocol",
     description:
@@ -98,11 +91,11 @@ function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-surface-700/50 bg-surface-900/80 backdrop-blur-xl">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <a href="/" className="flex items-center gap-2.5 group">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent-500 font-sans text-sm font-bold text-white transition-transform duration-200 group-hover:scale-105">
+        <a href="/" className="flex items-center gap-3 group">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-500 font-sans text-base font-bold text-white">
             O
           </div>
-          <span className="font-sans text-lg font-bold tracking-tight text-surface-100">
+          <span className="font-sans text-xl font-bold tracking-tight text-surface-50">
             OSP
           </span>
         </a>
@@ -139,24 +132,22 @@ function Footer() {
     <footer className="border-t border-surface-700/50 bg-surface-950">
       <div className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-5">
-          {/* Brand */}
           <div className="md:col-span-2">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent-500 font-sans text-sm font-bold text-white">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-500 font-sans text-base font-bold text-white">
                 O
               </div>
-              <span className="font-sans text-lg font-bold tracking-tight text-surface-100">
+              <span className="font-sans text-xl font-bold tracking-tight text-surface-50">
                 OSP
               </span>
             </div>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-surface-400">
-              Open Service Protocol. The open standard for AI agents to
-              discover and provision developer services.
+              The open standard for AI agents to discover and provision
+              developer services.
             </p>
             <p className="mt-3 text-xs text-surface-500">Apache 2.0 Licensed</p>
           </div>
 
-          {/* Link columns */}
           {footerSections.map((section) => (
             <div key={section.title}>
               <h4 className="font-sans text-xs font-semibold uppercase tracking-widest text-surface-400">

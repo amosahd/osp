@@ -82,6 +82,15 @@ const DEFAULT_JITTER = 0.25;
 
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
 
+/** Default TTL for cached manifests: 1 hour in milliseconds. */
+const MANIFEST_CACHE_TTL = 3_600_000;
+
+/** A cached manifest with its fetch timestamp. */
+interface CachedManifest {
+  manifest: ServiceManifest;
+  fetchedAt: number;
+}
+
 // ---------------------------------------------------------------------------
 // Client
 // ---------------------------------------------------------------------------
@@ -92,8 +101,8 @@ export class OSPClient {
   private readonly timeoutMs: number;
   private readonly retryConfig: Required<RetryOptions>;
 
-  /** In-memory manifest cache keyed by normalized provider URL. */
-  private readonly manifestCache = new Map<string, ServiceManifest>();
+  /** In-memory manifest cache keyed by normalized provider URL (with TTL). */
+  private readonly manifestCache = new Map<string, CachedManifest>();
 
   constructor(options?: OSPClientOptions) {
     this.registryUrl =
@@ -116,15 +125,18 @@ export class OSPClient {
   /**
    * Fetch a single provider's manifest from its well-known URL.
    *
-   * Results are cached in-memory for the lifetime of this client instance.
+   * Results are cached in-memory with a 1-hour TTL.  Stale entries are
+   * automatically refetched.
    */
   async discover(providerUrl: string): Promise<ServiceManifest> {
     const key = normalizeUrl(providerUrl);
     const cached = this.manifestCache.get(key);
-    if (cached) return cached;
+    if (cached && Date.now() - cached.fetchedAt < MANIFEST_CACHE_TTL) {
+      return cached.manifest;
+    }
 
     const manifest = await fetchManifest(providerUrl);
-    this.manifestCache.set(key, manifest);
+    this.manifestCache.set(key, { manifest, fetchedAt: Date.now() });
     return manifest;
   }
 
@@ -353,6 +365,18 @@ export class OSPClient {
   /** Clear the in-memory manifest cache (useful in long-running agents). */
   clearCache(): void {
     this.manifestCache.clear();
+  }
+
+  /**
+   * Clear a single provider's cached manifest, forcing a refetch on the
+   * next `discover()` call.  If no URL is provided, all entries are cleared.
+   */
+  clearManifestCache(providerUrl?: string): void {
+    if (providerUrl) {
+      this.manifestCache.delete(normalizeUrl(providerUrl));
+    } else {
+      this.manifestCache.clear();
+    }
   }
 
   // -----------------------------------------------------------------------

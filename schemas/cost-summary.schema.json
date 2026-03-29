@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://osp.dev/schemas/cost-summary.schema.json",
+  "title": "CostSummary",
+  "description": "Cost summary response for a project, including per-resource breakdown and pagination for large result sets",
+  "type": "object",
+  "required": ["project_id", "period", "total", "by_resource"],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "description": "Project identifier"
+    },
+    "period": {
+      "type": "object",
+      "required": ["start", "end"],
+      "description": "Billing period for this cost summary",
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date",
+          "description": "Start date of the billing period (ISO 8601 date)"
+        },
+        "end": {
+          "type": "string",
+          "format": "date",
+          "description": "End date of the billing period (ISO 8601 date)"
+        }
+      }
+    },
+    "total": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "description": "Total cost for the period",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Total amount as decimal string"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "USDC", "EURC"],
+          "description": "ISO 4217 currency code or stablecoin identifier"
+        }
+      }
+    },
+    "by_resource": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ResourceCost"
+      },
+      "description": "Per-resource cost breakdown"
+    },
+    "comparison": {
+      "type": "object",
+      "description": "Comparison with previous billing period",
+      "properties": {
+        "previous_period": {
+          "type": "string",
+          "description": "Total cost of the previous period as decimal string"
+        },
+        "change_percent": {
+          "type": "string",
+          "description": "Percentage change from previous period (e.g., '+9.2%')"
+        },
+        "cost_alerts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "type": "string",
+                "description": "Resource ID triggering the alert"
+              },
+              "alert": {
+                "type": "string",
+                "description": "Human-readable cost alert message"
+              }
+            }
+          },
+          "description": "Cost alerts and recommendations"
+        }
+      }
+    },
+    "limit": {
+      "type": "integer",
+      "default": 100,
+      "description": "Maximum number of resources returned per page"
+    },
+    "offset": {
+      "type": "integer",
+      "default": 0,
+      "description": "Number of resources skipped for pagination"
+    },
+    "total_count": {
+      "type": "integer",
+      "description": "Total number of resources across all pages"
+    },
+    "next_cursor": {
+      "type": ["string", "null"],
+      "description": "Opaque cursor for fetching the next page, null when no more results"
+    }
+  },
+  "$defs": {
+    "ResourceCost": {
+      "type": "object",
+      "required": ["resource_id", "service", "tier", "total"],
+      "description": "Cost breakdown for a single resource",
+      "properties": {
+        "resource_id": {
+          "type": "string",
+          "description": "Resource identifier"
+        },
+        "service": {
+          "type": "string",
+          "description": "Service offering ID (e.g., 'supabase/managed-postgres')"
+        },
+        "tier": {
+          "type": "string",
+          "description": "Tier ID for this resource"
+        },
+        "base_cost": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Fixed base cost as decimal string"
+        },
+        "metered_cost": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Usage-based metered cost as decimal string"
+        },
+        "total": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Total cost for this resource as decimal string"
+        }
+      }
+    }
+  }
+}

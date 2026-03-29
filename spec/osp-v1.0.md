@@ -2043,7 +2043,17 @@ Rotate credentials for a resource. The old credentials MUST remain valid for a g
 1. The grace period MUST be at least 5 minutes (RECOMMENDED: 15 minutes).
 2. The provider MUST include the `old_credentials_valid_until` timestamp in the rotation response.
 3. During the grace period, BOTH old and new credentials MUST work.
-4. After the grace period, the old credentials MUST return HTTP 401 with the header `X-OSP-Credentials-Rotated: true` and the body SHOULD include the `resource_id` so the agent knows which resource's credentials expired (rather than interpreting it as an authorization failure).
+4. After the grace period, the old credentials MUST return HTTP 401 with the header `X-OSP-Credentials-Rotated: true`. The response body MUST use the following structure so the agent can distinguish a rotation from a genuine authorization failure:
+
+```json
+{
+  "error": "credentials_rotated",
+  "resource_id": "res_7f3b1a2c-4d5e-6f78-90ab-cdef12345678",
+  "message": "Credentials have been rotated. Use GET /osp/v1/credentials/{id} to retrieve new credentials.",
+  "rotated_at": "2026-03-27T18:00:00Z"
+}
+```
+
 5. The provider MUST NOT invalidate old credentials before `old_credentials_valid_until`.
 
 **Request:**

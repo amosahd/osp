@@ -3484,22 +3484,36 @@ When a provider sends webhook notifications to an agent's `webhook_url`:
 
 **Retry Policy:**
 
-Providers MUST implement retries for failed webhook deliveries. A delivery is considered failed if the agent's endpoint returns a non-2xx status code, times out (RECOMMENDED timeout: 10 seconds), or is unreachable.
+Providers MUST implement retries for failed webhook deliveries. A delivery is considered failed if:
+- The agent's endpoint returns a non-2xx status code.
+- The agent's endpoint does not respond with a 2xx status within **30 seconds** (REQUIRED timeout).
+- The agent's endpoint is unreachable.
 
-Required retry schedule (exponential backoff):
+Agents MUST respond to webhook deliveries with a 2xx status code within 30 seconds. Any response taking longer than 30 seconds is treated as a failed delivery.
+
+Required retry schedule (exponential backoff with 6 maximum attempts):
 
 | Attempt | Delay After Previous | Cumulative Time |
 |---------|---------------------|-----------------|
 | 1 (initial) | Immediate | 0 |
-| 2 | 1 minute | 1 minute |
-| 3 | 15 minutes | 16 minutes |
-| 4 | 1 hour | 1 hour 16 minutes |
-| 5 | 4 hours | 5 hours 16 minutes |
-| 6 (final) | 24 hours | 29 hours 16 minutes |
+| 2 | 1 second | 1 second |
+| 3 | 5 seconds | 6 seconds |
+| 4 | 30 seconds | 36 seconds |
+| 5 | 2 minutes | 2 minutes 36 seconds |
+| 6 (final) | 10 minutes | 12 minutes 36 seconds |
 
-After 6 failed attempts, the provider MUST stop retrying and MUST mark the webhook subscription as `failed`. The resource remains provisioned — the agent can recover by polling `GET /osp/v1/status/{resource_id}`.
+After 6 failed attempts, the provider MUST:
+1. Stop retrying the delivery.
+2. Mark the webhook subscription as `failed`.
+3. Persist the failed event in a **dead letter queue** (DLQ) for later inspection or replay.
 
-Each retry MUST include the `X-OSP-Delivery-Attempt` header with the attempt number (1-6) so agents can detect duplicates and measure delivery reliability.
+The resource remains provisioned — the agent can recover by polling `GET /osp/v1/status/{resource_id}`.
+
+Providers SHOULD implement a dead letter queue for failed webhook events. The DLQ allows agents to retrieve and replay missed events after recovering from an outage. The DLQ retention period SHOULD be at least 72 hours.
+
+**Delivery attempt header:**
+
+Each delivery attempt MUST include the `X-OSP-Delivery-Attempt` header with the attempt number (1-6) so agents can detect duplicates and measure delivery reliability. Agents SHOULD use this header to deduplicate events when receiving retried deliveries.
 
 **Example webhook headers:**
 
@@ -3509,6 +3523,7 @@ Host: agent.example.com
 Content-Type: application/json
 X-OSP-Signature: t=1711540800,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd
 X-OSP-Timestamp: 1711540800
+X-OSP-Delivery-Attempt: 1
 ```
 
 **Verification process:**
@@ -3518,6 +3533,32 @@ X-OSP-Timestamp: 1711540800
 3. Compute `HMAC-SHA256(webhook_secret, signed_payload)`.
 4. Compare the computed HMAC with `v1` using constant-time comparison.
 5. Verify the timestamp is within 300 seconds of the current time.
+
+**Manifest: Webhook Retry Policy Declaration**
+
+Providers MAY declare their webhook retry policy in the ServiceManifest to inform agents of the retry behavior:
+
+```json
+{
+  "webhook_retry_policy": {
+    "max_attempts": 6,
+    "backoff_multiplier": 5,
+    "initial_delay_seconds": 1,
+    "max_delay_seconds": 600,
+    "response_timeout_seconds": 30,
+    "dead_letter_queue": true
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `max_attempts` | `integer` | OPTIONAL | Maximum number of delivery attempts (default: 6). |
+| `backoff_multiplier` | `number` | OPTIONAL | Multiplier for exponential backoff between attempts (default: 5). |
+| `initial_delay_seconds` | `integer` | OPTIONAL | Delay before the first retry in seconds (default: 1). |
+| `max_delay_seconds` | `integer` | OPTIONAL | Maximum delay between retries in seconds (default: 600). |
+| `response_timeout_seconds` | `integer` | OPTIONAL | How long the provider waits for a 2xx response before considering delivery failed (default: 30). |
+| `dead_letter_queue` | `boolean` | OPTIONAL | Whether the provider persists failed events in a DLQ for later replay (default: `false`). |
 
 ### 8.6 Rate Limiting
 

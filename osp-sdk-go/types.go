@@ -252,6 +252,11 @@ type ProviderEndpoints struct {
 	Status      string `json:"status"`
 	Usage       string `json:"usage,omitempty"`
 	Health      string `json:"health"`
+	Events      string `json:"events,omitempty"`
+	Webhooks    string `json:"webhooks,omitempty"`
+	Estimate    string `json:"estimate,omitempty"`
+	Disputes    string `json:"disputes,omitempty"`
+	Export      string `json:"export,omitempty"`
 }
 
 // ---------------------------------------------------------------------------
@@ -491,4 +496,270 @@ func (m ServiceManifest) MarshalJSON() ([]byte, error) {
 	}{
 		Alias: Alias(m),
 	})
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: A2A Agent Delegation
+// ---------------------------------------------------------------------------
+
+// A2ACapability represents an A2A delegation capability.
+type A2ACapability string
+
+const (
+	A2ACapProvision   A2ACapability = "provision"
+	A2ACapDeprovision A2ACapability = "deprovision"
+	A2ACapRotate      A2ACapability = "rotate"
+	A2ACapMonitor     A2ACapability = "monitor"
+	A2ACapDelegate    A2ACapability = "delegate"
+)
+
+// A2AAgentCard enables delegated provisioning via agent-to-agent protocol.
+type A2AAgentCard struct {
+	AgentID            string          `json:"agent_id,omitempty"`
+	Capabilities       []A2ACapability `json:"capabilities,omitempty"`
+	DelegationEndpoint string          `json:"delegation_endpoint,omitempty"`
+	TaskLifecycle      *bool           `json:"task_lifecycle,omitempty"`
+	AgentPublicKey     string          `json:"agent_public_key,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Non-Human Identity
+// ---------------------------------------------------------------------------
+
+// NHIFederationType represents an NHI federation protocol.
+type NHIFederationType string
+
+const (
+	NHIFederationOIDC   NHIFederationType = "oidc"
+	NHIFederationSPIFFE NHIFederationType = "spiffe"
+	NHIFederationMTLS   NHIFederationType = "mtls"
+)
+
+// NHIConfig holds non-human identity lifecycle configuration.
+type NHIConfig struct {
+	ShortLivedTokens *bool               `json:"short_lived_tokens,omitempty"`
+	TokenTTLSeconds  *int                `json:"token_ttl_seconds,omitempty"`
+	OrphanDetection  *bool               `json:"orphan_detection,omitempty"`
+	Federation       []NHIFederationType `json:"federation,omitempty"`
+	TokenEndpoint    string              `json:"token_endpoint,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: FinOps / Cost-as-Code
+// ---------------------------------------------------------------------------
+
+// FinOpsConfig holds FinOps budget guardrails and cost-as-code configuration.
+type FinOpsConfig struct {
+	BudgetEnforcement *bool  `json:"budget_enforcement,omitempty"`
+	CostInPR          *bool  `json:"cost_in_pr,omitempty"`
+	AnomalyDetection  *bool  `json:"anomaly_detection,omitempty"`
+	BurnRateTracking  *bool  `json:"burn_rate_tracking,omitempty"`
+	BudgetEndpoint    string `json:"budget_endpoint,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Agent Observability
+// ---------------------------------------------------------------------------
+
+// TracePropagationFormat represents a trace propagation format.
+type TracePropagationFormat string
+
+const (
+	TracePropagationW3C    TracePropagationFormat = "w3c"
+	TracePropagationB3     TracePropagationFormat = "b3"
+	TracePropagationJaeger TracePropagationFormat = "jaeger"
+)
+
+// ObservabilityConfig holds agent observability and OpenTelemetry configuration.
+type ObservabilityConfig struct {
+	OTelEndpoint     string                   `json:"otel_endpoint,omitempty"`
+	TracePropagation []TracePropagationFormat  `json:"trace_propagation,omitempty"`
+	AuditLog         *bool                    `json:"audit_log,omitempty"`
+	HITLGates        *bool                    `json:"hitl_gates,omitempty"`
+	CostPerAction    *bool                    `json:"cost_per_action,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: MCP Alignment
+// ---------------------------------------------------------------------------
+
+// MCPConfig holds MCP .well-known alignment and tool advertisement configuration.
+type MCPConfig struct {
+	Tools          []string `json:"tools,omitempty"`
+	StreamableHTTP *bool    `json:"streamable_http,omitempty"`
+	WellKnownURL   string   `json:"well_known_url,omitempty"`
+	SkillsURL      string   `json:"skills_url,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Progressive Deployment / Canary
+// ---------------------------------------------------------------------------
+
+// CanaryStrategy represents a canary deployment strategy.
+type CanaryStrategy string
+
+const (
+	CanaryPercentage CanaryStrategy = "percentage"
+	CanaryBlueGreen  CanaryStrategy = "blue_green"
+	CanaryRolling    CanaryStrategy = "rolling"
+)
+
+// CanaryConfig holds canary / progressive deployment configuration.
+type CanaryConfig struct {
+	Enabled    *bool            `json:"enabled,omitempty"`
+	Strategies []CanaryStrategy `json:"strategies,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Sandbox
+// ---------------------------------------------------------------------------
+
+// SandboxConfig holds sandbox / testing environment configuration.
+type SandboxConfig struct {
+	Enabled     *bool  `json:"enabled,omitempty"`
+	Endpoint    string `json:"endpoint,omitempty"`
+	AutoCleanup *bool  `json:"auto_cleanup,omitempty"`
+	TTLSeconds  *int   `json:"ttl_seconds,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Estimate
+// ---------------------------------------------------------------------------
+
+// EstimateRequest is a request to estimate provisioning cost.
+type EstimateRequest struct {
+	OfferingID     string                 `json:"offering_id"`
+	TierID         string                 `json:"tier_id"`
+	Region         string                 `json:"region,omitempty"`
+	Configuration  map[string]interface{} `json:"configuration,omitempty"`
+	EstimatedUsage map[string]float64     `json:"estimated_usage,omitempty"`
+	BillingPeriods *int                   `json:"billing_periods,omitempty"`
+}
+
+// EstimateResponse holds a cost estimate from the provider.
+type EstimateResponse struct {
+	OfferingID string           `json:"offering_id"`
+	TierID     string           `json:"tier_id"`
+	Estimate   EstimateDetail   `json:"estimate"`
+}
+
+// EstimateDetail holds the detailed cost estimate breakdown.
+type EstimateDetail struct {
+	BaseCost      *Cost              `json:"base_cost,omitempty"`
+	TotalMonthly  string             `json:"total_monthly"`
+	TotalForPeriod string            `json:"total_for_period"`
+	Currency      string             `json:"currency"`
+	BillingPeriods int               `json:"billing_periods"`
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Dispute
+// ---------------------------------------------------------------------------
+
+// DisputeReasonCode represents a machine-readable dispute reason.
+type DisputeReasonCode string
+
+const (
+	DisputeServiceNotDelivered DisputeReasonCode = "service_not_delivered"
+	DisputeCredentialsInvalid  DisputeReasonCode = "credentials_invalid"
+	DisputeWrongTier           DisputeReasonCode = "wrong_tier"
+	DisputeBillingMismatch     DisputeReasonCode = "billing_mismatch"
+	DisputeUnauthorizedCharge  DisputeReasonCode = "unauthorized_charge"
+	DisputeQualityDegraded     DisputeReasonCode = "quality_degraded"
+)
+
+// DisputeRequest is a request to file a dispute for a provisioned resource.
+type DisputeRequest struct {
+	ReasonCode   DisputeReasonCode `json:"reason_code"`
+	Description  string            `json:"description"`
+	EvidenceHash string            `json:"evidence_hash,omitempty"`
+	EvidenceURL  string            `json:"evidence_url,omitempty"`
+}
+
+// DisputeResponse is returned after filing a dispute.
+type DisputeResponse struct {
+	DisputeID                string            `json:"dispute_id"`
+	ResourceID               string            `json:"resource_id"`
+	ReasonCode               DisputeReasonCode `json:"reason_code"`
+	Status                   string            `json:"status"`
+	FiledAt                  string            `json:"filed_at"`
+	OSPDisputeReceipt        string            `json:"osp_dispute_receipt"`
+	SettlementRails          []string          `json:"settlement_rails"`
+	ProviderResponseDeadline string            `json:"provider_response_deadline"`
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Events
+// ---------------------------------------------------------------------------
+
+// ResourceEvent represents a single event from the audit trail.
+type ResourceEvent struct {
+	EventID   string                 `json:"event_id"`
+	EventType string                 `json:"event_type"`
+	Timestamp string                 `json:"timestamp"`
+	Details   map[string]interface{} `json:"details,omitempty"`
+}
+
+// EventsResponse is returned from the events endpoint.
+type EventsResponse struct {
+	ResourceID string          `json:"resource_id"`
+	Events     []ResourceEvent `json:"events"`
+	HasMore    bool            `json:"has_more"`
+	Cursor     string          `json:"cursor,omitempty"`
+}
+
+// GetEventsOptions configures event filtering.
+type GetEventsOptions struct {
+	Since         string `json:"since,omitempty"`
+	Until         string `json:"until,omitempty"`
+	Limit         *int   `json:"limit,omitempty"`
+	StartingAfter string `json:"starting_after,omitempty"`
+	EventType     string `json:"event_type,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Webhook Management
+// ---------------------------------------------------------------------------
+
+// WebhookRegistration is a request to register or update a webhook.
+type WebhookRegistration struct {
+	WebhookURL     string   `json:"webhook_url"`
+	Events         []string `json:"events,omitempty"`
+	SecretRotation *bool    `json:"secret_rotation,omitempty"`
+}
+
+// WebhookResponse is returned after registering a webhook.
+type WebhookResponse struct {
+	WebhookID  string   `json:"webhook_id"`
+	ResourceID string   `json:"resource_id"`
+	WebhookURL string   `json:"webhook_url"`
+	Events     []string `json:"events"`
+	Secret     string   `json:"secret,omitempty"`
+	CreatedAt  string   `json:"created_at"`
+}
+
+// ---------------------------------------------------------------------------
+// v1.1: Export
+// ---------------------------------------------------------------------------
+
+// ExportRequest is a request to export a resource.
+type ExportRequest struct {
+	Format        string `json:"format"`
+	IncludeData   *bool  `json:"include_data,omitempty"`
+	IncludeSchema *bool  `json:"include_schema,omitempty"`
+	EncryptionKey string `json:"encryption_key,omitempty"`
+}
+
+// ExportResponse is returned after initiating an export.
+type ExportResponse struct {
+	ExportID              string `json:"export_id"`
+	ResourceID            string `json:"resource_id"`
+	Status                string `json:"status"`
+	Format                string `json:"format"`
+	EstimatedReadySeconds *int   `json:"estimated_ready_seconds,omitempty"`
+	PollURL               string `json:"poll_url,omitempty"`
+	DownloadURL           string `json:"download_url,omitempty"`
+	DownloadExpiresAt     string `json:"download_expires_at,omitempty"`
+	SizeBytes             *int64 `json:"size_bytes,omitempty"`
+	Checksum              string `json:"checksum,omitempty"`
 }

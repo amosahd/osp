@@ -535,6 +535,447 @@ func TestResolveEndpoint(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// v1.1 client methods
+// ---------------------------------------------------------------------------
+
+func TestClientGetEvents(t *testing.T) {
+	expected := &EventsResponse{
+		ResourceID: "res_123",
+		Events: []ResourceEvent{
+			{EventID: "evt_1", EventType: "provision.completed", Timestamp: "2026-01-01T00:00:00Z"},
+			{EventID: "evt_2", EventType: "credentials.rotated", Timestamp: "2026-01-02T00:00:00Z"},
+		},
+		HasMore: false,
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(expected)
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Events: "/v1/events"}
+
+	resp, err := client.GetEvents(context.Background(), server.URL, endpoints, "res_123", nil)
+	if err != nil {
+		t.Fatalf("get events: %v", err)
+	}
+
+	if resp.ResourceID != "res_123" {
+		t.Errorf("expected resource_id=res_123, got %s", resp.ResourceID)
+	}
+	if len(resp.Events) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(resp.Events))
+	}
+	if resp.Events[0].EventType != "provision.completed" {
+		t.Errorf("expected event_type=provision.completed, got %s", resp.Events[0].EventType)
+	}
+}
+
+func TestClientGetEventsWithOptions(t *testing.T) {
+	var receivedQuery string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedQuery = r.URL.RawQuery
+		json.NewEncoder(w).Encode(&EventsResponse{ResourceID: "res_123", Events: []ResourceEvent{}})
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Events: "/v1/events"}
+	limit := 10
+	opts := &GetEventsOptions{
+		Since:     "2026-01-01T00:00:00Z",
+		Limit:     &limit,
+		EventType: "provision.completed",
+	}
+
+	_, err := client.GetEvents(context.Background(), server.URL, endpoints, "res_123", opts)
+	if err != nil {
+		t.Fatalf("get events: %v", err)
+	}
+
+	if receivedQuery == "" {
+		t.Fatal("expected query parameters to be set")
+	}
+}
+
+func TestClientGetEventsNotSupported(t *testing.T) {
+	client := NewClient()
+	endpoints := ProviderEndpoints{}
+
+	_, err := client.GetEvents(context.Background(), "http://localhost", endpoints, "res_123", nil)
+	if err == nil {
+		t.Fatal("expected error when events not supported")
+	}
+}
+
+func TestClientGetEventsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(&OSPErrorBody{Error: "not_found"})
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Events: "/v1/events"}
+
+	_, err := client.GetEvents(context.Background(), server.URL, endpoints, "res_nonexistent", nil)
+	if err == nil {
+		t.Fatal("expected error for 404")
+	}
+}
+
+func TestClientRegisterWebhook(t *testing.T) {
+	expected := &WebhookResponse{
+		WebhookID:  "wh_123",
+		ResourceID: "res_123",
+		WebhookURL: "https://example.com/webhook",
+		Events:     []string{"provision.completed", "credentials.rotated"},
+		Secret:     "whsec_test",
+		CreatedAt:  "2026-01-01T00:00:00Z",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var reg WebhookRegistration
+		json.NewDecoder(r.Body).Decode(&reg)
+		if reg.WebhookURL != "https://example.com/webhook" {
+			http.Error(w, "wrong webhook_url", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(expected)
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Webhooks: "/v1/webhooks"}
+	reg := &WebhookRegistration{
+		WebhookURL: "https://example.com/webhook",
+		Events:     []string{"provision.completed", "credentials.rotated"},
+	}
+
+	resp, err := client.RegisterWebhook(context.Background(), server.URL, endpoints, "res_123", reg)
+	if err != nil {
+		t.Fatalf("register webhook: %v", err)
+	}
+
+	if resp.WebhookID != "wh_123" {
+		t.Errorf("expected webhook_id=wh_123, got %s", resp.WebhookID)
+	}
+	if resp.Secret != "whsec_test" {
+		t.Errorf("expected secret=whsec_test, got %s", resp.Secret)
+	}
+}
+
+func TestClientRegisterWebhookNotSupported(t *testing.T) {
+	client := NewClient()
+	endpoints := ProviderEndpoints{}
+
+	_, err := client.RegisterWebhook(context.Background(), "http://localhost", endpoints, "res_123", &WebhookRegistration{})
+	if err == nil {
+		t.Fatal("expected error when webhooks not supported")
+	}
+}
+
+func TestClientRegisterWebhookError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(&OSPErrorBody{Error: "invalid_webhook_url"})
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Webhooks: "/v1/webhooks"}
+
+	_, err := client.RegisterWebhook(context.Background(), server.URL, endpoints, "res_123", &WebhookRegistration{WebhookURL: "bad"})
+	if err == nil {
+		t.Fatal("expected error for 400")
+	}
+}
+
+func TestClientDeleteWebhook(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Webhooks: "/v1/webhooks"}
+
+	err := client.DeleteWebhook(context.Background(), server.URL, endpoints, "res_123", "wh_123")
+	if err != nil {
+		t.Fatalf("delete webhook: %v", err)
+	}
+}
+
+func TestClientDeleteWebhookNotSupported(t *testing.T) {
+	client := NewClient()
+	endpoints := ProviderEndpoints{}
+
+	err := client.DeleteWebhook(context.Background(), "http://localhost", endpoints, "res_123", "wh_123")
+	if err == nil {
+		t.Fatal("expected error when webhooks not supported")
+	}
+}
+
+func TestClientDeleteWebhookError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(&OSPErrorBody{Error: "webhook_not_found"})
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Webhooks: "/v1/webhooks"}
+
+	err := client.DeleteWebhook(context.Background(), server.URL, endpoints, "res_123", "wh_nonexistent")
+	if err == nil {
+		t.Fatal("expected error for 404")
+	}
+}
+
+func TestClientEstimate(t *testing.T) {
+	expected := &EstimateResponse{
+		OfferingID: "test/postgres",
+		TierID:     "pro",
+		Estimate: EstimateDetail{
+			TotalMonthly:   "25.00",
+			TotalForPeriod: "75.00",
+			Currency:       "USD",
+			BillingPeriods: 3,
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req EstimateRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		if req.OfferingID != "test/postgres" {
+			http.Error(w, "wrong offering", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(expected)
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Estimate: "/v1/estimate"}
+	periods := 3
+	req := &EstimateRequest{
+		OfferingID:     "test/postgres",
+		TierID:         "pro",
+		BillingPeriods: &periods,
+	}
+
+	resp, err := client.Estimate(context.Background(), server.URL, endpoints, req)
+	if err != nil {
+		t.Fatalf("estimate: %v", err)
+	}
+
+	if resp.Estimate.TotalMonthly != "25.00" {
+		t.Errorf("expected total_monthly=25.00, got %s", resp.Estimate.TotalMonthly)
+	}
+	if resp.Estimate.BillingPeriods != 3 {
+		t.Errorf("expected billing_periods=3, got %d", resp.Estimate.BillingPeriods)
+	}
+}
+
+func TestClientEstimateNotSupported(t *testing.T) {
+	client := NewClient()
+	endpoints := ProviderEndpoints{}
+
+	_, err := client.Estimate(context.Background(), "http://localhost", endpoints, &EstimateRequest{})
+	if err == nil {
+		t.Fatal("expected error when estimate not supported")
+	}
+}
+
+func TestClientEstimateError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(&OSPErrorBody{Error: "invalid_offering"})
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Estimate: "/v1/estimate"}
+
+	_, err := client.Estimate(context.Background(), server.URL, endpoints, &EstimateRequest{OfferingID: "bad"})
+	if err == nil {
+		t.Fatal("expected error for 400")
+	}
+}
+
+func TestClientDispute(t *testing.T) {
+	expected := &DisputeResponse{
+		DisputeID:                "dsp_123",
+		ResourceID:               "res_123",
+		ReasonCode:               DisputeBillingMismatch,
+		Status:                   "filed",
+		FiledAt:                  "2026-01-01T00:00:00Z",
+		OSPDisputeReceipt:        "receipt_abc",
+		SettlementRails:          []string{"escrow", "arbitration"},
+		ProviderResponseDeadline: "2026-01-08T00:00:00Z",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req DisputeRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		if req.ReasonCode != DisputeBillingMismatch {
+			http.Error(w, "wrong reason", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(expected)
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Disputes: "/v1/disputes"}
+	req := &DisputeRequest{
+		ReasonCode:  DisputeBillingMismatch,
+		Description: "Billed for pro tier but received free tier resources",
+	}
+
+	resp, err := client.Dispute(context.Background(), server.URL, endpoints, "res_123", req)
+	if err != nil {
+		t.Fatalf("dispute: %v", err)
+	}
+
+	if resp.DisputeID != "dsp_123" {
+		t.Errorf("expected dispute_id=dsp_123, got %s", resp.DisputeID)
+	}
+	if resp.Status != "filed" {
+		t.Errorf("expected status=filed, got %s", resp.Status)
+	}
+	if len(resp.SettlementRails) != 2 {
+		t.Errorf("expected 2 settlement rails, got %d", len(resp.SettlementRails))
+	}
+}
+
+func TestClientDisputeNotSupported(t *testing.T) {
+	client := NewClient()
+	endpoints := ProviderEndpoints{}
+
+	_, err := client.Dispute(context.Background(), "http://localhost", endpoints, "res_123", &DisputeRequest{})
+	if err == nil {
+		t.Fatal("expected error when disputes not supported")
+	}
+}
+
+func TestClientDisputeError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(&OSPErrorBody{Error: "dispute_already_filed"})
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Disputes: "/v1/disputes"}
+
+	_, err := client.Dispute(context.Background(), server.URL, endpoints, "res_123", &DisputeRequest{ReasonCode: DisputeBillingMismatch, Description: "test"})
+	if err == nil {
+		t.Fatal("expected error for 409")
+	}
+}
+
+func TestClientExportResource(t *testing.T) {
+	expected := &ExportResponse{
+		ExportID:   "exp_123",
+		ResourceID: "res_123",
+		Status:     "ready",
+		Format:     "postgresql_dump",
+		DownloadURL: "https://example.com/exports/exp_123",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req ExportRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		if req.Format != "postgresql_dump" {
+			http.Error(w, "wrong format", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(expected)
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Export: "/v1/export"}
+	includeData := true
+	req := &ExportRequest{
+		Format:      "postgresql_dump",
+		IncludeData: &includeData,
+	}
+
+	resp, err := client.ExportResource(context.Background(), server.URL, endpoints, "res_123", req)
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+
+	if resp.ExportID != "exp_123" {
+		t.Errorf("expected export_id=exp_123, got %s", resp.ExportID)
+	}
+	if resp.Status != "ready" {
+		t.Errorf("expected status=ready, got %s", resp.Status)
+	}
+	if resp.DownloadURL != "https://example.com/exports/exp_123" {
+		t.Errorf("expected download_url, got %s", resp.DownloadURL)
+	}
+}
+
+func TestClientExportResourceNotSupported(t *testing.T) {
+	client := NewClient()
+	endpoints := ProviderEndpoints{}
+
+	_, err := client.ExportResource(context.Background(), "http://localhost", endpoints, "res_123", &ExportRequest{})
+	if err == nil {
+		t.Fatal("expected error when export not supported")
+	}
+}
+
+func TestClientExportResourceError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(&OSPErrorBody{Error: "unsupported_format"})
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	endpoints := ProviderEndpoints{Export: "/v1/export"}
+
+	_, err := client.ExportResource(context.Background(), server.URL, endpoints, "res_123", &ExportRequest{Format: "unsupported"})
+	if err == nil {
+		t.Fatal("expected error for 400")
+	}
+}
+
 func TestClientContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)

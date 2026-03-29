@@ -506,6 +506,262 @@ func (c *OSPClient) Credentials(ctx context.Context, providerURL string, endpoin
 	return &bundle, nil
 }
 
+// GetEvents retrieves the event audit trail for a provisioned resource.
+func (c *OSPClient) GetEvents(ctx context.Context, providerURL string, endpoints ProviderEndpoints, resourceID string, opts *GetEventsOptions) (*EventsResponse, error) {
+	if endpoints.Events == "" {
+		return nil, &OSPError{Message: "provider does not support events"}
+	}
+
+	fullURL, err := resolveEndpoint(providerURL, endpoints.Events)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("resolve endpoint: %v", err)}
+	}
+	fullURL = strings.TrimRight(fullURL, "/") + "/" + url.PathEscape(resourceID)
+
+	if opts != nil {
+		params := url.Values{}
+		if opts.Since != "" {
+			params.Set("since", opts.Since)
+		}
+		if opts.Until != "" {
+			params.Set("until", opts.Until)
+		}
+		if opts.Limit != nil {
+			params.Set("limit", fmt.Sprintf("%d", *opts.Limit))
+		}
+		if opts.StartingAfter != "" {
+			params.Set("starting_after", opts.StartingAfter)
+		}
+		if opts.EventType != "" {
+			params.Set("event_type", opts.EventType)
+		}
+		if encoded := params.Encode(); encoded != "" {
+			fullURL += "?" + encoded
+		}
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("create request: %v", err)}
+	}
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", c.userAgent)
+
+	respBody, resp, err := c.doWithRetries(ctx, httpReq)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("events request: %v", err), Err: err}
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, newOSPError(resp, parseErrorBody(respBody))
+	}
+
+	var eventsResp EventsResponse
+	if err := json.Unmarshal(respBody, &eventsResp); err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("parse response: %v", err), Err: err}
+	}
+
+	return &eventsResp, nil
+}
+
+// RegisterWebhook registers a webhook for a provisioned resource.
+func (c *OSPClient) RegisterWebhook(ctx context.Context, providerURL string, endpoints ProviderEndpoints, resourceID string, reg *WebhookRegistration) (*WebhookResponse, error) {
+	if endpoints.Webhooks == "" {
+		return nil, &OSPError{Message: "provider does not support webhooks"}
+	}
+
+	fullURL, err := resolveEndpoint(providerURL, endpoints.Webhooks)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("resolve endpoint: %v", err)}
+	}
+	fullURL = strings.TrimRight(fullURL, "/") + "/" + url.PathEscape(resourceID)
+
+	body, err := json.Marshal(reg)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("marshal request: %v", err)}
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("create request: %v", err)}
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", c.userAgent)
+
+	respBody, resp, err := c.doWithRetries(ctx, httpReq)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("webhook request: %v", err), Err: err}
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, newOSPError(resp, parseErrorBody(respBody))
+	}
+
+	var webhookResp WebhookResponse
+	if err := json.Unmarshal(respBody, &webhookResp); err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("parse response: %v", err), Err: err}
+	}
+
+	return &webhookResp, nil
+}
+
+// DeleteWebhook removes a webhook for a provisioned resource.
+func (c *OSPClient) DeleteWebhook(ctx context.Context, providerURL string, endpoints ProviderEndpoints, resourceID string, webhookID string) error {
+	if endpoints.Webhooks == "" {
+		return &OSPError{Message: "provider does not support webhooks"}
+	}
+
+	fullURL, err := resolveEndpoint(providerURL, endpoints.Webhooks)
+	if err != nil {
+		return &OSPError{Message: fmt.Sprintf("resolve endpoint: %v", err)}
+	}
+	fullURL = strings.TrimRight(fullURL, "/") + "/" + url.PathEscape(resourceID) + "/" + url.PathEscape(webhookID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, fullURL, nil)
+	if err != nil {
+		return &OSPError{Message: fmt.Sprintf("create request: %v", err)}
+	}
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", c.userAgent)
+
+	respBody, resp, err := c.doWithRetries(ctx, httpReq)
+	if err != nil {
+		return &OSPError{Message: fmt.Sprintf("delete webhook request: %v", err), Err: err}
+	}
+
+	if resp.StatusCode >= 400 {
+		return newOSPError(resp, parseErrorBody(respBody))
+	}
+
+	return nil
+}
+
+// Estimate requests a cost estimate for provisioning without actually provisioning.
+func (c *OSPClient) Estimate(ctx context.Context, providerURL string, endpoints ProviderEndpoints, req *EstimateRequest) (*EstimateResponse, error) {
+	if endpoints.Estimate == "" {
+		return nil, &OSPError{Message: "provider does not support cost estimation"}
+	}
+
+	fullURL, err := resolveEndpoint(providerURL, endpoints.Estimate)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("resolve endpoint: %v", err)}
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("marshal request: %v", err)}
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("create request: %v", err)}
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", c.userAgent)
+
+	respBody, resp, err := c.doWithRetries(ctx, httpReq)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("estimate request: %v", err), Err: err}
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, newOSPError(resp, parseErrorBody(respBody))
+	}
+
+	var estimateResp EstimateResponse
+	if err := json.Unmarshal(respBody, &estimateResp); err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("parse response: %v", err), Err: err}
+	}
+
+	return &estimateResp, nil
+}
+
+// Dispute files a dispute for a provisioned resource.
+func (c *OSPClient) Dispute(ctx context.Context, providerURL string, endpoints ProviderEndpoints, resourceID string, req *DisputeRequest) (*DisputeResponse, error) {
+	if endpoints.Disputes == "" {
+		return nil, &OSPError{Message: "provider does not support disputes"}
+	}
+
+	fullURL, err := resolveEndpoint(providerURL, endpoints.Disputes)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("resolve endpoint: %v", err)}
+	}
+	fullURL = strings.TrimRight(fullURL, "/") + "/" + url.PathEscape(resourceID)
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("marshal request: %v", err)}
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("create request: %v", err)}
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", c.userAgent)
+
+	respBody, resp, err := c.doWithRetries(ctx, httpReq)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("dispute request: %v", err), Err: err}
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, newOSPError(resp, parseErrorBody(respBody))
+	}
+
+	var disputeResp DisputeResponse
+	if err := json.Unmarshal(respBody, &disputeResp); err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("parse response: %v", err), Err: err}
+	}
+
+	return &disputeResp, nil
+}
+
+// ExportResource initiates an export of a provisioned resource.
+func (c *OSPClient) ExportResource(ctx context.Context, providerURL string, endpoints ProviderEndpoints, resourceID string, req *ExportRequest) (*ExportResponse, error) {
+	if endpoints.Export == "" {
+		return nil, &OSPError{Message: "provider does not support export"}
+	}
+
+	fullURL, err := resolveEndpoint(providerURL, endpoints.Export)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("resolve endpoint: %v", err)}
+	}
+	fullURL = strings.TrimRight(fullURL, "/") + "/" + url.PathEscape(resourceID)
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("marshal request: %v", err)}
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("create request: %v", err)}
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", c.userAgent)
+
+	respBody, resp, err := c.doWithRetries(ctx, httpReq)
+	if err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("export request: %v", err), Err: err}
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, newOSPError(resp, parseErrorBody(respBody))
+	}
+
+	var exportResp ExportResponse
+	if err := json.Unmarshal(respBody, &exportResp); err != nil {
+		return nil, &OSPError{Message: fmt.Sprintf("parse response: %v", err), Err: err}
+	}
+
+	return &exportResp, nil
+}
+
 // doWithRetries executes an HTTP request with exponential backoff retries
 // for transient errors.
 func (c *OSPClient) doWithRetries(ctx context.Context, req *http.Request) ([]byte, *http.Response, error) {

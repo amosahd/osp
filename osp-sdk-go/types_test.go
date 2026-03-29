@@ -590,6 +590,455 @@ func TestServiceTierWithAllFields(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// v1.1 type JSON roundtrips
+// ---------------------------------------------------------------------------
+
+func TestNHIConfigJSON(t *testing.T) {
+	shortLived := true
+	ttl := 3600
+	orphan := true
+	cfg := NHIConfig{
+		ShortLivedTokens: &shortLived,
+		TokenTTLSeconds:  &ttl,
+		OrphanDetection:  &orphan,
+		Federation:       []NHIFederationType{NHIFederationOIDC, NHIFederationSPIFFE},
+		TokenEndpoint:    "https://provider.com/v1/nhi/token",
+	}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded NHIConfig
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.ShortLivedTokens == nil || !*decoded.ShortLivedTokens {
+		t.Error("expected short_lived_tokens=true")
+	}
+	if decoded.TokenTTLSeconds == nil || *decoded.TokenTTLSeconds != 3600 {
+		t.Error("expected token_ttl_seconds=3600")
+	}
+	if len(decoded.Federation) != 2 {
+		t.Fatalf("expected 2 federation types, got %d", len(decoded.Federation))
+	}
+	if decoded.Federation[0] != NHIFederationOIDC {
+		t.Errorf("expected federation[0]=oidc, got %s", decoded.Federation[0])
+	}
+	if decoded.TokenEndpoint != "https://provider.com/v1/nhi/token" {
+		t.Errorf("expected token_endpoint, got %s", decoded.TokenEndpoint)
+	}
+}
+
+func TestFinOpsConfigJSON(t *testing.T) {
+	budgetEnf := true
+	costPR := true
+	anomaly := false
+	burnRate := true
+	cfg := FinOpsConfig{
+		BudgetEnforcement: &budgetEnf,
+		CostInPR:          &costPR,
+		AnomalyDetection:  &anomaly,
+		BurnRateTracking:  &burnRate,
+		BudgetEndpoint:    "https://provider.com/v1/budget",
+	}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded FinOpsConfig
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.BudgetEnforcement == nil || !*decoded.BudgetEnforcement {
+		t.Error("expected budget_enforcement=true")
+	}
+	if decoded.CostInPR == nil || !*decoded.CostInPR {
+		t.Error("expected cost_in_pr=true")
+	}
+	if decoded.AnomalyDetection == nil || *decoded.AnomalyDetection {
+		t.Error("expected anomaly_detection=false")
+	}
+	if decoded.BudgetEndpoint != "https://provider.com/v1/budget" {
+		t.Errorf("expected budget_endpoint, got %s", decoded.BudgetEndpoint)
+	}
+}
+
+func TestA2AAgentCardJSON(t *testing.T) {
+	taskLC := true
+	card := A2AAgentCard{
+		AgentID:            "agent_001",
+		Capabilities:       []A2ACapability{A2ACapProvision, A2ACapDeprovision, A2ACapMonitor},
+		DelegationEndpoint: "https://provider.com/v1/a2a/delegate",
+		TaskLifecycle:      &taskLC,
+		AgentPublicKey:     "base64-public-key",
+	}
+
+	data, err := json.Marshal(card)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded A2AAgentCard
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.AgentID != "agent_001" {
+		t.Errorf("expected agent_id=agent_001, got %s", decoded.AgentID)
+	}
+	if len(decoded.Capabilities) != 3 {
+		t.Fatalf("expected 3 capabilities, got %d", len(decoded.Capabilities))
+	}
+	if decoded.Capabilities[0] != A2ACapProvision {
+		t.Errorf("expected capabilities[0]=provision, got %s", decoded.Capabilities[0])
+	}
+	if decoded.TaskLifecycle == nil || !*decoded.TaskLifecycle {
+		t.Error("expected task_lifecycle=true")
+	}
+	if decoded.DelegationEndpoint != "https://provider.com/v1/a2a/delegate" {
+		t.Errorf("expected delegation_endpoint, got %s", decoded.DelegationEndpoint)
+	}
+}
+
+func TestCanaryConfigJSON(t *testing.T) {
+	enabled := true
+	cfg := CanaryConfig{
+		Enabled:    &enabled,
+		Strategies: []CanaryStrategy{CanaryPercentage, CanaryBlueGreen},
+	}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded CanaryConfig
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.Enabled == nil || !*decoded.Enabled {
+		t.Error("expected enabled=true")
+	}
+	if len(decoded.Strategies) != 2 {
+		t.Fatalf("expected 2 strategies, got %d", len(decoded.Strategies))
+	}
+	if decoded.Strategies[0] != CanaryPercentage {
+		t.Errorf("expected strategies[0]=percentage, got %s", decoded.Strategies[0])
+	}
+	if decoded.Strategies[1] != CanaryBlueGreen {
+		t.Errorf("expected strategies[1]=blue_green, got %s", decoded.Strategies[1])
+	}
+}
+
+func TestObservabilityConfigJSON(t *testing.T) {
+	audit := true
+	hitl := false
+	costAction := true
+	cfg := ObservabilityConfig{
+		OTelEndpoint:     "https://otel.provider.com/v1/traces",
+		TracePropagation: []TracePropagationFormat{TracePropagationW3C, TracePropagationB3},
+		AuditLog:         &audit,
+		HITLGates:        &hitl,
+		CostPerAction:    &costAction,
+	}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded ObservabilityConfig
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.OTelEndpoint != "https://otel.provider.com/v1/traces" {
+		t.Errorf("expected otel_endpoint, got %s", decoded.OTelEndpoint)
+	}
+	if len(decoded.TracePropagation) != 2 {
+		t.Fatalf("expected 2 trace propagation formats, got %d", len(decoded.TracePropagation))
+	}
+	if decoded.TracePropagation[0] != TracePropagationW3C {
+		t.Errorf("expected trace_propagation[0]=w3c, got %s", decoded.TracePropagation[0])
+	}
+	if decoded.AuditLog == nil || !*decoded.AuditLog {
+		t.Error("expected audit_log=true")
+	}
+	if decoded.HITLGates == nil || *decoded.HITLGates {
+		t.Error("expected hitl_gates=false")
+	}
+}
+
+func TestMCPConfigJSON(t *testing.T) {
+	streamable := true
+	cfg := MCPConfig{
+		Tools:          []string{"osp_discover", "osp_provision", "osp_status"},
+		StreamableHTTP: &streamable,
+		WellKnownURL:   "https://provider.com/.well-known/mcp.json",
+		SkillsURL:      "https://provider.com/skills",
+	}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded MCPConfig
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if len(decoded.Tools) != 3 {
+		t.Fatalf("expected 3 tools, got %d", len(decoded.Tools))
+	}
+	if decoded.Tools[0] != "osp_discover" {
+		t.Errorf("expected tools[0]=osp_discover, got %s", decoded.Tools[0])
+	}
+	if decoded.StreamableHTTP == nil || !*decoded.StreamableHTTP {
+		t.Error("expected streamable_http=true")
+	}
+	if decoded.WellKnownURL != "https://provider.com/.well-known/mcp.json" {
+		t.Errorf("expected well_known_url, got %s", decoded.WellKnownURL)
+	}
+}
+
+func TestSandboxConfigJSON(t *testing.T) {
+	enabled := true
+	autoCleanup := true
+	ttl := 7200
+	cfg := SandboxConfig{
+		Enabled:     &enabled,
+		Endpoint:    "https://sandbox.provider.com",
+		AutoCleanup: &autoCleanup,
+		TTLSeconds:  &ttl,
+	}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded SandboxConfig
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.Enabled == nil || !*decoded.Enabled {
+		t.Error("expected enabled=true")
+	}
+	if decoded.Endpoint != "https://sandbox.provider.com" {
+		t.Errorf("expected endpoint, got %s", decoded.Endpoint)
+	}
+	if decoded.AutoCleanup == nil || !*decoded.AutoCleanup {
+		t.Error("expected auto_cleanup=true")
+	}
+	if decoded.TTLSeconds == nil || *decoded.TTLSeconds != 7200 {
+		t.Error("expected ttl_seconds=7200")
+	}
+}
+
+func TestNHIConfigEmptyJSON(t *testing.T) {
+	cfg := NHIConfig{}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded NHIConfig
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.ShortLivedTokens != nil {
+		t.Error("expected nil short_lived_tokens")
+	}
+	if decoded.Federation != nil {
+		t.Error("expected nil federation")
+	}
+}
+
+func TestEstimateRequestJSON(t *testing.T) {
+	periods := 3
+	req := EstimateRequest{
+		OfferingID:     "test/postgres",
+		TierID:         "pro",
+		Region:         "us-east-1",
+		BillingPeriods: &periods,
+		EstimatedUsage: map[string]float64{"storage_gb": 100, "api_calls": 50000},
+	}
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded EstimateRequest
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.OfferingID != "test/postgres" {
+		t.Errorf("expected offering_id=test/postgres, got %s", decoded.OfferingID)
+	}
+	if decoded.BillingPeriods == nil || *decoded.BillingPeriods != 3 {
+		t.Error("expected billing_periods=3")
+	}
+	if decoded.EstimatedUsage["storage_gb"] != 100 {
+		t.Errorf("expected estimated_usage.storage_gb=100, got %v", decoded.EstimatedUsage["storage_gb"])
+	}
+}
+
+func TestDisputeResponseJSON(t *testing.T) {
+	resp := DisputeResponse{
+		DisputeID:                "dsp_001",
+		ResourceID:               "res_123",
+		ReasonCode:               DisputeServiceNotDelivered,
+		Status:                   "filed",
+		FiledAt:                  "2026-01-01T00:00:00Z",
+		OSPDisputeReceipt:        "receipt_xyz",
+		SettlementRails:          []string{"escrow"},
+		ProviderResponseDeadline: "2026-01-08T00:00:00Z",
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded DisputeResponse
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.DisputeID != "dsp_001" {
+		t.Errorf("expected dispute_id=dsp_001, got %s", decoded.DisputeID)
+	}
+	if decoded.ReasonCode != DisputeServiceNotDelivered {
+		t.Errorf("expected reason_code=service_not_delivered, got %s", decoded.ReasonCode)
+	}
+	if len(decoded.SettlementRails) != 1 {
+		t.Fatalf("expected 1 settlement rail, got %d", len(decoded.SettlementRails))
+	}
+}
+
+func TestEventsResponseJSON(t *testing.T) {
+	resp := EventsResponse{
+		ResourceID: "res_123",
+		Events: []ResourceEvent{
+			{
+				EventID:   "evt_1",
+				EventType: "provision.completed",
+				Timestamp: "2026-01-01T00:00:00Z",
+				Details:   map[string]interface{}{"region": "us-east-1"},
+			},
+		},
+		HasMore: true,
+		Cursor:  "cursor_abc",
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded EventsResponse
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.ResourceID != "res_123" {
+		t.Errorf("expected resource_id=res_123, got %s", decoded.ResourceID)
+	}
+	if len(decoded.Events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(decoded.Events))
+	}
+	if !decoded.HasMore {
+		t.Error("expected has_more=true")
+	}
+	if decoded.Cursor != "cursor_abc" {
+		t.Errorf("expected cursor=cursor_abc, got %s", decoded.Cursor)
+	}
+}
+
+func TestWebhookResponseJSON(t *testing.T) {
+	resp := WebhookResponse{
+		WebhookID:  "wh_001",
+		ResourceID: "res_123",
+		WebhookURL: "https://example.com/webhook",
+		Events:     []string{"provision.completed", "credentials.rotated"},
+		Secret:     "whsec_secret",
+		CreatedAt:  "2026-01-01T00:00:00Z",
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded WebhookResponse
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.WebhookID != "wh_001" {
+		t.Errorf("expected webhook_id=wh_001, got %s", decoded.WebhookID)
+	}
+	if len(decoded.Events) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(decoded.Events))
+	}
+	if decoded.Secret != "whsec_secret" {
+		t.Errorf("expected secret=whsec_secret, got %s", decoded.Secret)
+	}
+}
+
+func TestExportResponseJSON(t *testing.T) {
+	size := int64(1048576)
+	readySec := 30
+	resp := ExportResponse{
+		ExportID:              "exp_001",
+		ResourceID:            "res_123",
+		Status:                "ready",
+		Format:                "postgresql_dump",
+		EstimatedReadySeconds: &readySec,
+		DownloadURL:           "https://exports.provider.com/exp_001",
+		DownloadExpiresAt:     "2026-01-02T00:00:00Z",
+		SizeBytes:             &size,
+		Checksum:              "sha256:abc123",
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded ExportResponse
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.ExportID != "exp_001" {
+		t.Errorf("expected export_id=exp_001, got %s", decoded.ExportID)
+	}
+	if decoded.Status != "ready" {
+		t.Errorf("expected status=ready, got %s", decoded.Status)
+	}
+	if decoded.SizeBytes == nil || *decoded.SizeBytes != 1048576 {
+		t.Error("expected size_bytes=1048576")
+	}
+	if decoded.Checksum != "sha256:abc123" {
+		t.Errorf("expected checksum=sha256:abc123, got %s", decoded.Checksum)
+	}
+}
+
 func TestProviderEndpointsOptionalFields(t *testing.T) {
 	endpoints := ProviderEndpoints{
 		Provision:   "/v1/provision",

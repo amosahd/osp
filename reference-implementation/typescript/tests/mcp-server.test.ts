@@ -101,8 +101,8 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("OSP_TOOL_DEFINITIONS", () => {
-  it("exports exactly 5 tool definitions", () => {
-    expect(OSP_TOOL_DEFINITIONS).toHaveLength(5);
+  it("exports exactly 7 tool definitions", () => {
+    expect(OSP_TOOL_DEFINITIONS).toHaveLength(7);
   });
 
   it("includes osp_discover", () => {

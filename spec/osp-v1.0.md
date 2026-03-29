@@ -50,8 +50,9 @@ The Open Service Protocol (OSP) defines a standard interface through which AI ag
   - [5.5 Idempotency](#55-idempotency)
   - [5.6 Deprovisioning](#56-deprovisioning)
   - [5.7 Geographic Compliance](#57-geographic-compliance)
-  - [5.8 Multi-Resource Provisioning](#58-multi-resource-provisioning)
-  - [5.9 Sandbox Mode](#59-sandbox-mode)
+  - [5.8 Multi-Region Provisioning](#58-multi-region-provisioning)
+  - [5.9 Multi-Resource Provisioning](#59-multi-resource-provisioning)
+  - [5.10 Sandbox Mode](#510-sandbox-mode)
 - [6. Provider Endpoints](#6-provider-endpoints)
   - [6.1 POST /osp/v1/provision](#61-post-ospv1provision)
   - [6.2 DELETE /osp/v1/deprovision/{resource_id}](#62-delete-ospv1deprovisionresource_id)
@@ -388,6 +389,7 @@ A specific service within a provider's manifest.
 | `tags` | `array<string>` | OPTIONAL | Freeform tags for discovery (e.g., `["postgres", "sql", "relational"]`). Max 20 tags, each max 32 characters. |
 | `tiers` | `array<ServiceTier>` | REQUIRED | Available pricing tiers. MUST contain at least one tier. |
 | `regions` | `array<string \| RegionObject>` | OPTIONAL | Available deployment regions. Each element is either a string (e.g., `"us-east-1"`) or a RegionObject with jurisdiction metadata (see Section 5.7). Providers SHOULD use RegionObjects when geographic compliance is relevant. If omitted, the provider selects the region. |
+| `available_regions` | `array<string>` | OPTIONAL | Simple list of available region identifiers for quick enumeration (e.g., `["us-east-1", "eu-west-1"]`). See [Section 5.8](#58-multi-region-provisioning). |
 | `credentials_schema` | `object` | REQUIRED | JSON Schema describing the shape of credentials delivered upon provisioning. This tells agents what keys to expect. |
 | `configuration_schema` | `object` | OPTIONAL | JSON Schema describing optional configuration parameters the agent can pass in the provision request. |
 | `estimated_provision_seconds` | `integer` | OPTIONAL | Estimated time to provision in seconds. `0` means synchronous. Default: `0`. |
@@ -669,7 +671,8 @@ The object an agent sends to provision a service.
 | `offering_id` | `string` | REQUIRED | The `offering_id` from the provider's manifest. |
 | `tier_id` | `string` | REQUIRED | The `tier_id` from the selected offering. |
 | `project_name` | `string` | OPTIONAL | A human-readable name for the resource (e.g., `"my-app-db"`). Max 64 characters, `[a-z0-9-]+`. |
-| `region` | `string` | OPTIONAL | Desired deployment region. MUST be one of the offering's `regions`. If omitted, the provider selects. |
+| `region` | `string` | OPTIONAL | Desired deployment region (hard constraint). MUST be one of the offering's `regions`. If omitted, the provider selects. |
+| `preferred_region` | `string` | OPTIONAL | Soft region preference. Provider SHOULD honor when possible but MAY select an alternative. See [Section 5.8](#58-multi-region-provisioning). |
 | `configuration` | `object` | OPTIONAL | Configuration parameters matching the offering's `configuration_schema`. |
 | `payment_method` | `string` | REQUIRED | The payment method being used. MUST be one of the tier's `accepted_payment_methods`. |
 | `payment_proof` | `object` | OPTIONAL | Proof of payment or payment authorization. Structure depends on `payment_method`. Required when `payment_method` is not `free`. See [Section 7.1](#71-payment-methods). |
@@ -777,22 +780,55 @@ The object a provider returns after processing a provision request.
 
 #### Error Codes
 
-| Code | Description |
-|------|-------------|
-| `invalid_offering` | The specified `offering_id` does not exist. |
-| `invalid_tier` | The specified `tier_id` does not exist within the offering. |
-| `invalid_region` | The specified region is not available for this offering. |
-| `invalid_configuration` | The configuration object does not match the offering's `configuration_schema`. |
-| `payment_required` | Payment proof is missing or invalid. |
-| `payment_declined` | The payment method was declined. |
-| `insufficient_funds` | The payment method has insufficient funds. |
-| `trust_tier_insufficient` | The agent's trust tier does not meet the minimum requirement. |
-| `quota_exceeded` | The principal has exceeded their quota for this offering. |
-| `region_unavailable` | The requested region is temporarily unavailable. |
-| `nonce_reused` | The nonce has already been used. |
-| `rate_limited` | Too many requests. Check `retry_after_seconds`. |
-| `provider_error` | An internal provider error occurred. |
-| `capacity_exhausted` | The provider has no available capacity. |
+The following table defines the complete set of standard OSP error codes. Providers MUST use these codes for the corresponding error conditions. Providers MAY define additional error codes using reverse-domain notation (e.g., `com.acme.custom_error`) for provider-specific conditions.
+
+All error responses MUST conform to the [Error Response Schema](../schemas/error-response.schema.json).
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `invalid_request` | 400 | Malformed request body or missing required fields. |
+| `invalid_offering` | 400 | The specified `offering_id` does not exist in the provider's manifest. |
+| `invalid_tier` | 400 | The specified `tier_id` does not exist within the offering. |
+| `invalid_configuration` | 400 | The configuration object does not match the offering's `configuration_schema`. |
+| `invalid_region` | 400 | The specified region is not available for this offering. |
+| `sandbox_not_available` | 400 | The provider does not support sandbox mode for this offering. |
+| `tier_change_not_allowed` | 400 | The resource cannot be changed to the requested tier (e.g., downgrade not supported). |
+| `region_unavailable` | 400 | The requested region is temporarily unavailable for new provisioning. |
+| `deprecated_offering` | 410 | The offering has been sunset and is no longer available for new provisioning. |
+| `identity_required` | 401 | Agent identity (attestation or public key) is required but was not provided. |
+| `credentials_rotated` | 401 | The credentials used have been rotated; the agent must fetch new credentials. |
+| `nonce_reused` | 401 | The nonce has already been used (replay protection). |
+| `identity_verification_failed` | 403 | The agent's identity could not be verified (invalid signature, expired attestation). |
+| `insufficient_trust` | 403 | The agent's trust tier is too low for the requested offering or tier. |
+| `payment_required` | 402 | Valid payment proof is required but was not provided or is invalid. |
+| `payment_declined` | 402 | The payment method was declined by the payment processor. |
+| `insufficient_funds` | 402 | The payment method has insufficient funds. |
+| `resource_not_found` | 404 | The specified `resource_id` does not exist. |
+| `resource_already_exists` | 409 | An idempotency conflict occurred — a request with the same `idempotency_key` but different parameters was previously processed. |
+| `migration_in_progress` | 409 | The resource is currently being migrated and cannot be modified. |
+| `rate_limit_exceeded` | 429 | Too many requests. The agent MUST wait `retry_after_seconds` before retrying. See [Section 8.6](#86-rate-limiting). |
+| `quota_exceeded` | 429 | The principal has exceeded their quota for this offering. |
+| `provisioning_failed` | 500 | A provider-side error occurred during provisioning. |
+| `provider_error` | 500 | An internal provider error occurred. |
+| `capacity_exhausted` | 503 | The provider has no available capacity for the requested resource. |
+| `provider_unavailable` | 503 | The provider is temporarily unavailable. The agent SHOULD retry with exponential backoff. |
+
+**Error response example:**
+
+```json
+{
+  "error": "invalid_configuration",
+  "message": "Unknown configuration key 'postgres_version'. Valid keys: ['pg_version', 'enable_pooling'].",
+  "resource_id": null,
+  "retry_after_seconds": null,
+  "details": {
+    "invalid_keys": ["postgres_version"],
+    "valid_keys": ["pg_version", "enable_pooling"]
+  }
+}
+```
+
+**Retryable errors:** Agents SHOULD automatically retry requests that fail with `rate_limit_exceeded`, `provider_unavailable`, or `provisioning_failed` (when `retryable` is `true`). All other errors indicate a client-side issue that requires correction before retrying.
 
 #### Example: Synchronous Success
 
@@ -1717,7 +1753,80 @@ When the provisioned resource has compliance implications, providers SHOULD incl
 }
 ```
 
-### 5.8 Multi-Resource Provisioning
+### 5.8 Multi-Region Provisioning
+
+Agents MAY express a region preference without requiring a strict match by using the `preferred_region` field in the `ProvisionRequest`. This complements the existing `region` field which enforces a hard constraint.
+
+#### Region Selection Behavior
+
+| Field | Behavior |
+|-------|----------|
+| `region` | Hard constraint. Provider MUST provision in this region or return `invalid_region`. |
+| `preferred_region` | Soft preference. Provider SHOULD provision in this region if available. If unavailable, the provider MAY provision in the nearest available region. |
+| Neither specified | Provider selects the optimal region based on its own heuristics. |
+
+When `preferred_region` is specified and the provider cannot honor it, the provider MUST:
+1. Provision the resource in the nearest available region (or provider-selected region).
+2. Include the actual `region` in the `ProvisionResponse` so the agent knows where the resource was deployed.
+3. NOT return an error solely because the preferred region is unavailable.
+
+If both `region` and `preferred_region` are specified, `region` takes precedence and `preferred_region` is ignored.
+
+#### ProvisionRequest Addition
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `preferred_region` | `string` | OPTIONAL | Soft region preference. Provider SHOULD honor this when possible but MAY select an alternative region. |
+
+#### ProvisionResponse: Region Field
+
+The existing `region` field (see [Section 3.5](#35-provisionresponse)) MUST be included in the `ProvisionResponse` whenever a resource is deployed to a specific region. This is especially important when the agent used `preferred_region`, so it can verify the actual deployment location.
+
+#### ServiceOffering: Available Regions
+
+Providers MUST declare available regions in the `ServiceOffering` using the `available_regions` field or the existing `regions` field. The `available_regions` field provides a simple string array for quick region enumeration, while `regions` supports the richer `RegionObject` format with jurisdiction metadata (see [Section 5.7](#57-geographic-compliance)).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `available_regions` | `array<string>` | OPTIONAL | Simple list of available region identifiers (e.g., `["us-east-1", "eu-west-1", "ap-southeast-1"]`). |
+
+Agents SHOULD use `available_regions` (or `regions`) to validate region preferences before sending a `ProvisionRequest`.
+
+#### Example: Preferred Region Provisioning
+
+**Request:**
+
+```json
+{
+  "offering_id": "supabase/managed-postgres",
+  "tier_id": "pro",
+  "preferred_region": "eu-central-1",
+  "payment_method": "stripe_spt",
+  "nonce": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+}
+```
+
+**Response (preferred region available):**
+
+```json
+{
+  "resource_id": "res_abc123",
+  "status": "provisioned",
+  "region": "eu-central-1"
+}
+```
+
+**Response (preferred region unavailable, nearest selected):**
+
+```json
+{
+  "resource_id": "res_abc123",
+  "status": "provisioned",
+  "region": "eu-west-1"
+}
+```
+
+### 5.9 Multi-Resource Provisioning
 
 Agents frequently need to provision multiple related services (database + hosting + auth) as a single logical unit. OSP v1.0 handles this through a **saga pattern** with compensation, not distributed transactions.
 
@@ -3589,22 +3698,36 @@ When a provider sends webhook notifications to an agent's `webhook_url`:
 
 **Retry Policy:**
 
-Providers MUST implement retries for failed webhook deliveries. A delivery is considered failed if the agent's endpoint returns a non-2xx status code, times out (RECOMMENDED timeout: 10 seconds), or is unreachable.
+Providers MUST implement retries for failed webhook deliveries. A delivery is considered failed if:
+- The agent's endpoint returns a non-2xx status code.
+- The agent's endpoint does not respond with a 2xx status within **30 seconds** (REQUIRED timeout).
+- The agent's endpoint is unreachable.
 
-Required retry schedule (exponential backoff):
+Agents MUST respond to webhook deliveries with a 2xx status code within 30 seconds. Any response taking longer than 30 seconds is treated as a failed delivery.
+
+Required retry schedule (exponential backoff with 6 maximum attempts):
 
 | Attempt | Delay After Previous | Cumulative Time |
 |---------|---------------------|-----------------|
 | 1 (initial) | Immediate | 0 |
-| 2 | 1 minute | 1 minute |
-| 3 | 15 minutes | 16 minutes |
-| 4 | 1 hour | 1 hour 16 minutes |
-| 5 | 4 hours | 5 hours 16 minutes |
-| 6 (final) | 24 hours | 29 hours 16 minutes |
+| 2 | 1 second | 1 second |
+| 3 | 5 seconds | 6 seconds |
+| 4 | 30 seconds | 36 seconds |
+| 5 | 2 minutes | 2 minutes 36 seconds |
+| 6 (final) | 10 minutes | 12 minutes 36 seconds |
 
-After 6 failed attempts, the provider MUST stop retrying and MUST mark the webhook subscription as `failed`. The resource remains provisioned — the agent can recover by polling `GET /osp/v1/status/{resource_id}`.
+After 6 failed attempts, the provider MUST:
+1. Stop retrying the delivery.
+2. Mark the webhook subscription as `failed`.
+3. Persist the failed event in a **dead letter queue** (DLQ) for later inspection or replay.
 
-Each retry MUST include the `X-OSP-Delivery-Attempt` header with the attempt number (1-6) so agents can detect duplicates and measure delivery reliability.
+The resource remains provisioned — the agent can recover by polling `GET /osp/v1/status/{resource_id}`.
+
+Providers SHOULD implement a dead letter queue for failed webhook events. The DLQ allows agents to retrieve and replay missed events after recovering from an outage. The DLQ retention period SHOULD be at least 72 hours.
+
+**Delivery attempt header:**
+
+Each delivery attempt MUST include the `X-OSP-Delivery-Attempt` header with the attempt number (1-6) so agents can detect duplicates and measure delivery reliability. Agents SHOULD use this header to deduplicate events when receiving retried deliveries.
 
 **Example webhook headers:**
 
@@ -3614,6 +3737,7 @@ Host: agent.example.com
 Content-Type: application/json
 X-OSP-Signature: t=1711540800,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd
 X-OSP-Timestamp: 1711540800
+X-OSP-Delivery-Attempt: 1
 ```
 
 **Verification process:**
@@ -3624,30 +3748,104 @@ X-OSP-Timestamp: 1711540800
 4. Compare the computed HMAC with `v1` using constant-time comparison.
 5. Verify the timestamp is within 300 seconds of the current time.
 
+**Manifest: Webhook Retry Policy Declaration**
+
+Providers MAY declare their webhook retry policy in the ServiceManifest to inform agents of the retry behavior:
+
+```json
+{
+  "webhook_retry_policy": {
+    "max_attempts": 6,
+    "backoff_multiplier": 5,
+    "initial_delay_seconds": 1,
+    "max_delay_seconds": 600,
+    "response_timeout_seconds": 30,
+    "dead_letter_queue": true
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `max_attempts` | `integer` | OPTIONAL | Maximum number of delivery attempts (default: 6). |
+| `backoff_multiplier` | `number` | OPTIONAL | Multiplier for exponential backoff between attempts (default: 5). |
+| `initial_delay_seconds` | `integer` | OPTIONAL | Delay before the first retry in seconds (default: 1). |
+| `max_delay_seconds` | `integer` | OPTIONAL | Maximum delay between retries in seconds (default: 600). |
+| `response_timeout_seconds` | `integer` | OPTIONAL | How long the provider waits for a 2xx response before considering delivery failed (default: 30). |
+| `dead_letter_queue` | `boolean` | OPTIONAL | Whether the provider persists failed events in a DLQ for later replay (default: `false`). |
+
 ### 8.6 Rate Limiting
 
 Providers MUST implement rate limiting on all OSP endpoints.
 
+#### 8.6.1 Rate Limit Response Headers
+
+Providers MUST include the following OSP-specific rate limit headers on **all** responses (both success and error):
+
+| Header | Type | Description |
+|--------|------|-------------|
+| `X-OSP-RateLimit-Limit` | `integer` | Maximum number of requests allowed in the current window. |
+| `X-OSP-RateLimit-Remaining` | `integer` | Number of requests remaining in the current window. |
+| `X-OSP-RateLimit-Reset` | `integer` | UTC epoch timestamp (seconds) when the current rate limit window resets. |
+
+Providers SHOULD also include the IETF standard headers (per [draft-ietf-httpapi-ratelimit-headers](https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/)) for broader HTTP client compatibility:
+- `RateLimit-Limit`: Maximum requests per window.
+- `RateLimit-Remaining`: Remaining requests in the current window.
+- `RateLimit-Reset`: Seconds until the window resets.
+
+**Example response headers:**
+
+```http
+HTTP/1.1 200 OK
+X-OSP-RateLimit-Limit: 60
+X-OSP-RateLimit-Remaining: 42
+X-OSP-RateLimit-Reset: 1711540860
+RateLimit-Limit: 60
+RateLimit-Remaining: 42
+RateLimit-Reset: 60
+```
+
+#### 8.6.2 Rate Limit Exceeded Response
+
 1. Rate limit responses MUST use HTTP status `429 Too Many Requests`.
 2. Rate limit responses MUST include the `Retry-After` header with the number of seconds to wait.
-3. Providers SHOULD include rate limit information using the IETF standard headers (per [draft-ietf-httpapi-ratelimit-headers](https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/)):
-   - `RateLimit-Limit`: Maximum requests per window.
-   - `RateLimit-Remaining`: Remaining requests in the current window.
-   - `RateLimit-Reset`: Seconds until the window resets.
+3. The response body MUST conform to the following structure:
 
-   Note: The `X-RateLimit-*` prefix is deprecated per modern HTTP conventions. Providers MAY include both prefixed and unprefixed headers during a transition period, but MUST include the unprefixed versions.
+```json
+{
+  "error": "rate_limit_exceeded",
+  "message": "Rate limit exceeded. Try again in 30 seconds.",
+  "retry_after_seconds": 30,
+  "limit": 60,
+  "window_seconds": 60
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `error` | `string` | REQUIRED | MUST be `"rate_limit_exceeded"`. |
+| `message` | `string` | REQUIRED | Human-readable error message. |
+| `retry_after_seconds` | `integer` | REQUIRED | Number of seconds the agent SHOULD wait before retrying. |
+| `limit` | `integer` | REQUIRED | Maximum requests allowed in the rate limit window. |
+| `window_seconds` | `integer` | REQUIRED | Duration of the rate limit window in seconds. |
+
+#### 8.6.3 Per-Endpoint Rate Limits
+
+Providers SHOULD support per-endpoint rate limits to allow higher throughput on read-heavy endpoints while protecting mutation endpoints from abuse. Providers MAY advertise per-endpoint rate limits in the ServiceManifest `extensions` field.
 
 **Recommended minimum rate limits:**
 
-| Endpoint | Minimum Rate Limit |
-|----------|-------------------|
-| `POST /osp/v1/provision` | 10 requests per minute per principal |
-| `DELETE /osp/v1/deprovision/{id}` | 10 requests per minute per principal |
-| `GET /osp/v1/credentials/{id}` | 30 requests per minute per resource |
-| `POST /osp/v1/rotate/{id}` | 5 requests per hour per resource |
-| `GET /osp/v1/status/{id}` | 60 requests per minute per resource |
-| `GET /osp/v1/usage/{id}` | 30 requests per minute per resource |
-| `GET /osp/v1/health` | 60 requests per minute per IP |
+| Endpoint Category | Endpoints | Recommended Rate Limit |
+|-------------------|-----------|----------------------|
+| Discovery | `GET /.well-known/osp.json`, `GET /osp/v1/health` | 100 requests per minute per IP |
+| Provisioning | `POST /osp/v1/provision`, `DELETE /osp/v1/deprovision/{id}` | 10 requests per minute per principal |
+| Credential Operations | `GET /osp/v1/credentials/{id}`, `POST /osp/v1/rotate/{id}` | 30 requests per minute per resource |
+| Status & Usage | `GET /osp/v1/status/{id}`, `GET /osp/v1/usage/{id}` | 60 requests per minute per resource |
+| Webhook Management | `POST /osp/v1/webhooks/{id}`, `DELETE /osp/v1/webhooks/{id}` | 10 requests per minute per principal |
+
+Providers MUST scope rate limits to the most specific identity available: per-resource for resource-specific endpoints, per-principal for authenticated endpoints, and per-IP for unauthenticated endpoints.
+
+Agents MUST respect `Retry-After` headers and SHOULD implement exponential backoff when receiving `429` responses. Agents MUST NOT retry faster than the `retry_after_seconds` value in the response body.
 
 ### 8.7 Agent Identity Revocation
 

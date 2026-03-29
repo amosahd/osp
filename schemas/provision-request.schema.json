@@ -23,7 +23,11 @@
     },
     "region": {
       "type": "string",
-      "description": "Desired deployment region (must be one of the offering's available regions)"
+      "description": "Desired deployment region — hard constraint (must be one of the offering's available regions)"
+    },
+    "preferred_region": {
+      "type": "string",
+      "description": "Soft region preference. Provider SHOULD honor when possible but MAY select the nearest available region. Ignored if 'region' is also specified."
     },
     "payment_method": {
       "type": "string",

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://osp.dev/schemas/health-response.schema.json",
+  "title": "HealthResponse",
+  "description": "Response from a provider's health endpoint indicating operational status and capabilities",
+  "type": "object",
+  "required": ["status", "version"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["healthy", "degraded", "unhealthy"],
+      "description": "Overall provider health status"
+    },
+    "version": {
+      "type": "string",
+      "description": "OSP protocol version the provider is currently running"
+    },
+    "supported_versions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "All OSP protocol versions this provider supports"
+    },
+    "uptime_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of seconds the provider has been running since last restart"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/HealthCheck"
+      },
+      "description": "Individual health check results for provider subsystems"
+    }
+  },
+  "$defs": {
+    "HealthCheck": {
+      "type": "object",
+      "required": ["name", "status"],
+      "description": "Individual health check for a provider subsystem",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the subsystem being checked (e.g., 'provision', 'database', 'credentials')"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["healthy", "degraded", "unhealthy"],
+          "description": "Health status of this subsystem"
+        },
+        "latency_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Response latency of this subsystem in milliseconds"
+        }
+      }
+    }
+  }
+}

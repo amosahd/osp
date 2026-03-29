@@ -152,6 +152,12 @@ The Open Service Protocol (OSP) defines a standard interface through which AI ag
   - [15.6 Human-in-the-Loop Gates](#156-human-in-the-loop-gates)
   - [15.7 Cost-per-Agent-Action Tracking](#157-cost-per-agent-action-tracking)
   - [15.8 Provider Onboarding SDK](#158-provider-onboarding-sdk)
+- [16. Agent Identity & Authentication](#16-agent-identity--authentication)
+  - [16.1 Motivation](#161-motivation)
+  - [16.2 Identity Methods](#162-identity-methods)
+  - [16.3 Provider Requirements](#163-provider-requirements)
+  - [16.4 Identity Verification Flow](#164-identity-verification-flow)
+  - [16.5 Manifest Identity Declaration](#165-manifest-identity-declaration)
 - [Appendix A: Complete JSON Schemas](#appendix-a-complete-json-schemas)
 - [Appendix B: Example Flows](#appendix-b-example-flows)
 - [Appendix C: Comparison with Stripe Projects](#appendix-c-comparison-with-stripe-projects)
@@ -8060,6 +8066,213 @@ Conformance badge: https://osp.dev/badges/conformance/core-webhooks-events.svg
 ```
 
 The conformance badge can be embedded in the provider's documentation and displayed in the OSP registry.
+
+---
+
+## 16. Agent Identity & Authentication
+
+OSP v1.0 deliberately scoped agent identity out of the core protocol (Section 1.3), deferring to external systems like TAP. In practice, every provisioning request already carries an implicit identity claim — the `agent_public_key` used for credential encryption. This section formalizes three identity methods that agents MAY use to prove who they are when interacting with providers.
+
+### 16.1 Motivation
+
+Without a standard identity mechanism:
+
+- Providers cannot distinguish legitimate agents from impersonators.
+- Free-tier abuse is difficult to prevent without browser-based signup.
+- Delegation chains (Section 15.2) lack a verifiable origin.
+- Billing disputes have no cryptographic proof of who initiated the request.
+
+Agent identity is **separate from payment authorization**. An agent may prove its identity via Ed25519 DID while paying via Sardis wallet — the two concerns are orthogonal.
+
+### 16.2 Identity Methods
+
+OSP defines three identity methods. Providers MUST support at least Ed25519 DID. Providers SHOULD support OAuth 2.0 client credentials. Providers MAY support Bearer API key.
+
+#### 16.2.1 Ed25519 DID (Decentralized)
+
+The agent generates an Ed25519 keypair and derives a `did:key` identifier per the [did:key method specification](https://w3c-ccg.github.io/did-method-key/). The agent's DID is deterministically derived from its public key, requiring no registration with any authority.
+
+**Flow:**
+
+1. The agent generates an Ed25519 keypair (or reuses its existing `agent_public_key`).
+2. The agent derives its DID: `did:key:z6Mk...` (multicodec-prefixed, base58btc-encoded public key).
+3. The agent includes `agent_identity` in the `ProvisionRequest` with `method: "ed25519_did"`, the `credential` set to the DID string, and optionally a `did_document` containing the resolved DID document.
+4. The agent signs the `nonce` from the request using its Ed25519 private key and includes the signature in `credential`.
+5. The provider verifies:
+   a. The DID resolves to a valid Ed25519 public key.
+   b. The signature over the nonce is valid for that public key.
+   c. If `agent_public_key` is also provided, the DID's public key MUST match `agent_public_key`.
+
+**Example:**
+
+```json
+{
+  "offering_id": "supabase/managed-postgres",
+  "tier_id": "pro",
+  "project_name": "my-app-db",
+  "agent_identity": {
+    "method": "ed25519_did",
+    "credential": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+    "did_document": {
+      "id": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      "verificationMethod": [
+        {
+          "id": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+          "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+        }
+      ]
+    },
+    "nonce_signature": "base64url_encoded_ed25519_signature_over_nonce"
+  },
+  "agent_public_key": "base64url_encoded_ed25519_public_key",
+  "nonce": "550e8400-e29b-41d4-a716-446655440000",
+  "payment_method": "sardis_wallet",
+  "payment_proof": "tx_abc123"
+}
+```
+
+**Security properties:**
+
+- No central authority required. Any agent can generate an identity instantly.
+- The DID is deterministically bound to the Ed25519 key — key compromise means identity compromise.
+- Nonce signature prevents replay of identity claims across requests.
+- Compatible with the existing `agent_public_key` field for credential encryption.
+
+#### 16.2.2 OAuth 2.0 Client Credentials
+
+Agents that operate within an organization's OAuth infrastructure MAY authenticate using the OAuth 2.0 Client Credentials Grant ([RFC 6749 Section 4.4](https://www.rfc-editor.org/rfc/rfc6749#section-4.4)).
+
+**Flow:**
+
+1. The agent obtains an access token from its organization's authorization server using `client_id` and `client_secret`.
+2. The agent includes `agent_identity` in the `ProvisionRequest` with `method: "oauth2_client"` and the `credential` set to the Bearer token.
+3. The provider validates the token by:
+   a. Introspecting the token at the issuer's introspection endpoint ([RFC 7662](https://www.rfc-editor.org/rfc/rfc7662)), OR
+   b. Validating the JWT signature if the token is a signed JWT ([RFC 9068](https://www.rfc-editor.org/rfc/rfc9068)).
+4. The provider extracts the `sub` (subject) and `iss` (issuer) claims to identify the agent.
+
+**Example:**
+
+```json
+{
+  "offering_id": "neon/postgres",
+  "tier_id": "launch",
+  "project_name": "analytics-db",
+  "agent_identity": {
+    "method": "oauth2_client",
+    "credential": "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0..."
+  },
+  "nonce": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "payment_method": "stripe_spt",
+  "payment_proof": "spt_token_xyz"
+}
+```
+
+**Provider requirements:**
+
+- Providers supporting OAuth 2.0 MUST publish their accepted token issuers in the manifest under `identity.oauth2_issuers`.
+- Providers MUST reject tokens from unknown issuers with HTTP 403 and error code `identity_issuer_unknown`.
+- Providers SHOULD cache token validation results for the token's lifetime to avoid repeated introspection calls.
+
+#### 16.2.3 Bearer API Key
+
+For simple integrations where agents have pre-registered with a provider, the agent MAY authenticate using a provider-issued API key.
+
+**Flow:**
+
+1. The agent (or its operator) registers with the provider out-of-band and receives an API key.
+2. The agent includes `agent_identity` in the `ProvisionRequest` with `method: "api_key"` and the `credential` set to the API key.
+3. The provider validates the API key against its internal registry.
+
+**Example:**
+
+```json
+{
+  "offering_id": "upstash/redis",
+  "tier_id": "pay_as_you_go",
+  "project_name": "cache-layer",
+  "agent_identity": {
+    "method": "api_key",
+    "credential": "osp_ak_live_7f3b1a2c4d5e6f7890abcdef12345678"
+  },
+  "nonce": "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f90",
+  "payment_method": "free"
+}
+```
+
+**Limitations:**
+
+- API keys are provider-specific — there is no cross-provider portability.
+- API keys are long-lived secrets that must be stored securely by the agent.
+- This method provides no cryptographic proof of identity beyond knowledge of the secret.
+- Providers SHOULD support key rotation and MUST support key revocation.
+
+### 16.3 Provider Requirements
+
+| Requirement | Level | Description |
+|-------------|-------|-------------|
+| Ed25519 DID support | MUST | All conformant providers MUST accept `ed25519_did` identity. |
+| OAuth 2.0 support | SHOULD | Providers SHOULD accept `oauth2_client` identity for enterprise agents. |
+| API key support | MAY | Providers MAY issue and accept API keys for pre-registered agents. |
+| Identity in manifest | MUST | Providers MUST declare supported identity methods in `identity.supported_methods` in the ServiceManifest. |
+| Identity verification failure | MUST | Providers MUST return HTTP 401 with error code `identity_verification_failed` when identity cannot be verified. |
+| Identity optional | MUST | The `agent_identity` field MUST remain OPTIONAL in the ProvisionRequest. Providers MUST NOT require identity for free-tier provisioning unless sybil resistance is needed (Section 5.3). |
+
+### 16.4 Identity Verification Flow
+
+```
+Agent                                Provider
+  |                                     |
+  |  1. ProvisionRequest with           |
+  |     agent_identity                  |
+  |------------------------------------>|
+  |                                     |
+  |  2. [Verify identity based on       |
+  |      method:]                       |
+  |      - ed25519_did: verify nonce    |
+  |        signature against DID key    |
+  |      - oauth2_client: introspect    |
+  |        or validate JWT              |
+  |      - api_key: lookup in registry  |
+  |                                     |
+  |  3a. [Identity valid]               |
+  |      → Continue provisioning        |
+  |                                     |
+  |  3b. [Identity invalid]             |
+  |      ← HTTP 401                     |
+  |      {"error": {                    |
+  |        "code":                      |
+  |          "identity_verification     |
+  |           _failed",                 |
+  |        "message": "..."             |
+  |      }}                             |
+  |<------------------------------------|
+  |                                     |
+```
+
+### 16.5 Manifest Identity Declaration
+
+Providers declare their supported identity methods in the ServiceManifest:
+
+```json
+{
+  "osp_version": "1.0",
+  "provider": {"...": "..."},
+  "identity": {
+    "supported_methods": ["ed25519_did", "oauth2_client", "api_key"],
+    "oauth2_issuers": [
+      "https://auth.example.com",
+      "https://accounts.google.com"
+    ],
+    "api_key_registration_url": "https://provider.com/developers/api-keys",
+    "identity_required_for_tiers": ["pro", "team", "enterprise"]
+  }
+}
+```
+
+The `identity_required_for_tiers` field declares which tiers require identity verification. Free tiers SHOULD NOT require identity unless sybil resistance demands it.
 
 ---
 

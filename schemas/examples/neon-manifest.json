@@ -7,6 +7,11 @@
   "display_name": "Neon",
   "provider_url": "https://neon.tech",
   "provider_public_key": "bmVvbl9lZDI1NTE5X3B1YmxpY19rZXlfYmFzZTY0dXJs",
+  "provider_key_id": "key-2026-03",
+  "identity": {
+    "supported_methods": ["ed25519_did", "api_key"],
+    "identity_required_for_tiers": ["pro", "enterprise"]
+  },
   "offerings": [
     {
       "offering_id": "neon/postgres",

@@ -5,6 +5,13 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[[bin]]
+name = "osp-registry"
+path = "src/main.rs"
+
+[lib]
+path = "src/lib.rs"
+
 [dependencies]
 osp-manifest.workspace = true
 osp-crypto.workspace = true

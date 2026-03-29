@@ -110,6 +110,10 @@
       "format": "date-time",
       "description": "When this manifest version becomes effective (ISO 8601)"
     },
+    "provider_key_id": {
+      "type": "string",
+      "description": "Key ID for manifest signature verification against JWKS endpoint"
+    },
     "provider_signature": {
       "type": "string",
       "description": "Ed25519 signature over canonical JSON (excluding this field)"

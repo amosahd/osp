@@ -96,9 +96,63 @@ Agent                                Provider
   |<------------------------------------|
 ```
 
+## Sandbox Mode for Testing
+
+OSP supports sandbox environments that let you test integrations without affecting production resources or incurring charges. Add a `sandbox` object to any provision request:
+
+```json
+{
+  "offering_id": "supabase/postgres",
+  "tier_id": "free",
+  "project_name": "test-my-integration",
+  "sandbox": {
+    "enabled": true,
+    "ttl_hours": 24,
+    "auto_destroy": true
+  }
+}
+```
+
+Sandbox resources auto-destroy after the TTL expires and can be promoted to permanent if your test succeeds. You can also seed sandbox databases from existing resources using `seed_from` and `seed_mode` options.
+
+See the [Provider Guide](for-providers.md#sandbox-mode-support) and [Agent Guide](for-agents.md#using-sandbox-mode-for-testing) for full details.
+
+## Agent Identity Setup
+
+Agents authenticate with providers using one of three methods:
+
+| Method | Best For | How |
+|--------|----------|-----|
+| **Ed25519 DID** | Production agents | Present a TAP attestation token via `agent_attestation` field |
+| **OAuth / OIDC** | Cloud platform agents, CI/CD | Send a federated identity token via the `authentication` object |
+| **API Key** | Development, simple integrations | Use a provider-issued `resource_access_token` in the `Authorization` header |
+
+For most production use cases, generate an Ed25519 key pair and obtain a TAP attestation:
+
+```bash
+# Your agent presents the attestation in every request
+POST /osp/v1/provision
+Authorization: Bearer <agent_attestation_token>
+```
+
+See the [Agent Guide](for-agents.md#agent-identity) for detailed setup instructions for each method.
+
+## Cost Visibility
+
+Track infrastructure spending with the cost summary endpoint:
+
+```bash
+GET /osp/v1/projects/{project_id}/cost
+```
+
+This returns a breakdown of costs by resource, including base subscription costs and metered usage, period-over-period comparisons, and proactive cost alerts. Organizations can set budget guardrails that automatically block provisioning when spending limits are reached.
+
+See the [Provider Guide](for-providers.md#cost-summary-endpoint) for implementation details and the [Agent Guide](for-agents.md#querying-cost-summary) for how to query costs.
+
 ## Next Steps
 
 - Read the full [Protocol Specification](../spec/osp-v1.0.md)
 - Explore the [JSON Schemas](../schemas/) for message formats
 - Check out the [Examples](../examples/) for end-to-end scenarios
 - Browse the reference implementations in [TypeScript](../reference-implementation/typescript/) or [Python](../reference-implementation/python/)
+- See the [Error Code Reference](error-reference.md) for all error codes and recommended actions

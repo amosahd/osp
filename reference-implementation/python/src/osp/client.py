@@ -28,7 +28,9 @@ import httpx
 
 from osp.manifest import WELL_KNOWN_PATH, fetch_manifest
 from osp.types import (
+    CostSummary,
     CredentialBundle,
+    HealthResponse,
     HealthStatus,
     OSPErrorBody,
     ProvisionRequest,
@@ -168,13 +170,21 @@ class OSPClient:
         provider_url: str,
         request: ProvisionRequest,
     ) -> ProvisionResponse:
-        """Provision a new service resource."""
+        """Provision a new service resource.
+
+        When ``request.idempotency_key`` is set, the ``Idempotency-Key`` HTTP
+        header is sent so that providers can deduplicate retried requests.
+        """
         manifest = await self.discover(provider_url)
         url = self._endpoint_url(provider_url, manifest.endpoints.provision)
+        extra_headers: dict[str, str] = {}
+        if request.idempotency_key:
+            extra_headers["Idempotency-Key"] = request.idempotency_key
         response = await self._fetch_with_retry(
             "POST",
             url,
             json=request.model_dump(mode="json", exclude_none=True),
+            headers=extra_headers or None,
         )
         return ProvisionResponse.model_validate(response.json())
 
@@ -266,6 +276,60 @@ class OSPClient:
         health.latency_ms = latency_ms
         return health
 
+    async def get_health(self, provider_url: str) -> HealthResponse:
+        """Fetch detailed health response with sub-checks and version info."""
+        manifest = await self.discover(provider_url)
+        url = self._endpoint_url(provider_url, manifest.endpoints.health)
+        response = await self._fetch_with_retry("GET", url)
+        return HealthResponse.model_validate(response.json())
+
+    # -- cost summary --------------------------------------------------------
+
+    async def get_cost_summary(
+        self,
+        provider_url: str,
+        *,
+        period_start: str | None = None,
+        period_end: str | None = None,
+        currency: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> CostSummary:
+        """Fetch an aggregated cost summary from the provider.
+
+        Parameters
+        ----------
+        provider_url:
+            Base URL of the provider.
+        period_start / period_end:
+            ISO 8601 date strings bounding the billing period.
+        currency:
+            Preferred currency code for the response.
+        limit / offset:
+            Pagination for the resources list.
+        """
+        manifest = await self.discover(provider_url)
+        if not manifest.endpoints.usage:
+            raise OSPClientError(
+                "Provider does not expose a usage endpoint for cost summary",
+                code="NO_USAGE_ENDPOINT",
+            )
+        base_usage = manifest.endpoints.usage.split("/:")[0].rstrip("/")
+        url = self._endpoint_url(provider_url, f"{base_usage}/cost-summary")
+        params: dict[str, str] = {}
+        if period_start:
+            params["period_start"] = period_start
+        if period_end:
+            params["period_end"] = period_end
+        if currency:
+            params["currency"] = currency
+        if limit is not None:
+            params["limit"] = str(limit)
+        if offset is not None:
+            params["offset"] = str(offset)
+        response = await self._fetch_with_retry("GET", url, params=params or None)
+        return CostSummary.model_validate(response.json())
+
     # -- cache ---------------------------------------------------------------
 
     def clear_cache(self) -> None:
@@ -287,6 +351,7 @@ class OSPClient:
         *,
         json: Any = None,
         params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> httpx.Response:
         """Central fetch with retries, exponential backoff, and error handling."""
         cfg = self._retry
@@ -299,6 +364,7 @@ class OSPClient:
                     url,
                     json=json,
                     params=params,
+                    headers=headers,
                 )
 
                 if response.is_success:

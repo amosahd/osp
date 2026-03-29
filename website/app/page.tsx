@@ -11,6 +11,7 @@ import {
   BarChart3,
   Server,
 } from "lucide-react";
+import { TerminalDemo } from "./components/terminal-demo";
 
 /* ────────────────────────────────────────────────────────────────────────────
    DATA
@@ -113,46 +114,7 @@ export default function HomePage() {
 
           {/* Inline demo */}
           <div className="mt-16 lg:mt-20">
-            <div className="rounded-xl border border-surface-700 bg-surface-950 overflow-hidden shadow-2xl shadow-black/40">
-              <div className="flex items-center gap-2 border-b border-surface-700/60 px-4 py-3">
-                <div className="flex gap-1.5">
-                  <div className="h-3 w-3 rounded-full bg-surface-600" />
-                  <div className="h-3 w-3 rounded-full bg-surface-600" />
-                  <div className="h-3 w-3 rounded-full bg-surface-600" />
-                </div>
-                <span className="flex-1 text-center font-mono text-xs text-surface-500">
-                  terminal
-                </span>
-              </div>
-              <div className="p-6 font-mono text-sm leading-7">
-                <div className="text-surface-500"># Discover offerings</div>
-                <div>
-                  <span className="text-accent-400">$</span>{" "}
-                  <span className="text-surface-200">
-                    curl https://api.supabase.com/.well-known/osp.json
-                  </span>
-                </div>
-                <div className="mt-4 text-surface-500">
-                  # Provision a database with one request
-                </div>
-                <div>
-                  <span className="text-accent-400">$</span>{" "}
-                  <span className="text-surface-200">
-                    curl -X POST /osp/v1/provision \
-                  </span>
-                </div>
-                <div className="pl-4 text-surface-200">
-                  -d &#39;{"{"}&quot;offering_id&quot;:
-                  &quot;supabase/postgres&quot;, &quot;tier_id&quot;:
-                  &quot;free&quot;{"}"}&#39;
-                </div>
-                <div className="mt-4 text-surface-500"># Done.</div>
-                <div className="text-warm-500">
-                  {"{"} &quot;resource_id&quot;: &quot;proj_abc123&quot;,
-                  &quot;status&quot;: &quot;provisioned&quot; {"}"}
-                </div>
-              </div>
-            </div>
+            <TerminalDemo />
           </div>
         </div>
       </section>

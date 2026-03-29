@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, DM_Sans, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import { BookOpen, Layers, Cpu, ArrowUpRight } from "lucide-react";
+import { MobileNav } from "./components/mobile-nav";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -101,7 +102,8 @@ function Header() {
           </span>
         </Link>
 
-        <div className="flex items-center gap-1">
+        {/* Desktop nav */}
+        <div className="hidden items-center gap-1 md:flex">
           {navLinks.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
@@ -123,6 +125,9 @@ function Header() {
             GitHub
           </a>
         </div>
+
+        {/* Mobile nav */}
+        <MobileNav />
       </nav>
     </header>
   );

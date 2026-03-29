@@ -20,10 +20,12 @@ export interface ServiceManifest {
   display_name: string;
   provider_url?: string;
   provider_public_key?: string;
+  provider_key_id?: string;
   offerings: ServiceOffering[];
   accepted_payment_methods?: PaymentMethod[];
   trust_tier_required?: TrustTier;
   endpoints: ProviderEndpoints;
+  identity?: ManifestIdentity;
   a2a?: A2AAgentCard;
   nhi?: NHIConfig;
   finops?: FinOpsConfig;
@@ -273,6 +275,10 @@ export interface ProvisionRequest {
   budget?: BudgetConstraint;
   ttl_seconds?: number | null;
   trace_context?: string;
+  // v1.2: agent identity, sandbox mode, idempotency
+  idempotency_key?: string;
+  mode?: "live" | "sandbox";
+  agent_identity?: AgentIdentity;
 }
 
 /** Response returned by a provider after a provisioning request. */
@@ -298,6 +304,8 @@ export interface ProvisionResponse {
   cost_estimate?: CostEstimate;
   trace_id?: string;
   dependency_impact?: string[];
+  // v1.2
+  sandbox?: boolean;
 }
 
 /** Fulfillment proof object. */
@@ -360,6 +368,8 @@ export interface CredentialBundle {
   nhi_identity_id?: string;
   token_refresh_endpoint?: string;
   osp_uri?: string;
+  // v1.2
+  sandbox?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -422,6 +432,67 @@ export interface HealthStatus {
   latency_ms?: number;
   checked_at: string;
   details?: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// v1.2: Agent Identity
+// ---------------------------------------------------------------------------
+
+/** Agent identity for authenticated provisioning. */
+export interface AgentIdentity {
+  method: "ed25519_did" | "oauth2_client" | "api_key";
+  credential: string;
+  did_document?: object;
+  nonce_signature?: string;
+}
+
+/** Manifest-level identity requirements and supported methods. */
+export interface ManifestIdentity {
+  supported_methods: string[];
+  oauth2_issuers?: string[];
+  api_key_registration_url?: string;
+  identity_required_for_tiers?: string[];
+}
+
+// ---------------------------------------------------------------------------
+// v1.2: Cost Summary
+// ---------------------------------------------------------------------------
+
+/** Aggregated cost summary across resources for a billing period. */
+export interface CostSummary {
+  total_cost: number;
+  currency: string;
+  period: { start: string; end: string };
+  resources: CostResource[];
+  projected_monthly: number;
+}
+
+/** Per-resource cost breakdown within a cost summary. */
+export interface CostResource {
+  resource_id: string;
+  offering_id: string;
+  cost: number;
+  usage_summary?: string;
+}
+
+// ---------------------------------------------------------------------------
+// v1.2: Health Response
+// ---------------------------------------------------------------------------
+
+/** Structured health response from a provider's health endpoint. */
+export interface HealthResponse {
+  status: "healthy" | "degraded" | "unhealthy";
+  version: string;
+  supported_versions: string[];
+  uptime_seconds: number;
+  checks: HealthCheck[];
+}
+
+/** Individual health check within a HealthResponse. */
+export interface HealthCheck {
+  name: string;
+  status: string;
+  latency_ms: number;
 }
 
 // ---------------------------------------------------------------------------

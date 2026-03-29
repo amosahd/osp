@@ -21,7 +21,10 @@
  */
 
 import type {
+  AgentIdentity,
+  CostSummary,
   CredentialBundle,
+  HealthResponse,
   HealthStatus,
   OSPErrorBody,
   ProvisionRequest,
@@ -79,6 +82,15 @@ const DEFAULT_JITTER = 0.25;
 
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
 
+/** Default TTL for cached manifests: 1 hour in milliseconds. */
+const MANIFEST_CACHE_TTL = 3_600_000;
+
+/** A cached manifest with its fetch timestamp. */
+interface CachedManifest {
+  manifest: ServiceManifest;
+  fetchedAt: number;
+}
+
 // ---------------------------------------------------------------------------
 // Client
 // ---------------------------------------------------------------------------
@@ -89,8 +101,8 @@ export class OSPClient {
   private readonly timeoutMs: number;
   private readonly retryConfig: Required<RetryOptions>;
 
-  /** In-memory manifest cache keyed by normalized provider URL. */
-  private readonly manifestCache = new Map<string, ServiceManifest>();
+  /** In-memory manifest cache keyed by normalized provider URL (with TTL). */
+  private readonly manifestCache = new Map<string, CachedManifest>();
 
   constructor(options?: OSPClientOptions) {
     this.registryUrl =
@@ -113,15 +125,18 @@ export class OSPClient {
   /**
    * Fetch a single provider's manifest from its well-known URL.
    *
-   * Results are cached in-memory for the lifetime of this client instance.
+   * Results are cached in-memory with a 1-hour TTL.  Stale entries are
+   * automatically refetched.
    */
   async discover(providerUrl: string): Promise<ServiceManifest> {
     const key = normalizeUrl(providerUrl);
     const cached = this.manifestCache.get(key);
-    if (cached) return cached;
+    if (cached && Date.now() - cached.fetchedAt < MANIFEST_CACHE_TTL) {
+      return cached.manifest;
+    }
 
     const manifest = await fetchManifest(providerUrl);
-    this.manifestCache.set(key, manifest);
+    this.manifestCache.set(key, { manifest, fetchedAt: Date.now() });
     return manifest;
   }
 
@@ -152,6 +167,9 @@ export class OSPClient {
    *
    * The `request.offering_id` and `request.tier_id` must match an offering
    * in the provider's manifest.
+   *
+   * When `request.idempotency_key` is set, an `Idempotency-Key` header is
+   * sent so the provider can deduplicate retried requests.
    */
   async provision(
     providerUrl: string,
@@ -160,9 +178,16 @@ export class OSPClient {
     const manifest = await this.discover(providerUrl);
     const url = this.endpointUrl(providerUrl, manifest.endpoints.provision);
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (request.idempotency_key) {
+      headers["Idempotency-Key"] = request.idempotency_key;
+    }
+
     const response = await this.fetchWithRetry(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(request),
     });
 
@@ -278,6 +303,61 @@ export class OSPClient {
     return body;
   }
 
+  /**
+   * Fetch a structured health response from a provider's health endpoint.
+   *
+   * Unlike `checkHealth`, this returns the full `HealthResponse` with
+   * individual health checks, supported versions, and uptime.
+   */
+  async getHealth(providerUrl: string): Promise<HealthResponse> {
+    const manifest = await this.discover(providerUrl);
+    const url = this.endpointUrl(providerUrl, manifest.endpoints.health);
+
+    const response = await this.fetchWithRetry(url);
+    return response.json() as Promise<HealthResponse>;
+  }
+
+  // -----------------------------------------------------------------------
+  // Cost Summary
+  // -----------------------------------------------------------------------
+
+  /**
+   * Fetch an aggregated cost summary from the provider.
+   *
+   * Requires the provider to expose a `usage` endpoint.  Query parameters
+   * allow filtering by billing period, currency, and pagination.
+   */
+  async getCostSummary(
+    providerUrl: string,
+    options?: {
+      period_start?: string;
+      period_end?: string;
+      currency?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ): Promise<CostSummary> {
+    const manifest = await this.discover(providerUrl);
+    const usage = manifest.endpoints.usage;
+    if (!usage) {
+      throw new OSPError(
+        "Provider does not expose a usage endpoint",
+        "NO_USAGE_ENDPOINT",
+      );
+    }
+
+    const base = this.endpointUrl(providerUrl, usage.replace(/:resource_id\/?/, ""));
+    const url = new URL(`${base}/cost-summary`);
+    if (options?.period_start) url.searchParams.set("period_start", options.period_start);
+    if (options?.period_end) url.searchParams.set("period_end", options.period_end);
+    if (options?.currency) url.searchParams.set("currency", options.currency);
+    if (options?.limit != null) url.searchParams.set("limit", String(options.limit));
+    if (options?.offset != null) url.searchParams.set("offset", String(options.offset));
+
+    const response = await this.fetchWithRetry(url.toString());
+    return response.json() as Promise<CostSummary>;
+  }
+
   // -----------------------------------------------------------------------
   // Cache management
   // -----------------------------------------------------------------------
@@ -285,6 +365,18 @@ export class OSPClient {
   /** Clear the in-memory manifest cache (useful in long-running agents). */
   clearCache(): void {
     this.manifestCache.clear();
+  }
+
+  /**
+   * Clear a single provider's cached manifest, forcing a refetch on the
+   * next `discover()` call.  If no URL is provided, all entries are cleared.
+   */
+  clearManifestCache(providerUrl?: string): void {
+    if (providerUrl) {
+      this.manifestCache.delete(normalizeUrl(providerUrl));
+    } else {
+      this.manifestCache.clear();
+    }
   }
 
   // -----------------------------------------------------------------------

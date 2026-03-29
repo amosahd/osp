@@ -85,6 +85,16 @@ export type {
   TTLEvent,
 } from "./types.js";
 
+// Types — v1.2
+export type {
+  AgentIdentity,
+  ManifestIdentity,
+  CostSummary,
+  CostResource,
+  HealthResponse,
+  HealthCheck,
+} from "./types.js";
+
 // Manifest utilities
 export {
   fetchManifest,

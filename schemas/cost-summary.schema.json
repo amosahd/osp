@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://osp.dev/schemas/cost-summary.schema.json",
+  "title": "CostSummary",
+  "description": "Aggregate cost summary across all resources provisioned by an agent at a provider, returned by GET /osp/v1/cost-summary (Section 6.18)",
+  "type": "object",
+  "required": ["total_cost", "currency", "period", "resources", "projected_monthly"],
+  "properties": {
+    "total_cost": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Aggregate cost across all resources for the reporting period"
+    },
+    "currency": {
+      "type": "string",
+      "description": "ISO 4217 currency code or stablecoin identifier (e.g., 'USD', 'EUR', 'USDC')"
+    },
+    "period": {
+      "$ref": "#/$defs/Period",
+      "description": "Reporting period with start and end timestamps"
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ResourceCost"
+      },
+      "description": "Per-resource cost breakdown for all resources provisioned by the agent"
+    },
+    "projected_monthly": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Projected total cost if current usage continues for a full calendar month, extrapolated from the current period's burn rate"
+    }
+  },
+  "$defs": {
+    "Period": {
+      "type": "object",
+      "required": ["start", "end"],
+      "description": "Reporting period boundaries",
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Start of the reporting period (ISO 8601, inclusive)"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time",
+          "description": "End of the reporting period (ISO 8601, exclusive)"
+        }
+      }
+    },
+    "ResourceCost": {
+      "type": "object",
+      "required": ["resource_id", "offering_id", "tier_id", "cost"],
+      "description": "Cost breakdown for a single provisioned resource",
+      "properties": {
+        "resource_id": {
+          "type": "string",
+          "description": "Provider-assigned resource identifier"
+        },
+        "offering_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+          "description": "The service offering this resource belongs to"
+        },
+        "tier_id": {
+          "type": "string",
+          "description": "The tier the resource is on during this period"
+        },
+        "cost": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Total cost for this resource during the period"
+        },
+        "breakdown": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CostLineItem"
+          },
+          "description": "Per-dimension cost breakdown for this resource"
+        }
+      }
+    },
+    "CostLineItem": {
+      "type": "object",
+      "required": ["dimension", "amount"],
+      "description": "A single cost line item within a resource's breakdown",
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "description": "Cost dimension name (e.g., 'base_price', 'storage_overage', 'bandwidth_overage', 'credit_adjustment')"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Cost amount for this dimension (negative values represent credits or adjustments)"
+        }
+      }
+    }
+  }
+}

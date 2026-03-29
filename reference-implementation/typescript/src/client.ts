@@ -21,7 +21,10 @@
  */
 
 import type {
+  AgentIdentity,
+  CostSummary,
   CredentialBundle,
+  HealthResponse,
   HealthStatus,
   OSPErrorBody,
   ProvisionRequest,
@@ -152,6 +155,9 @@ export class OSPClient {
    *
    * The `request.offering_id` and `request.tier_id` must match an offering
    * in the provider's manifest.
+   *
+   * When `request.idempotency_key` is set, an `Idempotency-Key` header is
+   * sent so the provider can deduplicate retried requests.
    */
   async provision(
     providerUrl: string,
@@ -160,9 +166,16 @@ export class OSPClient {
     const manifest = await this.discover(providerUrl);
     const url = this.endpointUrl(providerUrl, manifest.endpoints.provision);
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (request.idempotency_key) {
+      headers["Idempotency-Key"] = request.idempotency_key;
+    }
+
     const response = await this.fetchWithRetry(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(request),
     });
 
@@ -276,6 +289,61 @@ export class OSPClient {
     const body = await response.json() as HealthStatus;
     body.latency_ms = latencyMs;
     return body;
+  }
+
+  /**
+   * Fetch a structured health response from a provider's health endpoint.
+   *
+   * Unlike `checkHealth`, this returns the full `HealthResponse` with
+   * individual health checks, supported versions, and uptime.
+   */
+  async getHealth(providerUrl: string): Promise<HealthResponse> {
+    const manifest = await this.discover(providerUrl);
+    const url = this.endpointUrl(providerUrl, manifest.endpoints.health);
+
+    const response = await this.fetchWithRetry(url);
+    return response.json() as Promise<HealthResponse>;
+  }
+
+  // -----------------------------------------------------------------------
+  // Cost Summary
+  // -----------------------------------------------------------------------
+
+  /**
+   * Fetch an aggregated cost summary from the provider.
+   *
+   * Requires the provider to expose a `usage` endpoint.  Query parameters
+   * allow filtering by billing period, currency, and pagination.
+   */
+  async getCostSummary(
+    providerUrl: string,
+    options?: {
+      period_start?: string;
+      period_end?: string;
+      currency?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ): Promise<CostSummary> {
+    const manifest = await this.discover(providerUrl);
+    const usage = manifest.endpoints.usage;
+    if (!usage) {
+      throw new OSPError(
+        "Provider does not expose a usage endpoint",
+        "NO_USAGE_ENDPOINT",
+      );
+    }
+
+    const base = this.endpointUrl(providerUrl, usage.replace(/:resource_id\/?/, ""));
+    const url = new URL(`${base}/cost-summary`);
+    if (options?.period_start) url.searchParams.set("period_start", options.period_start);
+    if (options?.period_end) url.searchParams.set("period_end", options.period_end);
+    if (options?.currency) url.searchParams.set("currency", options.currency);
+    if (options?.limit != null) url.searchParams.set("limit", String(options.limit));
+    if (options?.offset != null) url.searchParams.set("offset", String(options.offset));
+
+    const response = await this.fetchWithRetry(url.toString());
+    return response.json() as Promise<CostSummary>;
   }
 
   // -----------------------------------------------------------------------

@@ -7,6 +7,11 @@
   "display_name": "Clerk",
   "provider_url": "https://clerk.com",
   "provider_public_key": "Y2xlcmtfZWQyNTUxOV9wdWJsaWNfa2V5X2Jhc2U2NHVybA",
+  "provider_key_id": "key-2026-03",
+  "identity": {
+    "supported_methods": ["ed25519_did", "api_key"],
+    "identity_required_for_tiers": ["pro", "enterprise"]
+  },
   "offerings": [
     {
       "offering_id": "clerk/auth",
@@ -101,6 +106,9 @@
       "estimated_provision_seconds": 10,
       "fulfillment_proof_type": "api_key_delivery",
       "regions": ["us-east-1", "eu-west-1"],
+      "available_regions": ["us-east-1", "eu-west-1"],
+      "sandbox_available": true,
+      "sandbox_ttl_seconds": 86400,
       "documentation_url": "https://clerk.com/docs"
     }
   ],
@@ -136,6 +144,12 @@
     "tools": ["clerk_create_user", "clerk_list_users"],
     "streamable_http": false,
     "skills_url": "https://clerk.com/.well-known/osp-skills.md"
+  },
+  "webhook_retry_policy": {
+    "max_attempts": 6,
+    "backoff_multiplier": 5,
+    "initial_delay_seconds": 1,
+    "max_delay_seconds": 3600
   },
   "extensions": {
     "clerk:dashboard_url": "https://dashboard.clerk.com",

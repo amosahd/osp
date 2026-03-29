@@ -785,6 +785,7 @@ The object a provider returns after processing a provision request.
 | `rate_limited` | Too many requests. Check `retry_after_seconds`. |
 | `provider_error` | An internal provider error occurred. |
 | `capacity_exhausted` | The provider has no available capacity. |
+| `identity_verification_failed` | Agent identity verification failed (HTTP 403). The provided identity proof is invalid, expired, or uses an unsupported method. |
 
 #### Example: Synchronous Success
 

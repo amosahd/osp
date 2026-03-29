@@ -76,6 +76,11 @@
     "trace_context": {
       "type": "string",
       "description": "OpenTelemetry W3C traceparent header value for distributed tracing (v1.1)"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Client-generated key for request deduplication within 24-hour window"
     }
   },
   "$defs": {

@@ -30,8 +30,13 @@ async function runTool(server, name, args) {
   return server.executeToolHandler(tool, args, {});
 }
 
-function makeManifest(providerUrl, overrides = {}) {
-  return {
+test.afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
+
+test("osp_estimate returns estimate details and accepted payment methods", async () => {
+  const providerUrl = "https://estimate-provider.example";
+  const manifest = {
     manifest_id: "mf_test",
     manifest_version: 1,
     previous_version: null,
@@ -49,9 +54,9 @@ function makeManifest(providerUrl, overrides = {}) {
             tier_id: "pro",
             name: "Pro",
             price: { amount: "25.00", currency: "USD", interval: "monthly" },
+            accepted_payment_methods: ["sardis_wallet"],
           },
         ],
-        regions: ["us-east-1"],
       },
     ],
     accepted_payment_methods: ["free", "sardis_wallet"],
@@ -65,17 +70,7 @@ function makeManifest(providerUrl, overrides = {}) {
       health: "/osp/v1/health",
     },
     provider_signature: "sig",
-    ...overrides,
   };
-}
-
-test.afterEach(() => {
-  globalThis.fetch = originalFetch;
-});
-
-test("osp_estimate returns estimate details and accepted payment methods", async () => {
-  const providerUrl = "https://estimate-provider.example";
-  const manifest = makeManifest(providerUrl);
 
   mockFetch(async (url, init) => {
     if (url === `${providerUrl}/.well-known/osp.json`) {
@@ -117,7 +112,7 @@ test("osp_estimate returns estimate details and accepted payment methods", async
 
   assert.equal(result.isError, undefined);
   const payload = JSON.parse(result.content[0].text);
-  assert.deepEqual(payload.accepted_payment_methods, ["free", "sardis_wallet"]);
+  assert.deepEqual(payload.accepted_payment_methods, ["sardis_wallet"]);
   assert.equal(payload.estimate.total_monthly, "31.63");
   assert.equal(payload.valid_until, "2026-04-01T00:00:00Z");
 });

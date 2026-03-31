@@ -22,6 +22,8 @@ import type {
   ResourceStatus,
   CredentialBundle,
   UsageReport,
+  OSPErrorPayload,
+  OSPErrorResponse,
   PaymentMethod,
   PaymentProof,
 } from "./types.js";
@@ -38,6 +40,18 @@ interface FetchOptions {
   headers?: Record<string, string>;
   body?: string;
   timeoutMs?: number;
+}
+
+export class OSPHTTPError extends Error {
+  readonly status: number;
+  readonly payload?: OSPErrorResponse;
+
+  constructor(message: string, status: number, payload?: OSPErrorResponse) {
+    super(message);
+    this.name = "OSPHTTPError";
+    this.status = status;
+    this.payload = payload;
+  }
 }
 
 async function ospFetch<T>(url: string, options?: FetchOptions): Promise<T> {
@@ -62,15 +76,19 @@ async function ospFetch<T>(url: string, options?: FetchOptions): Promise<T> {
 
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+      let errorPayload: OSPErrorResponse | undefined;
       try {
-        const body = await response.json();
-        if (body && typeof body === "object" && "error" in body) {
-          errorMessage = (body as { error: string }).error;
+        const body = (await response.json()) as OSPErrorResponse;
+        errorPayload = body;
+        if (typeof body?.error === "string") {
+          errorMessage = body.error;
+        } else if (body?.error && typeof body.error === "object") {
+          errorMessage = body.error.message ?? errorMessage;
         }
       } catch {
         // Response body may not be JSON
       }
-      throw new Error(errorMessage);
+      throw new OSPHTTPError(errorMessage, response.status, errorPayload);
     }
 
     return (await response.json()) as T;
@@ -139,6 +157,57 @@ function resolveProvisionPaymentMethod(
   }
 
   return undefined;
+}
+
+function extractErrorPayload(error: unknown): OSPErrorPayload | undefined {
+  if (!(error instanceof OSPHTTPError)) {
+    return undefined;
+  }
+
+  if (!error.payload) {
+    return undefined;
+  }
+
+  if (typeof error.payload.error === "string") {
+    return { message: error.payload.error };
+  }
+
+  return error.payload.error;
+}
+
+function isApprovalRequiredError(error: unknown): boolean {
+  const payload = extractErrorPayload(error);
+  const code = payload?.code?.toLowerCase();
+  return code === "approval_required" || payload?.details?.requires_approval === true;
+}
+
+function approvalResultFromError(error: OSPHTTPError) {
+  const payload = extractErrorPayload(error);
+  const details = payload?.details ?? {};
+
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(
+          {
+            status: "approval_required",
+            requires_approval: true,
+            message: payload?.message ?? error.message,
+            code: payload?.code ?? "approval_required",
+            gate_id: details.gate_id,
+            gate_name: details.gate_name,
+            approval_url: details.approval_url,
+            poll_url: details.poll_url,
+            timeout_at: details.timeout_at,
+            details,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -519,6 +588,13 @@ export function createOSPServer(
                   dashboard_url: response.dashboard_url,
                   credentials_available: !!response.credentials,
                   cost_estimate: response.cost_estimate,
+                  estimated_ready_seconds: response.estimated_ready_seconds,
+                  poll_url: response.poll_url,
+                  requires_approval: response.status === "gate_pending",
+                  gate_id: response.gate_id,
+                  gate_name: response.gate_name,
+                  approval_url: response.approval_url,
+                  timeout_at: response.timeout_at,
                   payment_method: resolvedPaymentMethod,
                   message: response.message,
                 },
@@ -529,6 +605,10 @@ export function createOSPServer(
           ],
         };
       } catch (err) {
+        if (err instanceof OSPHTTPError && isApprovalRequiredError(err)) {
+          return approvalResultFromError(err);
+        }
+
         return {
           content: [
             {

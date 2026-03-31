@@ -34,6 +34,8 @@ export type {
   UsageDimension,
   CostEstimate,
   CostBreakdownItem,
+  OSPErrorPayload,
+  OSPErrorResponse,
   PaymentMethod,
   PaymentProof,
   ServiceCategory,

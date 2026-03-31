@@ -195,3 +195,109 @@ test("osp_provision forwards payment_method and payment_proof for paid tiers", a
   assert.equal(payload.payment_method, "sardis_wallet");
   assert.equal(payload.resource_id, "res_paid_001");
 });
+
+test("osp_provision returns approval-aware responses instead of opaque errors", async () => {
+  const providerUrl = "https://approval-provider.example";
+  const manifest = makeManifest(providerUrl);
+
+  mockFetch(async (url) => {
+    if (url === `${providerUrl}/.well-known/osp.json`) {
+      return jsonResponse(manifest);
+    }
+
+    if (url === `${providerUrl}/osp/v1/provision`) {
+      return jsonResponse(
+        {
+          error: {
+            code: "approval_required",
+            message: "Finance approval required before provisioning.",
+            details: {
+              gate_id: "gate_cost_001",
+              gate_name: "High-Cost Provisioning",
+              approval_url: "https://approvals.example/review/gate_cost_001",
+              poll_url: "/osp/v1/gates/gate_cost_001/status",
+              timeout_at: "2026-04-01T01:00:00Z",
+              requires_approval: true,
+            },
+          },
+        },
+        403,
+      );
+    }
+
+    throw new Error(`Unexpected URL ${url}`);
+  });
+
+  const server = createOSPServer();
+  const result = await runTool(server, "osp_provision", {
+    provider_url: providerUrl,
+    offering_id: "test-provider/postgres",
+    tier_id: "pro",
+    project_name: "demo",
+    payment_method: "sardis_wallet",
+    payment_proof: {
+      wallet_address: "wal_123",
+      payment_tx: "mnd_123",
+    },
+  });
+
+  assert.equal(result.isError, undefined);
+  const payload = JSON.parse(result.content[0].text);
+  assert.equal(payload.requires_approval, true);
+  assert.equal(payload.status, "approval_required");
+  assert.equal(payload.gate_id, "gate_cost_001");
+  assert.equal(payload.approval_url, "https://approvals.example/review/gate_cost_001");
+});
+
+test("osp_provision returns approval-aware responses instead of opaque errors", async () => {
+  const providerUrl = "https://approval-provider.example";
+  const manifest = makeManifest(providerUrl);
+
+  mockFetch(async (url) => {
+    if (url === `${providerUrl}/.well-known/osp.json`) {
+      return jsonResponse(manifest);
+    }
+
+    if (url === `${providerUrl}/osp/v1/provision`) {
+      return jsonResponse(
+        {
+          error: {
+            code: "approval_required",
+            message: "Finance approval required before provisioning.",
+            details: {
+              gate_id: "gate_cost_001",
+              gate_name: "High-Cost Provisioning",
+              approval_url: "https://approvals.example/review/gate_cost_001",
+              poll_url: "/osp/v1/gates/gate_cost_001/status",
+              timeout_at: "2026-04-01T01:00:00Z",
+              requires_approval: true,
+            },
+          },
+        },
+        403,
+      );
+    }
+
+    throw new Error(`Unexpected URL ${url}`);
+  });
+
+  const server = createOSPServer();
+  const result = await runTool(server, "osp_provision", {
+    provider_url: providerUrl,
+    offering_id: "test-provider/postgres",
+    tier_id: "pro",
+    project_name: "demo",
+    payment_method: "sardis_wallet",
+    payment_proof: {
+      wallet_address: "wal_123",
+      payment_tx: "mnd_123",
+    },
+  });
+
+  assert.equal(result.isError, undefined);
+  const payload = JSON.parse(result.content[0].text);
+  assert.equal(payload.requires_approval, true);
+  assert.equal(payload.status, "approval_required");
+  assert.equal(payload.gate_id, "gate_cost_001");
+  assert.equal(payload.approval_url, "https://approvals.example/review/gate_cost_001");
+});

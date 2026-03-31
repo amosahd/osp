@@ -131,6 +131,8 @@ Estimate provisioning cost and accepted payment methods before creating a resour
 
 Provision a new service resource from an OSP provider. Creates databases, hosting instances, auth services, etc.
 
+For providers that enforce human review, the tool returns structured approval metadata instead of an opaque transport error so agents can pause and surface the review step.
+
 **Parameters:**
 - `provider_url` (required) — URL of the provider
 - `offering_id` (required) — Service offering ID (e.g., `supabase/postgres`)

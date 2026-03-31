@@ -101,6 +101,12 @@ export interface ProvisionResponse {
   dashboard_url?: string;
   message?: string;
   cost_estimate?: CostEstimate;
+  estimated_ready_seconds?: number;
+  poll_url?: string;
+  gate_id?: string;
+  gate_name?: string;
+  approval_url?: string;
+  timeout_at?: string;
 }
 
 /** Request to estimate provisioning cost without creating a resource. */
@@ -190,6 +196,18 @@ export interface CostBreakdownItem {
   estimated_cost: string;
 }
 
+export interface OSPErrorPayload {
+  code?: string;
+  message?: string;
+  details?: Record<string, unknown>;
+  retryable?: boolean;
+  retry_after_seconds?: number;
+}
+
+export interface OSPErrorResponse {
+  error?: OSPErrorPayload | string;
+}
+
 export type PaymentProof = string | Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
@@ -224,5 +242,6 @@ export type ProvisionStatus =
   | "active"
   | "failed"
   | "pending_payment"
+  | "gate_pending"
   | "deprovisioning"
   | "deprovisioned";

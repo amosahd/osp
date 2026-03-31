@@ -3579,6 +3579,28 @@ The canonical paid provisioning contract is:
 
 This contract is the normative baseline for OSP Paid Core.
 
+#### Provider Obligations
+
+Providers implementing paid provisioning MUST satisfy the following obligations:
+
+1. **Verification**: Providers MUST verify payment proof signatures against the declared rail's verification rules before allocating any resources. Verification MUST be synchronous even when provisioning is asynchronous.
+2. **Idempotency**: Providers MUST treat requests with the same `idempotency_key` as retries. The first accepted request wins; subsequent retries MUST return the original response without duplicate resource allocation or duplicate charges.
+3. **Failure Handling**: If provisioning fails after payment proof has been accepted, the provider MUST:
+   - Return a machine-actionable error with `provision_failed` code.
+   - Include a `refund_eligible: true` flag when the failure warrants reversal.
+   - NOT silently consume the payment proof without delivering a resource or signaling failure.
+4. **Timeout Behavior**: If the provider cannot complete provisioning within the declared `max_provision_time`, it MUST return `408 Request Timeout` with `retry_eligible: true`.
+5. **Settlement Correlation**: For escrow-backed tiers, the provider MUST include the `escrow_id` in all responses and MUST call the settlement confirmation endpoint before the escrow timeout expires.
+
+#### Agent Obligations
+
+Agents consuming paid provisioning MUST satisfy:
+
+1. **Nonce Freshness**: Each request MUST include a unique `nonce`. Retries of the same logical request MUST reuse the `idempotency_key` but generate a fresh `nonce`.
+2. **Proof Scope**: Payment proof MUST be scoped to the specific provider, offering, tier, and amount. Proof generated for one provider MUST NOT be reused for another.
+3. **Settlement Correlation**: Agents MUST store the `escrow_id` returned by the provider and use it for subsequent settlement, dispute, or refund operations.
+4. **Error Recovery**: On `approval_required`, agents MUST pause and surface the approval request to the controlling principal. On `payment_failed`, agents MUST NOT retry with the same proof material.
+
 ### 7.2 Usage-Based Billing
 
 For tiers with `metered: true`, providers track usage and generate `UsageReport` objects at the end of each billing period.

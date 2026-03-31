@@ -774,6 +774,7 @@ The object a provider returns after processing a provision request.
 | `tier_id` | `string` | REQUIRED | The tier that was provisioned. |
 | `status` | `string` | REQUIRED | Current provisioning status. One of: `provisioned`, `provisioning`, `failed`. |
 | `credentials_bundle` | `CredentialBundle` | OPTIONAL | Credentials for the resource. REQUIRED when `status` is `provisioned`. MUST be absent when `status` is `provisioning` or `failed`. |
+| `escrow_id` | `string` | OPTIONAL | Escrow identifier for paid tiers that use escrow-backed settlement. |
 | `estimated_ready_seconds` | `integer` | OPTIONAL | Estimated seconds until the resource is ready. REQUIRED when `status` is `provisioning`. |
 | `poll_url` | `string` | OPTIONAL | URL to poll for status updates. REQUIRED when `status` is `provisioning`. |
 | `webhook_supported` | `boolean` | OPTIONAL | Whether the provider will send webhook notifications. Default: `false`. |

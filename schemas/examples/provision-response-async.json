@@ -5,6 +5,7 @@
   "tier_id": "scale",
   "status": "provisioning",
   "resource_id": "res_neon_proj_ep_cool_darkness_789012",
+  "escrow_id": "esc_01J8KR9X7V4NWP3H2F1C8D6QBM",
   "credentials": null,
   "fulfillment_proof": null,
   "status_url": "https://neon.tech/osp/v1/resources/res_neon_proj_ep_cool_darkness_789012/status",

@@ -276,24 +276,29 @@
     },
     "EscrowProfile": {
       "type": "object",
-      "description": "Escrow timing parameters governing payment hold and release",
+      "required": ["required"],
+      "description": "Escrow configuration for payment protection on paid tiers",
       "properties": {
-        "timeout_seconds": {
-          "type": "integer",
-          "default": 3600,
-          "description": "Maximum time in seconds before escrowed funds are returned if provisioning fails"
+        "required": {
+          "type": "boolean",
+          "description": "Whether escrow is required for this tier"
         },
-        "verification_window_seconds": {
-          "type": "integer",
-          "default": 900,
-          "description": "Time in seconds the agent has to verify provisioning before auto-release"
+        "provider": {
+          "type": "string",
+          "description": "Escrow provider identifier (e.g., 'sardis', 'custom')"
         },
-        "dispute_window_seconds": {
+        "release_condition": {
+          "type": "string",
+          "enum": ["provision_success", "uptime_24h", "uptime_7d", "manual"],
+          "description": "Condition for releasing escrowed funds"
+        },
+        "dispute_window_hours": {
           "type": "integer",
-          "default": 86400,
-          "description": "Time in seconds after verification during which disputes can be raised"
+          "default": 72,
+          "description": "Number of hours after provisioning during which disputes can be raised"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "UsageMetering": {
       "type": "object",

@@ -54,6 +54,70 @@ All OSP error responses use this structure:
 }
 ```
 
+**Cross-SDK handling examples**
+
+TypeScript:
+
+```ts
+import { OSPClient, OSPError } from "@osp/client";
+
+const client = new OSPClient();
+
+try {
+  await client.provision("https://provider.example", {
+    offering_id: "provider/postgres",
+    tier_id: "pro",
+    project_name: "billing-db",
+    payment_method: "sardis_wallet",
+    nonce: crypto.randomUUID(),
+  });
+} catch (error) {
+  if (error instanceof OSPError && error.code === "payment_required") {
+    console.error("Accepted methods:", error.details?.accepted_payment_methods);
+  }
+}
+```
+
+Python:
+
+```python
+from osp.client import OSPClient, OSPClientError
+
+client = OSPClient()
+
+try:
+    await client.provision(
+        "https://provider.example",
+        {
+            "offering_id": "provider/postgres",
+            "tier_id": "pro",
+            "project_name": "billing-db",
+            "payment_method": "sardis_wallet",
+            "nonce": "nonce-123",
+        },
+    )
+except OSPClientError as exc:
+    if exc.code == "payment_required":
+        print(exc.details.get("accepted_payment_methods"))
+```
+
+Go:
+
+```go
+resp, err := client.Provision(ctx, providerURL, req)
+if err != nil {
+    var provErr *osp.ProvisioningError
+    if errors.As(err, &provErr) && provErr.Code == "payment_required" {
+        fmt.Println(provErr.Details["accepted_payment_methods"])
+    }
+    if osp.IsRetryable(err) {
+        // Retry after collecting a valid payment proof.
+    }
+    return err
+}
+_ = resp
+```
+
 ---
 
 #### `invalid_tier`

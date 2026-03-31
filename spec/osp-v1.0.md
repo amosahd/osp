@@ -3564,6 +3564,21 @@ Providers MAY declare custom payment methods by using a namespaced identifier:
 
 Custom payment method identifiers MUST use reverse-domain notation. The `payment_proof` structure for custom methods is defined by the provider and documented in their manifest's `extensions` object.
 
+#### Canonical Paid Provisioning Contract
+
+The canonical paid provisioning contract is:
+
+1. Providers MUST declare allowed rails using `accepted_payment_methods` at the manifest or tier level.
+2. Agents MUST send exactly one `payment_method`, and it MUST be one of the accepted methods for the selected tier.
+3. Agents MUST omit `payment_proof` when `payment_method` is `free`.
+4. Agents MUST include a rail-specific `payment_proof` when `payment_method` is anything other than `free`.
+5. Providers MUST reject missing or invalid paid proof with a machine-actionable error such as `payment_required`, `payment_declined`, `payment_failed`, `budget_exceeded`, or `approval_required`.
+6. For duplicate retries of an in-flight paid provision request, agents MUST keep the same `idempotency_key` and generate a fresh `nonce`.
+7. Providers MUST return the original in-progress response for duplicate paid retries with the same `idempotency_key`.
+8. If the tier uses escrow-backed settlement, providers SHOULD include `escrow_id` in the provision response as soon as it exists.
+
+This contract is the normative baseline for OSP Paid Core.
+
 ### 7.2 Usage-Based Billing
 
 For tiers with `metered: true`, providers track usage and generate `UsageReport` objects at the end of each billing period.

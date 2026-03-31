@@ -88,6 +88,7 @@ export interface ProvisionRequest {
   project_name: string;
   region?: string;
   payment_method?: PaymentMethod;
+  payment_proof?: PaymentProof;
   nonce: string;
   config?: Record<string, unknown>;
 }
@@ -188,6 +189,8 @@ export interface CostBreakdownItem {
   unit_price: string;
   estimated_cost: string;
 }
+
+export type PaymentProof = string | Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
 // Enums

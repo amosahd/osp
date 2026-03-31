@@ -30,13 +30,8 @@ async function runTool(server, name, args) {
   return server.executeToolHandler(tool, args, {});
 }
 
-test.afterEach(() => {
-  globalThis.fetch = originalFetch;
-});
-
-test("osp_estimate returns estimate details and accepted payment methods", async () => {
-  const providerUrl = "https://estimate-provider.example";
-  const manifest = {
+function makeManifest(providerUrl, overrides = {}) {
+  return {
     manifest_id: "mf_test",
     manifest_version: 1,
     previous_version: null,
@@ -70,7 +65,17 @@ test("osp_estimate returns estimate details and accepted payment methods", async
       health: "/osp/v1/health",
     },
     provider_signature: "sig",
+    ...overrides,
   };
+}
+
+test.afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
+
+test("osp_estimate returns estimate details and accepted payment methods", async () => {
+  const providerUrl = "https://estimate-provider.example";
+  const manifest = makeManifest(providerUrl);
 
   mockFetch(async (url, init) => {
     if (url === `${providerUrl}/.well-known/osp.json`) {
@@ -115,4 +120,150 @@ test("osp_estimate returns estimate details and accepted payment methods", async
   assert.deepEqual(payload.accepted_payment_methods, ["sardis_wallet"]);
   assert.equal(payload.estimate.total_monthly, "31.63");
   assert.equal(payload.valid_until, "2026-04-01T00:00:00Z");
+});
+
+test("osp_provision rejects paid tiers without an explicit payment method", async () => {
+  const providerUrl = "https://payment-required-provider.example";
+  const manifest = makeManifest(providerUrl);
+
+  mockFetch(async (url) => {
+    if (url === `${providerUrl}/.well-known/osp.json`) {
+      return jsonResponse(manifest);
+    }
+
+    throw new Error(`Unexpected URL ${url}`);
+  });
+
+  const server = createOSPServer();
+  const result = await runTool(server, "osp_provision", {
+    provider_url: providerUrl,
+    offering_id: "test-provider/postgres",
+    tier_id: "pro",
+    project_name: "demo",
+  });
+
+  assert.equal(result.isError, true);
+  const payload = JSON.parse(result.content[0].text);
+  assert.deepEqual(payload.accepted_payment_methods, ["sardis_wallet"]);
+  assert.match(payload.error, /explicit payment_method/i);
+});
+
+test("osp_provision forwards payment_method and payment_proof for paid tiers", async () => {
+  const providerUrl = "https://paid-provider.example";
+  const manifest = makeManifest(providerUrl);
+  let provisionRequest;
+
+  mockFetch(async (url, init) => {
+    if (url === `${providerUrl}/.well-known/osp.json`) {
+      return jsonResponse(manifest);
+    }
+
+    if (url === `${providerUrl}/osp/v1/provision`) {
+      provisionRequest = JSON.parse(init?.body ?? "{}");
+      return jsonResponse({
+        resource_id: "res_paid_001",
+        status: "active",
+        cost_estimate: { monthly_estimate: "25.00", currency: "USD" },
+      });
+    }
+
+    throw new Error(`Unexpected URL ${url}`);
+  });
+
+  const server = createOSPServer();
+  const result = await runTool(server, "osp_provision", {
+    provider_url: providerUrl,
+    offering_id: "test-provider/postgres",
+    tier_id: "pro",
+    project_name: "demo",
+    payment_method: "sardis_wallet",
+    payment_proof: {
+      wallet_address: "wal_123",
+      payment_tx: "mnd_123",
+    },
+  });
+
+  assert.equal(result.isError, undefined);
+  assert.equal(provisionRequest.payment_method, "sardis_wallet");
+  assert.deepEqual(provisionRequest.payment_proof, {
+    wallet_address: "wal_123",
+    payment_tx: "mnd_123",
+  });
+
+  const payload = JSON.parse(result.content[0].text);
+  assert.equal(payload.payment_method, "sardis_wallet");
+  assert.equal(payload.resource_id, "res_paid_001");
+});
+
+test("osp_provision rejects paid tiers without an explicit payment method", async () => {
+  const providerUrl = "https://payment-required-provider.example";
+  const manifest = makeManifest(providerUrl);
+
+  mockFetch(async (url) => {
+    if (url === `${providerUrl}/.well-known/osp.json`) {
+      return jsonResponse(manifest);
+    }
+
+    throw new Error(`Unexpected URL ${url}`);
+  });
+
+  const server = createOSPServer();
+  const result = await runTool(server, "osp_provision", {
+    provider_url: providerUrl,
+    offering_id: "test-provider/postgres",
+    tier_id: "pro",
+    project_name: "demo",
+  });
+
+  assert.equal(result.isError, true);
+  const payload = JSON.parse(result.content[0].text);
+  assert.deepEqual(payload.accepted_payment_methods, ["sardis_wallet"]);
+  assert.match(payload.error, /explicit payment_method/i);
+});
+
+test("osp_provision forwards payment_method and payment_proof for paid tiers", async () => {
+  const providerUrl = "https://paid-provider.example";
+  const manifest = makeManifest(providerUrl);
+  let provisionRequest;
+
+  mockFetch(async (url, init) => {
+    if (url === `${providerUrl}/.well-known/osp.json`) {
+      return jsonResponse(manifest);
+    }
+
+    if (url === `${providerUrl}/osp/v1/provision`) {
+      provisionRequest = JSON.parse(init?.body ?? "{}");
+      return jsonResponse({
+        resource_id: "res_paid_001",
+        status: "active",
+        cost_estimate: { monthly_estimate: "25.00", currency: "USD" },
+      });
+    }
+
+    throw new Error(`Unexpected URL ${url}`);
+  });
+
+  const server = createOSPServer();
+  const result = await runTool(server, "osp_provision", {
+    provider_url: providerUrl,
+    offering_id: "test-provider/postgres",
+    tier_id: "pro",
+    project_name: "demo",
+    payment_method: "sardis_wallet",
+    payment_proof: {
+      wallet_address: "wal_123",
+      payment_tx: "mnd_123",
+    },
+  });
+
+  assert.equal(result.isError, undefined);
+  assert.equal(provisionRequest.payment_method, "sardis_wallet");
+  assert.deepEqual(provisionRequest.payment_proof, {
+    wallet_address: "wal_123",
+    payment_tx: "mnd_123",
+  });
+
+  const payload = JSON.parse(result.content[0].text);
+  assert.equal(payload.payment_method, "sardis_wallet");
+  assert.equal(payload.resource_id, "res_paid_001");
 });

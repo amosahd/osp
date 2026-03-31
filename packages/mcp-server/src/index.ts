@@ -35,6 +35,7 @@ export type {
   CostEstimate,
   CostBreakdownItem,
   PaymentMethod,
+  PaymentProof,
   ServiceCategory,
   ProvisionStatus,
 } from "./types.js";

@@ -137,6 +137,8 @@ Provision a new service resource from an OSP provider. Creates databases, hostin
 - `tier_id` (required) — Tier ID (e.g., `free`, `pro`)
 - `project_name` (required) — Name for the provisioned resource
 - `region` (optional) — Deployment region (e.g., `us-east-1`)
+- `payment_method` (optional) — Payment method for paid tiers. If omitted, the server only defaults to `free` when the tier supports it.
+- `payment_proof` (optional) — Payment authorization or receipt for non-free tiers
 - `config` (optional) — Offering-specific configuration object
 
 ### `osp_status`

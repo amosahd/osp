@@ -22,6 +22,8 @@ import type {
   ResourceStatus,
   CredentialBundle,
   UsageReport,
+  PaymentMethod,
+  PaymentProof,
 } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -109,6 +111,34 @@ async function fetchManifest(providerUrl: string): Promise<ServiceManifest> {
   );
   manifestCache.set(key, manifest);
   return manifest;
+}
+
+function resolveAcceptedPaymentMethods(
+  manifest: ServiceManifest,
+  offeringId: string,
+  tierId: string,
+): PaymentMethod[] {
+  const offering = manifest.offerings.find((entry) => entry.offering_id === offeringId);
+  const tier = offering?.tiers.find((entry) => entry.tier_id === tierId);
+  const methods = tier?.accepted_payment_methods
+    ?? manifest.accepted_payment_methods
+    ?? ["free"];
+  return [...new Set(methods)];
+}
+
+function resolveProvisionPaymentMethod(
+  acceptedPaymentMethods: PaymentMethod[],
+  requestedPaymentMethod?: PaymentMethod,
+): PaymentMethod | undefined {
+  if (requestedPaymentMethod) {
+    return requestedPaymentMethod;
+  }
+
+  if (acceptedPaymentMethods.includes("free")) {
+    return "free";
+  }
+
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -291,12 +321,11 @@ export function createOSPServer(
           } satisfies EstimateRequest),
         });
 
-        const offering = manifest.offerings.find((entry) => entry.offering_id === offering_id);
-        const tier = offering?.tiers.find((entry) => entry.tier_id === tier_id);
-        const acceptedPaymentMethods =
-          tier?.accepted_payment_methods
-          ?? manifest.accepted_payment_methods
-          ?? ["free"];
+        const acceptedPaymentMethods = resolveAcceptedPaymentMethods(
+          manifest,
+          offering_id,
+          tier_id,
+        );
 
         return {
           content: [
@@ -356,20 +385,119 @@ export function createOSPServer(
         .string()
         .optional()
         .describe("Deployment region (e.g., 'us-east-1')"),
+      payment_method: z
+        .string()
+        .optional()
+        .describe(
+          "Payment method for paid tiers. Must match the tier's accepted_payment_methods.",
+        ),
+      payment_proof: z
+        .union([z.string(), z.record(z.string(), z.unknown())])
+        .optional()
+        .describe(
+          "Payment authorization or receipt for non-free tiers. Omit for free provisioning.",
+        ),
       config: z
         .record(z.string(), z.unknown())
         .optional()
         .describe("Offering-specific configuration"),
     },
-    async ({ provider_url, offering_id, tier_id, project_name, region, config }) => {
+    async ({
+      provider_url,
+      offering_id,
+      tier_id,
+      project_name,
+      region,
+      payment_method,
+      payment_proof,
+      config,
+    }) => {
       try {
         const manifest = await fetchManifest(provider_url);
         const url = endpointUrl(provider_url, manifest.endpoints.provision);
+        const acceptedPaymentMethods = resolveAcceptedPaymentMethods(
+          manifest,
+          offering_id,
+          tier_id,
+        );
+        const resolvedPaymentMethod = resolveProvisionPaymentMethod(
+          acceptedPaymentMethods,
+          payment_method as PaymentMethod | undefined,
+        );
+
+        if (!resolvedPaymentMethod) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    error:
+                      "This tier requires an explicit payment_method. Run osp_estimate first to compare pricing and available rails.",
+                    accepted_payment_methods: acceptedPaymentMethods,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        if (!acceptedPaymentMethods.includes(resolvedPaymentMethod)) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    error: `Payment method '${resolvedPaymentMethod}' is not accepted for tier '${tier_id}'.`,
+                    accepted_payment_methods: acceptedPaymentMethods,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        if (resolvedPaymentMethod !== "free" && payment_proof === undefined) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    error: `Payment proof is required when using payment_method '${resolvedPaymentMethod}'.`,
+                    accepted_payment_methods: acceptedPaymentMethods,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
 
         const nonce =
           typeof crypto !== "undefined" && crypto.randomUUID
             ? crypto.randomUUID()
             : `nonce_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+        const request = {
+          offering_id,
+          tier_id,
+          project_name,
+          region,
+          config,
+          nonce,
+          payment_method: resolvedPaymentMethod,
+          payment_proof: payment_proof as PaymentProof | undefined,
+        };
 
         const response = await ospFetch<ProvisionResponse>(url, {
           method: "POST",
@@ -377,15 +505,7 @@ export function createOSPServer(
             "Content-Type": "application/json",
             ...authHeaders,
           },
-          body: JSON.stringify({
-            offering_id,
-            tier_id,
-            project_name,
-            region,
-            config,
-            nonce,
-            payment_method: "free",
-          }),
+          body: JSON.stringify(request),
         });
 
         return {
@@ -399,6 +519,7 @@ export function createOSPServer(
                   dashboard_url: response.dashboard_url,
                   credentials_available: !!response.credentials,
                   cost_estimate: response.cost_estimate,
+                  payment_method: resolvedPaymentMethod,
                   message: response.message,
                 },
                 null,

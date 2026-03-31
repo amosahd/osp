@@ -7,6 +7,7 @@ export type {
   SpendingPolicy,
   SpendingMandate,
   MandateStatus,
+  SardisPaymentProof,
   EscrowHold,
   EscrowStatus,
   ReleaseCondition,

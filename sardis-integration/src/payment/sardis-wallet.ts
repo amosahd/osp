@@ -18,6 +18,7 @@ import type {
   MandateStatus,
   ReleaseCondition,
   SardisError,
+  SardisPaymentProof,
   SardisResult,
   SardisWallet,
   SpendingMandate,
@@ -34,7 +35,7 @@ interface OSPProvisionRequest {
   project_name: string;
   region?: string;
   payment_method: string;
-  payment_proof?: Record<string, string>;
+  payment_proof?: SardisPaymentProof;
   nonce: string;
   [key: string]: unknown;
 }
@@ -241,8 +242,22 @@ export class SardisWalletClient {
       region: params.region ?? mandate.region,
       payment_method: "sardis_wallet",
       payment_proof: {
+        version: "sardis-proof-v1",
         wallet_address: mandate.wallet_id,
         payment_tx: mandate.mandate_id,
+        offering_id: mandate.offering_id,
+        tier_id: mandate.tier_id,
+        amount: mandate.max_amount,
+        currency: mandate.currency,
+        nonce: params.nonce,
+        expires_at: mandate.expires_at,
+        provider_id: mandate.provider_id,
+        region: params.region ?? mandate.region,
+        signature_material: buildSignatureMaterial(
+          mandate,
+          params.nonce,
+          params.region ?? mandate.region,
+        ),
       },
       nonce: params.nonce,
       ...(params.configuration && { configuration: params.configuration }),
@@ -457,4 +472,24 @@ function generateId(): string {
     id += chars[Math.floor(Math.random() * chars.length)];
   }
   return id;
+}
+
+function buildSignatureMaterial(
+  mandate: SpendingMandate,
+  nonce: string,
+  region?: string,
+): string {
+  return [
+    "sardis-proof-v1",
+    mandate.wallet_id,
+    mandate.mandate_id,
+    mandate.offering_id,
+    mandate.tier_id,
+    mandate.max_amount,
+    mandate.currency,
+    nonce,
+    mandate.expires_at,
+    mandate.provider_id ?? "",
+    region ?? mandate.region ?? "",
+  ].join(":");
 }

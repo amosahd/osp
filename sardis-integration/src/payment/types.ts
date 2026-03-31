@@ -112,6 +112,43 @@ export type MandateStatus =
   | "expired"
   | "revoked";
 
+/**
+ * Sardis proof envelope embedded into OSP `payment_proof`.
+ *
+ * The envelope binds the wallet, mandate, commercial terms, and request nonce
+ * into a stable payload that providers can verify or countersign.
+ */
+export interface SardisPaymentProof {
+  /** Sardis proof envelope format version. */
+  version: "sardis-proof-v1";
+  /** Wallet funding the provisioning action. */
+  wallet_address: string;
+  /** Mandate or transaction identifier authorizing the spend. */
+  payment_tx: string;
+  /** OSP offering covered by the proof. */
+  offering_id: string;
+  /** OSP tier covered by the proof. */
+  tier_id: string;
+  /** Authorized amount for the operation. */
+  amount: string;
+  /** ISO 4217 currency code for the authorization. */
+  currency: string;
+  /** Request nonce bound into the proof. */
+  nonce: string;
+  /** RFC 3339 timestamp when the proof expires. */
+  expires_at: string;
+  /** Optional provider binding when the mandate was scoped. */
+  provider_id?: string;
+  /** Optional region binding when the mandate was scoped. */
+  region?: string;
+  /**
+   * Canonical material that a wallet or provider can sign to attest the proof.
+   * This is deliberately explicit so multiple implementations can generate the
+   * same verification payload without hidden conventions.
+   */
+  signature_material: string;
+}
+
 // ---------------------------------------------------------------------------
 // Escrow
 // ---------------------------------------------------------------------------

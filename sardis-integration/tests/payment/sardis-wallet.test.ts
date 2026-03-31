@@ -187,9 +187,57 @@ describe("SardisWalletClient", () => {
       expect(request.tier_id).toBe("pro");
       expect(request.project_name).toBe("my-app-db");
       expect(request.payment_method).toBe("sardis_wallet");
-      expect(request.payment_proof).toEqual({
+      expect(request.payment_proof).toMatchObject({
+        version: "sardis-proof-v1",
         wallet_address: "wal_test123",
         payment_tx: mandate.mandate_id,
+        offering_id: "supabase/managed-postgres",
+        tier_id: "pro",
+        amount: "25.00",
+        currency: "USD",
+        nonce: "test-nonce-123",
+        expires_at: mandate.expires_at,
+      });
+      expect(request.payment_proof?.signature_material).toBe(
+        [
+          "sardis-proof-v1",
+          "wal_test123",
+          mandate.mandate_id,
+          "supabase/managed-postgres",
+          "pro",
+          "25.00",
+          "USD",
+          "test-nonce-123",
+          mandate.expires_at,
+          "",
+          "us-east-1",
+        ].join(":"),
+      );
+      expect(request.payment_proof).toEqual({
+        version: "sardis-proof-v1",
+        wallet_address: "wal_test123",
+        payment_tx: mandate.mandate_id,
+        offering_id: "supabase/managed-postgres",
+        tier_id: "pro",
+        amount: "25.00",
+        currency: "USD",
+        nonce: "test-nonce-123",
+        expires_at: mandate.expires_at,
+        provider_id: undefined,
+        region: "us-east-1",
+        signature_material: [
+          "sardis-proof-v1",
+          "wal_test123",
+          mandate.mandate_id,
+          "supabase/managed-postgres",
+          "pro",
+          "25.00",
+          "USD",
+          "test-nonce-123",
+          mandate.expires_at,
+          "",
+          "us-east-1",
+        ].join(":"),
       });
       expect(request.nonce).toBe("test-nonce-123");
       expect(request.region).toBe("us-east-1");

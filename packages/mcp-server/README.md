@@ -143,6 +143,28 @@ For providers that enforce human review, the tool returns structured approval me
 - `payment_proof` (optional) — Payment authorization or receipt for non-free tiers
 - `config` (optional) — Offering-specific configuration object
 
+**Approval flow example:**
+
+```json
+{
+  "status": "approval_required",
+  "requires_approval": true,
+  "message": "Finance approval required before provisioning.",
+  "gate_id": "gate_cost_001",
+  "approval_url": "https://approvals.example/review/gate_cost_001",
+  "poll_url": "/osp/v1/gates/gate_cost_001/status",
+  "timeout_at": "2026-04-01T01:00:00Z"
+}
+```
+
+Agent guidance:
+- pause the provisioning workflow
+- show `message` and `approval_url` to the principal
+- poll `poll_url` or wait for the human to resume the flow
+- retry only after approval has been granted
+
+If the provider has already created a gated operation, `osp_provision` may also return a successful response with `status: "gate_pending"` and the same gate metadata fields.
+
 ### `osp_status`
 
 Check the status of a provisioned resource, including health, usage, and cost.

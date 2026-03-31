@@ -4047,6 +4047,7 @@ Providers and agents MAY advertise their conformance level:
 | Level | Provider Requirements | Agent Requirements |
 |-------|----------------------|-------------------|
 | **OSP Core** | All 8 mandatory endpoints (6.1-6.8) + Sections 9.1 requirements | All Section 9.2 requirements |
+| **OSP Paid Core** | OSP Core + paid tier declaration + structured payment errors + async/idempotent paid provisioning | OSP Core + valid payment rail selection + payment proof handling + retry-safe paid provisioning |
 | **OSP Core + Webhooks** | Core + webhook management endpoint (6.9) + webhook delivery with retries (8.5) | Core + webhook receiver with HMAC verification |
 | **OSP Core + Events** | Core + audit event stream endpoint (6.10) with 90-day retention | Core + event polling capability |
 | **OSP Core + Escrow** | Core + escrow profiles in tiers + integration with escrow provider (Sardis or equivalent) | Core + escrow ACK/NACK support |

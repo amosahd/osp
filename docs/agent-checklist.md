@@ -119,6 +119,7 @@ After completing the above, your agent can advertise one of these levels:
 | Level | What's Needed |
 |-------|--------------|
 | **OSP Core** | All **(required)** items above |
+| **OSP Paid Core** | Core + payment rail selection + payment proof handling + retry-safe paid provisioning |
 | **OSP Core + Webhooks** | Core + webhook receiver with HMAC verification |
 | **OSP Core + Events** | Core + event polling capability |
 | **OSP Core + Escrow** | Core + escrow ACK/NACK support |

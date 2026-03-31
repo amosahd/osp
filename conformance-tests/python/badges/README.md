@@ -27,6 +27,7 @@ python generate_badges.py --generate-examples --output ./examples/
 | Level      | Badge Color | Description                                 |
 |------------|-------------|---------------------------------------------|
 | `core`     | Green       | All 8 mandatory endpoints (6.1-6.8)        |
+| `paid-core`| Green       | Core + paid provisioning + idempotent retry |
 | `webhooks` | Green       | Core + webhook management + delivery        |
 | `events`   | Green       | Core + audit event stream                   |
 | `escrow`   | Green       | Core + escrow profiles and integration      |

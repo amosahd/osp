@@ -1,8 +1,9 @@
 /**
  * OSP MCP Server — exposes OSP operations as MCP tools.
  *
- * Provides 5 tools for the full service lifecycle:
+ * Provides 6 tools for the full service lifecycle:
  *   - osp_discover   — Search for and discover OSP service providers
+ *   - osp_estimate   — Estimate cost before provisioning
  *   - osp_provision   — Provision a new service resource
  *   - osp_status      — Check the status of a provisioned resource
  *   - osp_deprovision — Deprovision (delete) a resource
@@ -16,6 +17,8 @@ import { z } from "zod";
 import type {
   ServiceManifest,
   ProvisionResponse,
+  EstimateRequest,
+  EstimateResponse,
   ResourceStatus,
   CredentialBundle,
   UsageReport,
@@ -203,6 +206,117 @@ export function createOSPServer(
 
         return {
           content: [{ type: "text" as const, text: JSON.stringify(summary, null, 2) }],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${err instanceof Error ? err.message : String(err)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // -----------------------------------------------------------------------
+  // Tool: osp_estimate
+  // -----------------------------------------------------------------------
+
+  server.tool(
+    "osp_estimate",
+    "Estimate provisioning cost and accepted payment methods before creating a resource.",
+    {
+      provider_url: z
+        .string()
+        .describe("URL of the provider (e.g., 'https://supabase.com')"),
+      offering_id: z
+        .string()
+        .describe(
+          "Service offering ID from the manifest (e.g., 'supabase/postgres')",
+        ),
+      tier_id: z
+        .string()
+        .describe("Tier ID within the offering (e.g., 'free', 'pro')"),
+      region: z
+        .string()
+        .optional()
+        .describe("Deployment region (e.g., 'us-east-1')"),
+      configuration: z
+        .record(z.string(), z.unknown())
+        .optional()
+        .describe("Offering-specific estimate configuration"),
+      estimated_usage: z
+        .record(z.string(), z.number())
+        .optional()
+        .describe("Estimated usage dimensions for metered pricing"),
+      billing_periods: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Number of billing periods to estimate"),
+    },
+    async ({
+      provider_url,
+      offering_id,
+      tier_id,
+      region,
+      configuration,
+      estimated_usage,
+      billing_periods,
+    }) => {
+      try {
+        const manifest = await fetchManifest(provider_url);
+        const url = endpointUrl(
+          provider_url,
+          manifest.endpoints.estimate ?? "/osp/v1/estimate",
+        );
+
+        const response = await ospFetch<EstimateResponse>(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify({
+            offering_id,
+            tier_id,
+            region,
+            configuration,
+            estimated_usage,
+            billing_periods,
+          } satisfies EstimateRequest),
+        });
+
+        const offering = manifest.offerings.find((entry) => entry.offering_id === offering_id);
+        const tier = offering?.tiers.find((entry) => entry.tier_id === tier_id);
+        const acceptedPaymentMethods =
+          tier?.accepted_payment_methods
+          ?? manifest.accepted_payment_methods
+          ?? ["free"];
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  provider_id: manifest.provider_id,
+                  offering_id: response.offering_id,
+                  tier_id: response.tier_id,
+                  accepted_payment_methods: acceptedPaymentMethods,
+                  estimate: response.estimate,
+                  comparison_hint: response.comparison_hint,
+                  valid_until: response.valid_until,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (err) {
         return {

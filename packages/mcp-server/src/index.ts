@@ -26,6 +26,8 @@ export type {
   MCPConfig,
   ProvisionRequest,
   ProvisionResponse,
+  EstimateRequest,
+  EstimateResponse,
   CredentialBundle,
   ResourceStatus,
   UsageReport,

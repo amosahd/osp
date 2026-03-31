@@ -114,6 +114,19 @@ Search for and discover OSP service providers. Returns available providers and t
 - `provider_url` (optional) — URL of a specific provider (e.g., `https://supabase.com`). If omitted, searches the registry.
 - `category` (optional) — Filter by category: `database`, `hosting`, `auth`, `analytics`, `storage`, `compute`, `messaging`, `monitoring`, `search`, `ai`, `email`
 
+### `osp_estimate`
+
+Estimate provisioning cost and accepted payment methods before creating a resource.
+
+**Parameters:**
+- `provider_url` (required) — URL of the provider
+- `offering_id` (required) — Service offering ID
+- `tier_id` (required) — Tier ID
+- `region` (optional) — Deployment region
+- `configuration` (optional) — Estimate-specific configuration object
+- `estimated_usage` (optional) — Usage dimensions for metered pricing
+- `billing_periods` (optional) — Number of billing periods to estimate
+
 ### `osp_provision`
 
 Provision a new service resource from an OSP provider. Creates databases, hosting instances, auth services, etc.

@@ -18,6 +18,7 @@ import type {
   MandateStatus,
   ReleaseCondition,
   SardisError,
+  SardisProofBindingExpectation,
   SardisPaymentProof,
   SardisResult,
   SardisWallet,
@@ -69,6 +70,43 @@ interface OSPServiceTier {
     release_condition?: ReleaseCondition;
     dispute_window_hours?: number;
   };
+}
+
+export function verifySardisPaymentProofBinding(
+  proof: SardisPaymentProof,
+  expected: SardisProofBindingExpectation,
+): SardisResult<SardisPaymentProof> {
+  const mismatches: string[] = [];
+  const checks: Array<[keyof SardisProofBindingExpectation, string | undefined]> = [
+    ["wallet_address", proof.wallet_address],
+    ["payment_tx", proof.payment_tx],
+    ["provider_id", proof.provider_id],
+    ["offering_id", proof.offering_id],
+    ["tier_id", proof.tier_id],
+    ["amount", proof.amount],
+    ["currency", proof.currency],
+    ["nonce", proof.nonce],
+    ["region", proof.region],
+  ];
+
+  for (const [key, actualValue] of checks) {
+    const expectedValue = expected[key];
+    if (expectedValue !== undefined && actualValue !== expectedValue) {
+      mismatches.push(`${key}: expected ${expectedValue}, received ${actualValue ?? "undefined"}`);
+    }
+  }
+
+  if (mismatches.length > 0) {
+    return {
+      ok: false,
+      error: {
+        code: "PROOF_BINDING_MISMATCH",
+        message: mismatches.join("; "),
+      },
+    };
+  }
+
+  return { ok: true, data: proof };
 }
 
 // ---------------------------------------------------------------------------

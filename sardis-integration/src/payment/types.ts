@@ -149,6 +149,19 @@ export interface SardisPaymentProof {
   signature_material: string;
 }
 
+/** Expected commercial context when validating a Sardis payment proof. */
+export interface SardisProofBindingExpectation {
+  wallet_address?: string;
+  payment_tx?: string;
+  provider_id?: string;
+  offering_id: string;
+  tier_id: string;
+  amount: string;
+  currency: string;
+  nonce?: string;
+  region?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Escrow
 // ---------------------------------------------------------------------------

@@ -1603,6 +1603,10 @@ Agent                                Provider
 - Agents MUST NOT poll more frequently than once every 5 seconds.
 - Agents SHOULD use exponential backoff if the resource is not yet ready.
 - Agents MUST stop polling after 1 hour and treat the provisioning as failed.
+- Providers MUST return the same `resource_id` and polling location (`poll_url` or `status_url`) for duplicate retries with the same `idempotency_key` while the request is still in progress.
+- Agents MUST retry an interrupted async provision request with the same `idempotency_key` and a new `nonce`.
+- When both fields are present, `poll_url` is the canonical field and `status_url` is a compatibility alias.
+- Terminal states for async polling are `active`, `failed`, and `deprovisioned`. Agents MUST stop polling once a terminal state is reached.
 
 **Webhook alternative:**
 
@@ -1674,6 +1678,8 @@ When an agent includes an `idempotency_key` in the `ProvisionRequest`:
 2. If the provider receives another request with the same `idempotency_key`, it MUST return the stored response without creating a new resource.
 3. The idempotency key is scoped to the provider. Different providers MAY receive the same key without conflict.
 4. If the original request is still being processed, the provider SHOULD return the in-progress `ProvisionResponse` (status: `provisioning`).
+5. Agents retrying after a timeout or lost connection MUST generate a fresh `nonce` for each attempt while preserving the same `idempotency_key`.
+6. Providers MUST treat a changed `nonce` plus unchanged `idempotency_key` as a retry of the same logical operation, not a second provisioning request.
 
 ### 5.6 Deprovisioning
 

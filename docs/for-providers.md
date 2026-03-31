@@ -134,10 +134,18 @@ If provisioning takes more than a few seconds, return `202 Accepted` with `"stat
 {
   "resource_id": "res_abc123",
   "status": "provisioning",
+  "poll_url": "https://api.yourdomain.com/osp/v1/resources/res_abc123",
   "status_url": "https://api.yourdomain.com/osp/v1/resources/res_abc123",
   "estimated_ready_seconds": 30
 }
 ```
+
+Async response rules:
+
+- Return the same `resource_id` and polling URL for duplicate requests with the same `idempotency_key`.
+- Accept a new `nonce` on each retry attempt as long as the `idempotency_key` is unchanged.
+- Prefer `poll_url` as the canonical field. You may mirror the same value into `status_url` for compatibility with older agents.
+- Once the resource reaches a terminal state, return `active`, `failed`, or `deprovisioned` and stop advertising `estimated_ready_seconds`.
 
 ### 2.2 Get Resource Status — `GET /osp/v1/resources/{resource_id}`
 

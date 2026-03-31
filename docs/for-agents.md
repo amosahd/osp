@@ -192,12 +192,13 @@ Some services take time to provision. You will receive a `202 Accepted`:
 {
   "resource_id": "proj_abc123",
   "status": "provisioning",
+  "poll_url": "https://api.supabase.com/osp/v1/resources/proj_abc123",
   "status_url": "https://api.supabase.com/osp/v1/resources/proj_abc123",
   "estimated_ready_seconds": 30
 }
 ```
 
-Poll the `status_url` until the status changes to `provisioned`:
+Poll `poll_url` until the status reaches a terminal state. Treat `status_url` as a compatibility alias if `poll_url` is absent:
 
 ```python
 import time
@@ -210,9 +211,9 @@ def wait_for_provisioning(status_url: str, timeout: int = 300) -> dict:
         response = httpx.get(status_url)
         data = response.json()
 
-        if data["status"] == "provisioned":
+        if data["status"] in {"active", "provisioned"}:
             return data
-        elif data["status"] == "error":
+        elif data["status"] in {"failed", "deprovisioned"}:
             raise Exception(f"Provisioning failed: {data.get('error')}")
 
         # Respect estimated_ready_seconds or use exponential backoff
@@ -220,6 +221,13 @@ def wait_for_provisioning(status_url: str, timeout: int = 300) -> dict:
 
     raise TimeoutError("Provisioning timed out")
 ```
+
+Async retry rules:
+
+- Keep the same `idempotency_key` across retries of the same logical provision request.
+- Generate a new `nonce` for each retry attempt.
+- If you lose the initial `202 Accepted` response, retry the provision request with the same `idempotency_key` and expect the provider to return the same in-progress resource rather than creating a duplicate.
+- Stop polling once the resource reaches `active`, `failed`, or `deprovisioned`.
 
 ### Error Handling
 

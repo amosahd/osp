@@ -242,10 +242,12 @@ Common error codes your agent should handle:
 | HTTP Status | Error Code | Action |
 |---|---|---|
 | 400 | `invalid_request` | Fix the request and retry |
-| 401 | `unauthorized` | Refresh authentication and retry |
+| 401 | `identity_verification_failed` | Refresh or replace identity proof, then retry |
+| 402 | `payment_required`, `payment_declined`, `budget_exceeded` | Supply valid payment or request budget approval |
+| 403 | `approval_required`, `trust_tier_insufficient` | Pause for human review or raise trust level |
 | 404 | `not_found` | Offering or resource does not exist |
 | 409 | `conflict` | Resource already exists (idempotency key match) |
-| 429 | `insufficient_quota` | Wait and retry, or upgrade tier |
+| 429 | `rate_limit_exceeded` | Respect `retry_after_seconds` and retry later |
 | 500 | `provider_error` | Retry with exponential backoff |
 
 ## Step 4: Manage Credentials and Lifecycle

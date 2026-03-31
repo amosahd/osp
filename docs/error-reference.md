@@ -320,6 +320,36 @@ All OSP error responses use this structure:
 
 ---
 
+#### `approval_required`
+
+| | |
+|---|---|
+| **HTTP Status** | `403 Forbidden` |
+| **Description** | The request is valid, but execution is paused behind a human approval gate. |
+| **Retryable** | Yes (after approval is granted) |
+| **Agent Action** | Surface the approval context to the principal. Preserve the same logical operation, wait for approval, then resume using the provided `approval_url` or `poll_url`. |
+
+```json
+{
+  "error": {
+    "code": "approval_required",
+    "message": "Provisioning supabase/managed-postgres (pro) requires finance approval before execution.",
+    "details": {
+      "gate_id": "gate_cost_001",
+      "gate_name": "High-Cost Provisioning",
+      "approval_url": "https://approvals.acme.com/gates/gate_cost_001/review",
+      "poll_url": "/osp/v1/gates/gate_cost_001/status",
+      "timeout_at": "2026-03-31T18:30:00Z",
+      "requires_approval": true
+    },
+    "retryable": true,
+    "retry_after_seconds": 0
+  }
+}
+```
+
+---
+
 ### Authentication and Authorization Errors
 
 #### `trust_tier_insufficient`
@@ -455,7 +485,7 @@ All OSP error responses use this structure:
 
 ### Rate Limiting and Quota Errors
 
-#### `rate_limited`
+#### `rate_limit_exceeded`
 
 | | |
 |---|---|
@@ -467,7 +497,7 @@ All OSP error responses use this structure:
 ```json
 {
   "error": {
-    "code": "rate_limited",
+    "code": "rate_limit_exceeded",
     "message": "Rate limit exceeded: 10 requests per minute for POST /provision",
     "details": {
       "limit": 10,
@@ -657,7 +687,7 @@ For quick reference, here is the complete mapping from HTTP status codes to thei
 | `403 Forbidden` | `trust_tier_insufficient`, `attestation_revoked`, `delegation_unauthorized`, `budget_exceeded` (hard_block) |
 | `406 Not Acceptable` | `version_not_supported` |
 | `409 Conflict` | `nonce_reused` |
-| `429 Too Many Requests` | `rate_limited`, `quota_exceeded` |
+| `429 Too Many Requests` | `rate_limit_exceeded`, `quota_exceeded` |
 | `500 Internal Server Error` | `provider_error` |
 | `503 Service Unavailable` | `region_unavailable`, `capacity_exhausted`, `offering_unavailable` |
 

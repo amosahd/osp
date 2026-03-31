@@ -803,12 +803,15 @@ The object a provider returns after processing a provision request.
 | `invalid_configuration` | The configuration object does not match the offering's `configuration_schema`. |
 | `payment_required` | Payment proof is missing or invalid. |
 | `payment_declined` | The payment method was declined. |
+| `payment_failed` | Payment processing failed due to a transient processor or network error. |
 | `insufficient_funds` | The payment method has insufficient funds. |
+| `approval_required` | The request is valid but paused pending human approval or policy review. |
+| `budget_exceeded` | The request would exceed a configured budget guardrail. |
 | `trust_tier_insufficient` | The agent's trust tier does not meet the minimum requirement. |
 | `quota_exceeded` | The principal has exceeded their quota for this offering. |
 | `region_unavailable` | The requested region is temporarily unavailable. |
 | `nonce_reused` | The nonce has already been used. |
-| `rate_limited` | Too many requests. Check `retry_after_seconds`. |
+| `rate_limit_exceeded` | Too many requests. Check `retry_after_seconds`. |
 | `provider_error` | An internal provider error occurred. |
 | `capacity_exhausted` | The provider has no available capacity. |
 | `identity_verification_failed` | Agent identity verification failed (HTTP 403). The provided identity proof is invalid, expired, or uses an unsupported method. |
@@ -3806,21 +3809,26 @@ RateLimit-Reset: 60
 
 ```json
 {
-  "error": "rate_limit_exceeded",
-  "message": "Rate limit exceeded. Try again in 30 seconds.",
-  "retry_after_seconds": 30,
-  "limit": 60,
-  "window_seconds": 60
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded. Try again in 30 seconds.",
+    "details": {
+      "limit": 60,
+      "window_seconds": 60
+    },
+    "retryable": true,
+    "retry_after_seconds": 30
+  }
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `error` | `string` | REQUIRED | MUST be `"rate_limit_exceeded"`. |
-| `message` | `string` | REQUIRED | Human-readable error message. |
-| `retry_after_seconds` | `integer` | REQUIRED | Number of seconds the agent SHOULD wait before retrying. |
-| `limit` | `integer` | REQUIRED | Maximum requests allowed in the rate limit window. |
-| `window_seconds` | `integer` | REQUIRED | Duration of the rate limit window in seconds. |
+| `error.code` | `string` | REQUIRED | MUST be `"rate_limit_exceeded"`. |
+| `error.message` | `string` | REQUIRED | Human-readable error message. |
+| `error.retry_after_seconds` | `integer` | REQUIRED | Number of seconds the agent SHOULD wait before retrying. |
+| `error.details.limit` | `integer` | REQUIRED | Maximum requests allowed in the rate limit window. |
+| `error.details.window_seconds` | `integer` | REQUIRED | Duration of the rate limit window in seconds. |
 
 #### 8.6.3 Per-Endpoint Rate Limits
 
@@ -9435,12 +9443,15 @@ The `identity_required_for_tiers` field declares which tiers require identity ve
             "invalid_configuration",
             "payment_required",
             "payment_declined",
+            "payment_failed",
             "insufficient_funds",
+            "approval_required",
+            "budget_exceeded",
             "trust_tier_insufficient",
             "quota_exceeded",
             "region_unavailable",
             "nonce_reused",
-            "rate_limited",
+            "rate_limit_exceeded",
             "provider_error",
             "capacity_exhausted"
           ],

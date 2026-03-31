@@ -1,0 +1,164 @@
+{
+  "description": "Signed and tampered manifest fixtures for verification parity testing",
+  "version": "1.0.0",
+  "test_public_key": "dGVzdC1wdWJsaWMta2V5LWZvci1maXh0dXJlcw",
+  "test_key_id": "key_fixture_001",
+  "fixtures": [
+    {
+      "id": "valid-signed-manifest",
+      "description": "Correctly signed manifest — verification MUST succeed",
+      "expect": "valid",
+      "manifest": {
+        "manifest_id": "mfst_valid_001",
+        "manifest_version": 1,
+        "previous_version": null,
+        "osp_spec_version": "1.1",
+        "provider_id": "prv_fixture",
+        "display_name": "Fixture Provider",
+        "provider_public_key": "dGVzdC1wdWJsaWMta2V5LWZvci1maXh0dXJlcw",
+        "provider_key_id": "key_fixture_001",
+        "offerings": [
+          {
+            "offering_id": "db-postgres",
+            "name": "Postgres Database",
+            "category": "database",
+            "tiers": [
+              {"tier_id": "free", "name": "Free", "price": {"amount": "0.00", "currency": "USD"}}
+            ],
+            "credentials_schema": {}
+          }
+        ],
+        "accepted_payment_methods": ["free"],
+        "endpoints": {
+          "provision": "/osp/v1/provision",
+          "deprovision": "/osp/v1/deprovision",
+          "status": "/osp/v1/status"
+        },
+        "provider_signature": "fixture-valid-sig-placeholder"
+      }
+    },
+    {
+      "id": "tampered-display-name",
+      "description": "display_name changed after signing — verification MUST fail",
+      "expect": "invalid",
+      "tampered_field": "display_name",
+      "manifest": {
+        "manifest_id": "mfst_valid_001",
+        "manifest_version": 1,
+        "previous_version": null,
+        "osp_spec_version": "1.1",
+        "provider_id": "prv_fixture",
+        "display_name": "TAMPERED Provider Name",
+        "provider_public_key": "dGVzdC1wdWJsaWMta2V5LWZvci1maXh0dXJlcw",
+        "provider_key_id": "key_fixture_001",
+        "offerings": [
+          {
+            "offering_id": "db-postgres",
+            "name": "Postgres Database",
+            "category": "database",
+            "tiers": [
+              {"tier_id": "free", "name": "Free", "price": {"amount": "0.00", "currency": "USD"}}
+            ],
+            "credentials_schema": {}
+          }
+        ],
+        "accepted_payment_methods": ["free"],
+        "endpoints": {
+          "provision": "/osp/v1/provision",
+          "deprovision": "/osp/v1/deprovision",
+          "status": "/osp/v1/status"
+        },
+        "provider_signature": "fixture-valid-sig-placeholder"
+      }
+    },
+    {
+      "id": "tampered-price",
+      "description": "Tier price changed after signing — verification MUST fail",
+      "expect": "invalid",
+      "tampered_field": "offerings[0].tiers[0].price.amount",
+      "manifest": {
+        "manifest_id": "mfst_valid_001",
+        "manifest_version": 1,
+        "previous_version": null,
+        "osp_spec_version": "1.1",
+        "provider_id": "prv_fixture",
+        "display_name": "Fixture Provider",
+        "provider_public_key": "dGVzdC1wdWJsaWMta2V5LWZvci1maXh0dXJlcw",
+        "provider_key_id": "key_fixture_001",
+        "offerings": [
+          {
+            "offering_id": "db-postgres",
+            "name": "Postgres Database",
+            "category": "database",
+            "tiers": [
+              {"tier_id": "free", "name": "Free", "price": {"amount": "99.99", "currency": "USD"}}
+            ],
+            "credentials_schema": {}
+          }
+        ],
+        "accepted_payment_methods": ["free"],
+        "endpoints": {
+          "provision": "/osp/v1/provision",
+          "deprovision": "/osp/v1/deprovision",
+          "status": "/osp/v1/status"
+        },
+        "provider_signature": "fixture-valid-sig-placeholder"
+      }
+    },
+    {
+      "id": "missing-signature",
+      "description": "No provider_signature field — verification MUST fail",
+      "expect": "invalid",
+      "tampered_field": "provider_signature",
+      "manifest": {
+        "manifest_id": "mfst_nosig",
+        "manifest_version": 1,
+        "previous_version": null,
+        "provider_id": "prv_fixture",
+        "display_name": "No Signature Provider",
+        "provider_public_key": "dGVzdC1wdWJsaWMta2V5LWZvci1maXh0dXJlcw",
+        "offerings": [],
+        "endpoints": {
+          "provision": "/osp/v1/provision"
+        }
+      }
+    },
+    {
+      "id": "wrong-key",
+      "description": "Signed with a different key — verification MUST fail",
+      "expect": "invalid",
+      "manifest": {
+        "manifest_id": "mfst_wrongkey",
+        "manifest_version": 1,
+        "previous_version": null,
+        "provider_id": "prv_fixture",
+        "display_name": "Wrong Key Provider",
+        "provider_public_key": "ZGlmZmVyZW50LWtleS1ub3QtbWF0Y2hpbmc",
+        "provider_key_id": "key_wrong_002",
+        "offerings": [],
+        "endpoints": {
+          "provision": "/osp/v1/provision"
+        },
+        "provider_signature": "fixture-valid-sig-placeholder"
+      }
+    },
+    {
+      "id": "empty-offerings",
+      "description": "Valid signature with empty offerings array — verification MUST succeed",
+      "expect": "valid",
+      "manifest": {
+        "manifest_id": "mfst_empty",
+        "manifest_version": 1,
+        "previous_version": null,
+        "provider_id": "prv_fixture",
+        "display_name": "Empty Offerings Provider",
+        "provider_public_key": "dGVzdC1wdWJsaWMta2V5LWZvci1maXh0dXJlcw",
+        "offerings": [],
+        "endpoints": {
+          "provision": "/osp/v1/provision"
+        },
+        "provider_signature": "fixture-valid-sig-empty"
+      }
+    }
+  ]
+}

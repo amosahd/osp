@@ -184,6 +184,8 @@ If the provider can create the resource immediately, you get a `200 OK` with cre
 
 Your agent can immediately use the credentials to connect to the service.
 
+If the response includes an `escrow_id`, persist it alongside the `resource_id`. You will need it for later dispute, refund, or settlement-aware status workflows.
+
 ### Asynchronous Provisioning (HTTP 202)
 
 Some services take time to provision. You will receive a `202 Accepted`:
@@ -192,12 +194,13 @@ Some services take time to provision. You will receive a `202 Accepted`:
 {
   "resource_id": "proj_abc123",
   "status": "provisioning",
+  "poll_url": "https://api.supabase.com/osp/v1/resources/proj_abc123",
   "status_url": "https://api.supabase.com/osp/v1/resources/proj_abc123",
   "estimated_ready_seconds": 30
 }
 ```
 
-Poll the `status_url` until the status changes to `provisioned`:
+Poll `poll_url` until the status reaches a terminal state. Treat `status_url` as a compatibility alias if `poll_url` is absent:
 
 ```python
 import time
@@ -210,9 +213,9 @@ def wait_for_provisioning(status_url: str, timeout: int = 300) -> dict:
         response = httpx.get(status_url)
         data = response.json()
 
-        if data["status"] == "provisioned":
+        if data["status"] in {"active", "provisioned"}:
             return data
-        elif data["status"] == "error":
+        elif data["status"] in {"failed", "deprovisioned"}:
             raise Exception(f"Provisioning failed: {data.get('error')}")
 
         # Respect estimated_ready_seconds or use exponential backoff
@@ -220,6 +223,13 @@ def wait_for_provisioning(status_url: str, timeout: int = 300) -> dict:
 
     raise TimeoutError("Provisioning timed out")
 ```
+
+Async retry rules:
+
+- Keep the same `idempotency_key` across retries of the same logical provision request.
+- Generate a new `nonce` for each retry attempt.
+- If you lose the initial `202 Accepted` response, retry the provision request with the same `idempotency_key` and expect the provider to return the same in-progress resource rather than creating a duplicate.
+- Stop polling once the resource reaches `active`, `failed`, or `deprovisioned`.
 
 ### Error Handling
 
@@ -242,10 +252,12 @@ Common error codes your agent should handle:
 | HTTP Status | Error Code | Action |
 |---|---|---|
 | 400 | `invalid_request` | Fix the request and retry |
-| 401 | `unauthorized` | Refresh authentication and retry |
+| 401 | `identity_verification_failed` | Refresh or replace identity proof, then retry |
+| 402 | `payment_required`, `payment_declined`, `budget_exceeded` | Supply valid payment or request budget approval |
+| 403 | `approval_required`, `trust_tier_insufficient` | Pause for human review or raise trust level |
 | 404 | `not_found` | Offering or resource does not exist |
 | 409 | `conflict` | Resource already exists (idempotency key match) |
-| 429 | `insufficient_quota` | Wait and retry, or upgrade tier |
+| 429 | `rate_limit_exceeded` | Respect `retry_after_seconds` and retry later |
 | 500 | `provider_error` | Retry with exponential backoff |
 
 ## Step 4: Manage Credentials and Lifecycle

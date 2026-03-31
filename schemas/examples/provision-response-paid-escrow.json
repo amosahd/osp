@@ -1,0 +1,16 @@
+{
+  "$schema": "https://osp.dev/schemas/provision-response.schema.json",
+  "request_id": "req_01J8KS0Z2N4K9N8P5W3Q7V1T6Y",
+  "offering_id": "neon/postgres",
+  "tier_id": "scale",
+  "status": "provisioning",
+  "resource_id": "res_01J8KS12A6QQ1V7D3P5M8C2R4F",
+  "escrow_id": "esc_01J8KS13B3ME0W4Q5F7Y9A2R1K",
+  "poll_url": "https://api.neon.tech/osp/v1/resources/res_01J8KS12A6QQ1V7D3P5M8C2R4F/status",
+  "estimated_ready_seconds": 60,
+  "created_at": "2026-03-31T18:15:00Z",
+  "cost_estimate": {
+    "monthly_estimate": "25.00",
+    "currency": "USD"
+  }
+}

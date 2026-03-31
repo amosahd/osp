@@ -31,12 +31,24 @@
     },
     "payment_method": {
       "type": "string",
-      "enum": ["free", "sardis_wallet", "stripe_spt", "x402", "mpp", "invoice", "external"],
-      "description": "Payment method to use for this provisioning request"
+      "anyOf": [
+        {
+          "enum": ["free", "sardis_wallet", "stripe_spt", "x402", "mpp", "invoice", "external"]
+        },
+        {
+          "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$"
+        }
+      ],
+      "description": "Payment method to use for this provisioning request. Custom methods MUST use reverse-domain notation."
     },
     "payment_proof": {
-      "type": "string",
-      "description": "Payment proof (token, transaction hash, escrow ID, etc.) — format depends on payment_method"
+      "oneOf": [
+        { "$ref": "#/$defs/SardisWalletPaymentProof" },
+        { "$ref": "#/$defs/StripeSPTPaymentProof" },
+        { "$ref": "#/$defs/X402PaymentProof" },
+        { "$ref": "#/$defs/GenericPaymentProof" }
+      ],
+      "description": "Payment proof envelope. Shape depends on payment_method and provider-specific rail requirements."
     },
     "agent_public_key": {
       "type": "string",
@@ -87,7 +99,137 @@
       "description": "Client-generated key for request deduplication within 24-hour window"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "payment_method": { "const": "free" }
+        },
+        "required": ["payment_method"]
+      },
+      "then": {
+        "not": {
+          "required": ["payment_proof"]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payment_method": { "const": "sardis_wallet" }
+        },
+        "required": ["payment_method"]
+      },
+      "then": {
+        "required": ["payment_proof"],
+        "properties": {
+          "payment_proof": { "$ref": "#/$defs/SardisWalletPaymentProof" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payment_method": { "const": "stripe_spt" }
+        },
+        "required": ["payment_method"]
+      },
+      "then": {
+        "required": ["payment_proof"],
+        "properties": {
+          "payment_proof": { "$ref": "#/$defs/StripeSPTPaymentProof" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payment_method": { "const": "x402" }
+        },
+        "required": ["payment_method"]
+      },
+      "then": {
+        "required": ["payment_proof"],
+        "properties": {
+          "payment_proof": { "$ref": "#/$defs/X402PaymentProof" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payment_method": {
+            "not": { "const": "free" }
+          }
+        },
+        "required": ["payment_method"]
+      },
+      "then": {
+        "required": ["payment_proof"]
+      }
+    }
+  ],
   "$defs": {
+    "SardisWalletPaymentProof": {
+      "type": "object",
+      "required": ["wallet_address", "payment_tx"],
+      "properties": {
+        "wallet_address": {
+          "type": "string",
+          "description": "Sardis wallet address or wallet identifier funding the request"
+        },
+        "payment_tx": {
+          "type": "string",
+          "description": "Sardis payment transaction or mandate identifier"
+        },
+        "escrow_id": {
+          "type": "string",
+          "description": "Escrow identifier when the payment is escrow-backed"
+        }
+      },
+      "additionalProperties": false
+    },
+    "StripeSPTPaymentProof": {
+      "type": "object",
+      "required": ["spt_token", "amount", "currency"],
+      "properties": {
+        "spt_token": {
+          "type": "string",
+          "description": "Stripe Shared Payment Token authorizing this provisioning request"
+        },
+        "amount": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+          "description": "Authorized amount represented by the Stripe token"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency for the Stripe token authorization"
+        }
+      },
+      "additionalProperties": false
+    },
+    "X402PaymentProof": {
+      "type": "object",
+      "required": ["payment_header", "receipt"],
+      "properties": {
+        "payment_header": {
+          "type": "string",
+          "description": "Serialized x402 payment header"
+        },
+        "receipt": {
+          "type": "string",
+          "description": "x402 payment receipt or settlement proof"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GenericPaymentProof": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Fallback object for provider-defined or custom payment rails",
+      "additionalProperties": true
+    },
     "AgentIdentity": {
       "type": "object",
       "required": ["method", "credential"],

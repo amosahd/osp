@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { SardisWalletClient } from "../../src/payment/sardis-wallet.js";
+import {
+  SardisWalletClient,
+  verifySardisPaymentProofBinding,
+} from "../../src/payment/sardis-wallet.js";
 import type { SardisWallet } from "../../src/payment/types.js";
 
 // ---------------------------------------------------------------------------
@@ -187,9 +190,57 @@ describe("SardisWalletClient", () => {
       expect(request.tier_id).toBe("pro");
       expect(request.project_name).toBe("my-app-db");
       expect(request.payment_method).toBe("sardis_wallet");
-      expect(request.payment_proof).toEqual({
+      expect(request.payment_proof).toMatchObject({
+        version: "sardis-proof-v1",
         wallet_address: "wal_test123",
         payment_tx: mandate.mandate_id,
+        offering_id: "supabase/managed-postgres",
+        tier_id: "pro",
+        amount: "25.00",
+        currency: "USD",
+        nonce: "test-nonce-123",
+        expires_at: mandate.expires_at,
+      });
+      expect(request.payment_proof?.signature_material).toBe(
+        [
+          "sardis-proof-v1",
+          "wal_test123",
+          mandate.mandate_id,
+          "supabase/managed-postgres",
+          "pro",
+          "25.00",
+          "USD",
+          "test-nonce-123",
+          mandate.expires_at,
+          "",
+          "us-east-1",
+        ].join(":"),
+      );
+      expect(request.payment_proof).toEqual({
+        version: "sardis-proof-v1",
+        wallet_address: "wal_test123",
+        payment_tx: mandate.mandate_id,
+        offering_id: "supabase/managed-postgres",
+        tier_id: "pro",
+        amount: "25.00",
+        currency: "USD",
+        nonce: "test-nonce-123",
+        expires_at: mandate.expires_at,
+        provider_id: undefined,
+        region: "us-east-1",
+        signature_material: [
+          "sardis-proof-v1",
+          "wal_test123",
+          mandate.mandate_id,
+          "supabase/managed-postgres",
+          "pro",
+          "25.00",
+          "USD",
+          "test-nonce-123",
+          mandate.expires_at,
+          "",
+          "us-east-1",
+        ].join(":"),
       });
       expect(request.nonce).toBe("test-nonce-123");
       expect(request.region).toBe("us-east-1");
@@ -231,6 +282,70 @@ describe("SardisWalletClient", () => {
 
       expect(requestResult.ok).toBe(false);
       expect(requestResult.error?.code).toBe("MANDATE_NOT_ACTIVE");
+    });
+
+    it("should validate proof bindings against the expected context", async () => {
+      const mandateResult = await client.createMandate({
+        offering_id: "supabase/managed-postgres",
+        tier_id: "pro",
+        tier: proTier,
+        provider_id: "supabase",
+        region: "us-east-1",
+      });
+      const mandate = mandateResult.data!;
+
+      const requestResult = client.toProvisionRequest(mandate, {
+        project_name: "my-app-db",
+        nonce: "test-nonce-123",
+      });
+
+      expect(requestResult.ok).toBe(true);
+      const verification = verifySardisPaymentProofBinding(
+        requestResult.data!.payment_proof!,
+        {
+          wallet_address: "wal_test123",
+          payment_tx: mandate.mandate_id,
+          provider_id: "supabase",
+          offering_id: "supabase/managed-postgres",
+          tier_id: "pro",
+          amount: "25.00",
+          currency: "USD",
+          nonce: "test-nonce-123",
+          region: "us-east-1",
+        },
+      );
+
+      expect(verification.ok).toBe(true);
+    });
+
+    it("should reject proof reuse across mismatched contexts", async () => {
+      const mandateResult = await client.createMandate({
+        offering_id: "supabase/managed-postgres",
+        tier_id: "pro",
+        tier: proTier,
+      });
+      const mandate = mandateResult.data!;
+
+      const requestResult = client.toProvisionRequest(mandate, {
+        project_name: "my-app-db",
+        nonce: "test-nonce-123",
+      });
+
+      expect(requestResult.ok).toBe(true);
+      const verification = verifySardisPaymentProofBinding(
+        requestResult.data!.payment_proof!,
+        {
+          offering_id: "supabase/managed-postgres",
+          tier_id: "enterprise",
+          amount: "99.00",
+          currency: "USD",
+        },
+      );
+
+      expect(verification.ok).toBe(false);
+      expect(verification.error?.code).toBe("PROOF_BINDING_MISMATCH");
+      expect(verification.error?.message).toContain("tier_id");
+      expect(verification.error?.message).toContain("amount");
     });
   });
 

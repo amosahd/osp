@@ -128,6 +128,23 @@ export {
   base64urlEncode,
 } from "./crypto.js";
 
+// Paid provisioning helpers
+export {
+  evaluateEstimate,
+  buildPaidProvisionRequest,
+  serializePaymentProof,
+  parsePaymentProof,
+  isProofExpired,
+  pollPaidProvision,
+  PaidProvisionError,
+  ApprovalRequiredError,
+} from "./paid-provisioning.js";
+export type {
+  PaymentProofEnvelope,
+  EstimateDecision,
+  AsyncPaidProvisionOptions,
+} from "./paid-provisioning.js";
+
 // Resolver
 export {
   OSPResolver,

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://osp.dev/schemas/provision-request.schema.json",
+  "offering_id": "cloudflare/workers-ai",
+  "tier_id": "usage-based",
+  "project_name": "batch-inference",
+  "region": "global",
+  "payment_method": "x402",
+  "payment_proof": {
+    "payment_header": "x402 pay token=\"tok_01J8KR6EFQ7P3Y5TFG7P1A9WQ4\"",
+    "receipt": "rcpt_01J8KR6T4KZQJQW8D6A1J6T7GH"
+  },
+  "nonce": "x402_paid_nonce_1711123999000_randomized",
+  "config": {
+    "model": "@cf/meta/llama-3.1-8b-instruct",
+    "max_concurrency": 4
+  }
+}

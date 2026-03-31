@@ -1,0 +1,114 @@
+{
+  "description": "Canonical JSON test vectors for cross-SDK parity verification",
+  "version": "1.0.0",
+  "vectors": [
+    {
+      "id": "simple-sorted-keys",
+      "description": "Object keys must be sorted lexicographically",
+      "input": {"zebra": 1, "apple": 2, "mango": 3},
+      "expected": "{\"apple\":2,\"mango\":3,\"zebra\":1}"
+    },
+    {
+      "id": "nested-sorted-keys",
+      "description": "Nested object keys must also be sorted",
+      "input": {"b": {"z": 1, "a": 2}, "a": {"y": 3, "x": 4}},
+      "expected": "{\"a\":{\"x\":4,\"y\":3},\"b\":{\"a\":2,\"z\":1}}"
+    },
+    {
+      "id": "array-ordering-preserved",
+      "description": "Array element order must be preserved",
+      "input": {"items": [3, 1, 2]},
+      "expected": "{\"items\":[3,1,2]}"
+    },
+    {
+      "id": "unicode-escaping",
+      "description": "Unicode characters outside ASCII must be preserved, not escaped",
+      "input": {"name": "José García"},
+      "expected": "{\"name\":\"José García\"}"
+    },
+    {
+      "id": "empty-object",
+      "description": "Empty object serializes to {}",
+      "input": {},
+      "expected": "{}"
+    },
+    {
+      "id": "empty-array",
+      "description": "Empty array serializes to []",
+      "input": {"list": []},
+      "expected": "{\"list\":[]}"
+    },
+    {
+      "id": "null-value",
+      "description": "Null values must be preserved",
+      "input": {"key": null},
+      "expected": "{\"key\":null}"
+    },
+    {
+      "id": "boolean-values",
+      "description": "Boolean true/false serialized correctly",
+      "input": {"active": true, "deleted": false},
+      "expected": "{\"active\":true,\"deleted\":false}"
+    },
+    {
+      "id": "numeric-precision",
+      "description": "Numbers must not gain or lose precision",
+      "input": {"price": 29.99, "count": 0, "negative": -1},
+      "expected": "{\"count\":0,\"negative\":-1,\"price\":29.99}"
+    },
+    {
+      "id": "deeply-nested",
+      "description": "Deep nesting must sort at every level",
+      "input": {"c": {"b": {"a": 1, "z": 2}}, "a": 3},
+      "expected": "{\"a\":3,\"c\":{\"b\":{\"a\":1,\"z\":2}}}"
+    },
+    {
+      "id": "manifest-like",
+      "description": "Realistic manifest-shaped object",
+      "input": {
+        "provider_id": "prv_test",
+        "manifest_version": 1,
+        "display_name": "Test Provider",
+        "offerings": [
+          {
+            "offering_id": "db-postgres",
+            "tiers": [
+              {"tier_id": "free", "price": {"amount": "0.00", "currency": "USD"}},
+              {"tier_id": "pro", "price": {"amount": "29.00", "currency": "USD"}}
+            ]
+          }
+        ],
+        "accepted_payment_methods": ["free", "sardis_wallet"]
+      },
+      "expected": "{\"accepted_payment_methods\":[\"free\",\"sardis_wallet\"],\"display_name\":\"Test Provider\",\"manifest_version\":1,\"offerings\":[{\"offering_id\":\"db-postgres\",\"tiers\":[{\"price\":{\"amount\":\"0.00\",\"currency\":\"USD\"},\"tier_id\":\"free\"},{\"price\":{\"amount\":\"29.00\",\"currency\":\"USD\"},\"tier_id\":\"pro\"}]}],\"provider_id\":\"prv_test\"}"
+    },
+    {
+      "id": "payment-proof-like",
+      "description": "Realistic payment proof envelope",
+      "input": {
+        "version": "1",
+        "mandate_id": "mnd_abc",
+        "amount": "29.00",
+        "currency": "USD",
+        "provider_id": "prv_neon",
+        "offering_id": "db-postgres",
+        "tier_id": "pro",
+        "signature": "ed25519:test",
+        "expires_at": "2025-04-01T00:00:00Z"
+      },
+      "expected": "{\"amount\":\"29.00\",\"currency\":\"USD\",\"expires_at\":\"2025-04-01T00:00:00Z\",\"mandate_id\":\"mnd_abc\",\"offering_id\":\"db-postgres\",\"provider_id\":\"prv_neon\",\"signature\":\"ed25519:test\",\"tier_id\":\"pro\",\"version\":\"1\"}"
+    },
+    {
+      "id": "bad-ordering-regression",
+      "description": "Keys that differ only in case must sort by codepoint",
+      "input": {"Z": 1, "a": 2, "A": 3, "z": 4},
+      "expected": "{\"A\":3,\"Z\":1,\"a\":2,\"z\":4}"
+    },
+    {
+      "id": "string-with-special-chars",
+      "description": "Strings with quotes, backslashes, and control chars",
+      "input": {"msg": "line1\nline2\ttab \"quoted\""},
+      "expected": "{\"msg\":\"line1\\nline2\\ttab \\\"quoted\\\"\"}"
+    }
+  ]
+}

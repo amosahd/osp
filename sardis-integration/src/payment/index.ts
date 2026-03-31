@@ -1,4 +1,7 @@
-export { SardisWalletClient } from "./sardis-wallet.js";
+export {
+  SardisWalletClient,
+  verifySardisPaymentProofBinding,
+} from "./sardis-wallet.js";
 export { EscrowManager } from "./escrow.js";
 export { Ledger } from "./ledger.js";
 export type {
@@ -7,6 +10,8 @@ export type {
   SpendingPolicy,
   SpendingMandate,
   MandateStatus,
+  SardisPaymentProof,
+  SardisProofBindingExpectation,
   EscrowHold,
   EscrowStatus,
   ReleaseCondition,

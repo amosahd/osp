@@ -46,6 +46,7 @@ export interface ServiceTier {
   price: Price;
   limits?: Record<string, unknown>;
   features?: string[];
+  accepted_payment_methods?: PaymentMethod[];
 }
 
 /** Pricing information. */
@@ -58,6 +59,7 @@ export interface Price {
 /** API endpoint paths for the provisioning lifecycle. */
 export interface ProviderEndpoints {
   provision: string;
+  estimate?: string;
   deprovision: string;
   credentials: string;
   rotate?: string;
@@ -86,6 +88,7 @@ export interface ProvisionRequest {
   project_name: string;
   region?: string;
   payment_method?: PaymentMethod;
+  payment_proof?: PaymentProof;
   nonce: string;
   config?: Record<string, unknown>;
 }
@@ -98,6 +101,46 @@ export interface ProvisionResponse {
   dashboard_url?: string;
   message?: string;
   cost_estimate?: CostEstimate;
+  estimated_ready_seconds?: number;
+  poll_url?: string;
+  gate_id?: string;
+  gate_name?: string;
+  approval_url?: string;
+  timeout_at?: string;
+}
+
+/** Request to estimate provisioning cost without creating a resource. */
+export interface EstimateRequest {
+  offering_id: string;
+  tier_id: string;
+  region?: string;
+  configuration?: Record<string, unknown>;
+  estimated_usage?: Record<string, number>;
+  billing_periods?: number;
+}
+
+/** Cost estimate response from a provider. */
+export interface EstimateResponse {
+  offering_id: string;
+  tier_id: string;
+  estimate: {
+    base_cost?: Price;
+    metered_cost?: Record<
+      string,
+      {
+        quantity: number;
+        unit_price: string;
+        subtotal: string;
+        note?: string;
+      }
+    >;
+    total_monthly?: string;
+    total_for_period?: string;
+    currency?: string;
+    billing_periods?: number;
+  };
+  comparison_hint?: string;
+  valid_until?: string;
 }
 
 /** An encrypted bundle of credentials returned after provisioning. */
@@ -153,6 +196,20 @@ export interface CostBreakdownItem {
   estimated_cost: string;
 }
 
+export interface OSPErrorPayload {
+  code?: string;
+  message?: string;
+  details?: Record<string, unknown>;
+  retryable?: boolean;
+  retry_after_seconds?: number;
+}
+
+export interface OSPErrorResponse {
+  error?: OSPErrorPayload | string;
+}
+
+export type PaymentProof = string | Record<string, unknown>;
+
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
@@ -185,5 +242,6 @@ export type ProvisionStatus =
   | "active"
   | "failed"
   | "pending_payment"
+  | "gate_pending"
   | "deprovisioning"
   | "deprovisioned";

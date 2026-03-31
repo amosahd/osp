@@ -18,6 +18,8 @@ import type {
   MandateStatus,
   ReleaseCondition,
   SardisError,
+  SardisProofBindingExpectation,
+  SardisPaymentProof,
   SardisResult,
   SardisWallet,
   SpendingMandate,
@@ -34,7 +36,7 @@ interface OSPProvisionRequest {
   project_name: string;
   region?: string;
   payment_method: string;
-  payment_proof?: Record<string, string>;
+  payment_proof?: SardisPaymentProof;
   nonce: string;
   [key: string]: unknown;
 }
@@ -68,6 +70,43 @@ interface OSPServiceTier {
     release_condition?: ReleaseCondition;
     dispute_window_hours?: number;
   };
+}
+
+export function verifySardisPaymentProofBinding(
+  proof: SardisPaymentProof,
+  expected: SardisProofBindingExpectation,
+): SardisResult<SardisPaymentProof> {
+  const mismatches: string[] = [];
+  const checks: Array<[keyof SardisProofBindingExpectation, string | undefined]> = [
+    ["wallet_address", proof.wallet_address],
+    ["payment_tx", proof.payment_tx],
+    ["provider_id", proof.provider_id],
+    ["offering_id", proof.offering_id],
+    ["tier_id", proof.tier_id],
+    ["amount", proof.amount],
+    ["currency", proof.currency],
+    ["nonce", proof.nonce],
+    ["region", proof.region],
+  ];
+
+  for (const [key, actualValue] of checks) {
+    const expectedValue = expected[key];
+    if (expectedValue !== undefined && actualValue !== expectedValue) {
+      mismatches.push(`${key}: expected ${expectedValue}, received ${actualValue ?? "undefined"}`);
+    }
+  }
+
+  if (mismatches.length > 0) {
+    return {
+      ok: false,
+      error: {
+        code: "PROOF_BINDING_MISMATCH",
+        message: mismatches.join("; "),
+      },
+    };
+  }
+
+  return { ok: true, data: proof };
 }
 
 // ---------------------------------------------------------------------------
@@ -241,8 +280,22 @@ export class SardisWalletClient {
       region: params.region ?? mandate.region,
       payment_method: "sardis_wallet",
       payment_proof: {
+        version: "sardis-proof-v1",
         wallet_address: mandate.wallet_id,
         payment_tx: mandate.mandate_id,
+        offering_id: mandate.offering_id,
+        tier_id: mandate.tier_id,
+        amount: mandate.max_amount,
+        currency: mandate.currency,
+        nonce: params.nonce,
+        expires_at: mandate.expires_at,
+        provider_id: mandate.provider_id,
+        region: params.region ?? mandate.region,
+        signature_material: buildSignatureMaterial(
+          mandate,
+          params.nonce,
+          params.region ?? mandate.region,
+        ),
       },
       nonce: params.nonce,
       ...(params.configuration && { configuration: params.configuration }),
@@ -457,4 +510,24 @@ function generateId(): string {
     id += chars[Math.floor(Math.random() * chars.length)];
   }
   return id;
+}
+
+function buildSignatureMaterial(
+  mandate: SpendingMandate,
+  nonce: string,
+  region?: string,
+): string {
+  return [
+    "sardis-proof-v1",
+    mandate.wallet_id,
+    mandate.mandate_id,
+    mandate.offering_id,
+    mandate.tier_id,
+    mandate.max_amount,
+    mandate.currency,
+    nonce,
+    mandate.expires_at,
+    mandate.provider_id ?? "",
+    region ?? mandate.region ?? "",
+  ].join(":");
 }

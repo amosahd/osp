@@ -228,6 +228,7 @@ OSP is payment-rail agnostic. [Sardis](https://sardis.sh) is the founding mainta
 - **Payment Rail** — `sardis_wallet` payment method with escrow lifecycle
 - **MCP Extension** — 9 OSP tools for Claude/GPT agents
 - **CLI Bridge** — `sardis projects add` → OSP provision + Sardis payment
+- **Provider Verification Example** — [Sardis proof verification guide](docs/payments/sardis-provider-verification.md)
 
 Other payment rails (Stripe SPT, x402, MPP, invoicing) are equally supported.
 

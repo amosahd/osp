@@ -774,6 +774,7 @@ The object a provider returns after processing a provision request.
 | `tier_id` | `string` | REQUIRED | The tier that was provisioned. |
 | `status` | `string` | REQUIRED | Current provisioning status. One of: `provisioned`, `provisioning`, `failed`. |
 | `credentials_bundle` | `CredentialBundle` | OPTIONAL | Credentials for the resource. REQUIRED when `status` is `provisioned`. MUST be absent when `status` is `provisioning` or `failed`. |
+| `escrow_id` | `string` | OPTIONAL | Escrow identifier for paid tiers that use escrow-backed settlement. |
 | `estimated_ready_seconds` | `integer` | OPTIONAL | Estimated seconds until the resource is ready. REQUIRED when `status` is `provisioning`. |
 | `poll_url` | `string` | OPTIONAL | URL to poll for status updates. REQUIRED when `status` is `provisioning`. |
 | `webhook_supported` | `boolean` | OPTIONAL | Whether the provider will send webhook notifications. Default: `false`. |
@@ -803,12 +804,15 @@ The object a provider returns after processing a provision request.
 | `invalid_configuration` | The configuration object does not match the offering's `configuration_schema`. |
 | `payment_required` | Payment proof is missing or invalid. |
 | `payment_declined` | The payment method was declined. |
+| `payment_failed` | Payment processing failed due to a transient processor or network error. |
 | `insufficient_funds` | The payment method has insufficient funds. |
+| `approval_required` | The request is valid but paused pending human approval or policy review. |
+| `budget_exceeded` | The request would exceed a configured budget guardrail. |
 | `trust_tier_insufficient` | The agent's trust tier does not meet the minimum requirement. |
 | `quota_exceeded` | The principal has exceeded their quota for this offering. |
 | `region_unavailable` | The requested region is temporarily unavailable. |
 | `nonce_reused` | The nonce has already been used. |
-| `rate_limited` | Too many requests. Check `retry_after_seconds`. |
+| `rate_limit_exceeded` | Too many requests. Check `retry_after_seconds`. |
 | `provider_error` | An internal provider error occurred. |
 | `capacity_exhausted` | The provider has no available capacity. |
 | `identity_verification_failed` | Agent identity verification failed (HTTP 403). The provided identity proof is invalid, expired, or uses an unsupported method. |
@@ -1600,6 +1604,10 @@ Agent                                Provider
 - Agents MUST NOT poll more frequently than once every 5 seconds.
 - Agents SHOULD use exponential backoff if the resource is not yet ready.
 - Agents MUST stop polling after 1 hour and treat the provisioning as failed.
+- Providers MUST return the same `resource_id` and polling location (`poll_url` or `status_url`) for duplicate retries with the same `idempotency_key` while the request is still in progress.
+- Agents MUST retry an interrupted async provision request with the same `idempotency_key` and a new `nonce`.
+- When both fields are present, `poll_url` is the canonical field and `status_url` is a compatibility alias.
+- Terminal states for async polling are `active`, `failed`, and `deprovisioned`. Agents MUST stop polling once a terminal state is reached.
 
 **Webhook alternative:**
 
@@ -1671,6 +1679,8 @@ When an agent includes an `idempotency_key` in the `ProvisionRequest`:
 2. If the provider receives another request with the same `idempotency_key`, it MUST return the stored response without creating a new resource.
 3. The idempotency key is scoped to the provider. Different providers MAY receive the same key without conflict.
 4. If the original request is still being processed, the provider SHOULD return the in-progress `ProvisionResponse` (status: `provisioning`).
+5. Agents retrying after a timeout or lost connection MUST generate a fresh `nonce` for each attempt while preserving the same `idempotency_key`.
+6. Providers MUST treat a changed `nonce` plus unchanged `idempotency_key` as a retry of the same logical operation, not a second provisioning request.
 
 ### 5.6 Deprovisioning
 
@@ -3554,6 +3564,43 @@ Providers MAY declare custom payment methods by using a namespaced identifier:
 
 Custom payment method identifiers MUST use reverse-domain notation. The `payment_proof` structure for custom methods is defined by the provider and documented in their manifest's `extensions` object.
 
+#### Canonical Paid Provisioning Contract
+
+The canonical paid provisioning contract is:
+
+1. Providers MUST declare allowed rails using `accepted_payment_methods` at the manifest or tier level.
+2. Agents MUST send exactly one `payment_method`, and it MUST be one of the accepted methods for the selected tier.
+3. Agents MUST omit `payment_proof` when `payment_method` is `free`.
+4. Agents MUST include a rail-specific `payment_proof` when `payment_method` is anything other than `free`.
+5. Providers MUST reject missing or invalid paid proof with a machine-actionable error such as `payment_required`, `payment_declined`, `payment_failed`, `budget_exceeded`, or `approval_required`.
+6. For duplicate retries of an in-flight paid provision request, agents MUST keep the same `idempotency_key` and generate a fresh `nonce`.
+7. Providers MUST return the original in-progress response for duplicate paid retries with the same `idempotency_key`.
+8. If the tier uses escrow-backed settlement, providers SHOULD include `escrow_id` in the provision response as soon as it exists.
+
+This contract is the normative baseline for OSP Paid Core.
+
+#### Provider Obligations
+
+Providers implementing paid provisioning MUST satisfy the following obligations:
+
+1. **Verification**: Providers MUST verify payment proof signatures against the declared rail's verification rules before allocating any resources. Verification MUST be synchronous even when provisioning is asynchronous.
+2. **Idempotency**: Providers MUST treat requests with the same `idempotency_key` as retries. The first accepted request wins; subsequent retries MUST return the original response without duplicate resource allocation or duplicate charges.
+3. **Failure Handling**: If provisioning fails after payment proof has been accepted, the provider MUST:
+   - Return a machine-actionable error with `provision_failed` code.
+   - Include a `refund_eligible: true` flag when the failure warrants reversal.
+   - NOT silently consume the payment proof without delivering a resource or signaling failure.
+4. **Timeout Behavior**: If the provider cannot complete provisioning within the declared `max_provision_time`, it MUST return `408 Request Timeout` with `retry_eligible: true`.
+5. **Settlement Correlation**: For escrow-backed tiers, the provider MUST include the `escrow_id` in all responses and MUST call the settlement confirmation endpoint before the escrow timeout expires.
+
+#### Agent Obligations
+
+Agents consuming paid provisioning MUST satisfy:
+
+1. **Nonce Freshness**: Each request MUST include a unique `nonce`. Retries of the same logical request MUST reuse the `idempotency_key` but generate a fresh `nonce`.
+2. **Proof Scope**: Payment proof MUST be scoped to the specific provider, offering, tier, and amount. Proof generated for one provider MUST NOT be reused for another.
+3. **Settlement Correlation**: Agents MUST store the `escrow_id` returned by the provider and use it for subsequent settlement, dispute, or refund operations.
+4. **Error Recovery**: On `approval_required`, agents MUST pause and surface the approval request to the controlling principal. On `payment_failed`, agents MUST NOT retry with the same proof material.
+
 ### 7.2 Usage-Based Billing
 
 For tiers with `metered: true`, providers track usage and generate `UsageReport` objects at the end of each billing period.
@@ -3806,21 +3853,26 @@ RateLimit-Reset: 60
 
 ```json
 {
-  "error": "rate_limit_exceeded",
-  "message": "Rate limit exceeded. Try again in 30 seconds.",
-  "retry_after_seconds": 30,
-  "limit": 60,
-  "window_seconds": 60
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded. Try again in 30 seconds.",
+    "details": {
+      "limit": 60,
+      "window_seconds": 60
+    },
+    "retryable": true,
+    "retry_after_seconds": 30
+  }
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `error` | `string` | REQUIRED | MUST be `"rate_limit_exceeded"`. |
-| `message` | `string` | REQUIRED | Human-readable error message. |
-| `retry_after_seconds` | `integer` | REQUIRED | Number of seconds the agent SHOULD wait before retrying. |
-| `limit` | `integer` | REQUIRED | Maximum requests allowed in the rate limit window. |
-| `window_seconds` | `integer` | REQUIRED | Duration of the rate limit window in seconds. |
+| `error.code` | `string` | REQUIRED | MUST be `"rate_limit_exceeded"`. |
+| `error.message` | `string` | REQUIRED | Human-readable error message. |
+| `error.retry_after_seconds` | `integer` | REQUIRED | Number of seconds the agent SHOULD wait before retrying. |
+| `error.details.limit` | `integer` | REQUIRED | Maximum requests allowed in the rate limit window. |
+| `error.details.window_seconds` | `integer` | REQUIRED | Duration of the rate limit window in seconds. |
 
 #### 8.6.3 Per-Endpoint Rate Limits
 
@@ -4032,6 +4084,7 @@ Providers and agents MAY advertise their conformance level:
 | Level | Provider Requirements | Agent Requirements |
 |-------|----------------------|-------------------|
 | **OSP Core** | All 8 mandatory endpoints (6.1-6.8) + Sections 9.1 requirements | All Section 9.2 requirements |
+| **OSP Paid Core** | OSP Core + paid tier declaration + structured payment errors + async/idempotent paid provisioning | OSP Core + valid payment rail selection + payment proof handling + retry-safe paid provisioning |
 | **OSP Core + Webhooks** | Core + webhook management endpoint (6.9) + webhook delivery with retries (8.5) | Core + webhook receiver with HMAC verification |
 | **OSP Core + Events** | Core + audit event stream endpoint (6.10) with 90-day retention | Core + event polling capability |
 | **OSP Core + Escrow** | Core + escrow profiles in tiers + integration with escrow provider (Sardis or equivalent) | Core + escrow ACK/NACK support |
@@ -9435,12 +9488,15 @@ The `identity_required_for_tiers` field declares which tiers require identity ve
             "invalid_configuration",
             "payment_required",
             "payment_declined",
+            "payment_failed",
             "insufficient_funds",
+            "approval_required",
+            "budget_exceeded",
             "trust_tier_insufficient",
             "quota_exceeded",
             "region_unavailable",
             "nonce_reused",
-            "rate_limited",
+            "rate_limit_exceeded",
             "provider_error",
             "capacity_exhausted"
           ],

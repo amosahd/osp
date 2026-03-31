@@ -1,8 +1,9 @@
 /**
  * OSP MCP Server — exposes OSP operations as MCP tools.
  *
- * Provides 5 tools for the full service lifecycle:
+ * Provides 6 tools for the full service lifecycle:
  *   - osp_discover   — Search for and discover OSP service providers
+ *   - osp_estimate   — Estimate cost before provisioning
  *   - osp_provision   — Provision a new service resource
  *   - osp_status      — Check the status of a provisioned resource
  *   - osp_deprovision — Deprovision (delete) a resource
@@ -16,9 +17,15 @@ import { z } from "zod";
 import type {
   ServiceManifest,
   ProvisionResponse,
+  EstimateRequest,
+  EstimateResponse,
   ResourceStatus,
   CredentialBundle,
   UsageReport,
+  OSPErrorPayload,
+  OSPErrorResponse,
+  PaymentMethod,
+  PaymentProof,
 } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -33,6 +40,18 @@ interface FetchOptions {
   headers?: Record<string, string>;
   body?: string;
   timeoutMs?: number;
+}
+
+export class OSPHTTPError extends Error {
+  readonly status: number;
+  readonly payload?: OSPErrorResponse;
+
+  constructor(message: string, status: number, payload?: OSPErrorResponse) {
+    super(message);
+    this.name = "OSPHTTPError";
+    this.status = status;
+    this.payload = payload;
+  }
 }
 
 async function ospFetch<T>(url: string, options?: FetchOptions): Promise<T> {
@@ -57,15 +76,19 @@ async function ospFetch<T>(url: string, options?: FetchOptions): Promise<T> {
 
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+      let errorPayload: OSPErrorResponse | undefined;
       try {
-        const body = await response.json();
-        if (body && typeof body === "object" && "error" in body) {
-          errorMessage = (body as { error: string }).error;
+        const body = (await response.json()) as OSPErrorResponse;
+        errorPayload = body;
+        if (typeof body?.error === "string") {
+          errorMessage = body.error;
+        } else if (body?.error && typeof body.error === "object") {
+          errorMessage = body.error.message ?? errorMessage;
         }
       } catch {
         // Response body may not be JSON
       }
-      throw new Error(errorMessage);
+      throw new OSPHTTPError(errorMessage, response.status, errorPayload);
     }
 
     return (await response.json()) as T;
@@ -106,6 +129,85 @@ async function fetchManifest(providerUrl: string): Promise<ServiceManifest> {
   );
   manifestCache.set(key, manifest);
   return manifest;
+}
+
+function resolveAcceptedPaymentMethods(
+  manifest: ServiceManifest,
+  offeringId: string,
+  tierId: string,
+): PaymentMethod[] {
+  const offering = manifest.offerings.find((entry) => entry.offering_id === offeringId);
+  const tier = offering?.tiers.find((entry) => entry.tier_id === tierId);
+  const methods = tier?.accepted_payment_methods
+    ?? manifest.accepted_payment_methods
+    ?? ["free"];
+  return [...new Set(methods)];
+}
+
+function resolveProvisionPaymentMethod(
+  acceptedPaymentMethods: PaymentMethod[],
+  requestedPaymentMethod?: PaymentMethod,
+): PaymentMethod | undefined {
+  if (requestedPaymentMethod) {
+    return requestedPaymentMethod;
+  }
+
+  if (acceptedPaymentMethods.includes("free")) {
+    return "free";
+  }
+
+  return undefined;
+}
+
+function extractErrorPayload(error: unknown): OSPErrorPayload | undefined {
+  if (!(error instanceof OSPHTTPError)) {
+    return undefined;
+  }
+
+  if (!error.payload) {
+    return undefined;
+  }
+
+  if (typeof error.payload.error === "string") {
+    return { message: error.payload.error };
+  }
+
+  return error.payload.error;
+}
+
+function isApprovalRequiredError(error: unknown): boolean {
+  const payload = extractErrorPayload(error);
+  const code = payload?.code?.toLowerCase();
+  return code === "approval_required" || payload?.details?.requires_approval === true;
+}
+
+function approvalResultFromError(error: OSPHTTPError) {
+  const payload = extractErrorPayload(error);
+  const details = payload?.details ?? {};
+
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(
+          {
+            status: "approval_required",
+            requires_approval: true,
+            message: payload?.message ?? error.message,
+            code: payload?.code ?? "approval_required",
+            gate_id: details.gate_id,
+            gate_name: details.gate_name,
+            approval_url: details.approval_url,
+            poll_url: details.poll_url,
+            timeout_at: details.timeout_at,
+            details,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -219,6 +321,116 @@ export function createOSPServer(
   );
 
   // -----------------------------------------------------------------------
+  // Tool: osp_estimate
+  // -----------------------------------------------------------------------
+
+  server.tool(
+    "osp_estimate",
+    "Estimate provisioning cost and accepted payment methods before creating a resource.",
+    {
+      provider_url: z
+        .string()
+        .describe("URL of the provider (e.g., 'https://supabase.com')"),
+      offering_id: z
+        .string()
+        .describe(
+          "Service offering ID from the manifest (e.g., 'supabase/postgres')",
+        ),
+      tier_id: z
+        .string()
+        .describe("Tier ID within the offering (e.g., 'free', 'pro')"),
+      region: z
+        .string()
+        .optional()
+        .describe("Deployment region (e.g., 'us-east-1')"),
+      configuration: z
+        .record(z.string(), z.unknown())
+        .optional()
+        .describe("Offering-specific estimate configuration"),
+      estimated_usage: z
+        .record(z.string(), z.number())
+        .optional()
+        .describe("Estimated usage dimensions for metered pricing"),
+      billing_periods: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Number of billing periods to estimate"),
+    },
+    async ({
+      provider_url,
+      offering_id,
+      tier_id,
+      region,
+      configuration,
+      estimated_usage,
+      billing_periods,
+    }) => {
+      try {
+        const manifest = await fetchManifest(provider_url);
+        const url = endpointUrl(
+          provider_url,
+          manifest.endpoints.estimate ?? "/osp/v1/estimate",
+        );
+
+        const response = await ospFetch<EstimateResponse>(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify({
+            offering_id,
+            tier_id,
+            region,
+            configuration,
+            estimated_usage,
+            billing_periods,
+          } satisfies EstimateRequest),
+        });
+
+        const acceptedPaymentMethods = resolveAcceptedPaymentMethods(
+          manifest,
+          offering_id,
+          tier_id,
+        );
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  provider_id: manifest.provider_id,
+                  offering_id: response.offering_id,
+                  tier_id: response.tier_id,
+                  accepted_payment_methods: acceptedPaymentMethods,
+                  estimate: response.estimate,
+                  comparison_hint: response.comparison_hint,
+                  valid_until: response.valid_until,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${err instanceof Error ? err.message : String(err)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // -----------------------------------------------------------------------
   // Tool: osp_provision
   // -----------------------------------------------------------------------
 
@@ -242,20 +454,119 @@ export function createOSPServer(
         .string()
         .optional()
         .describe("Deployment region (e.g., 'us-east-1')"),
+      payment_method: z
+        .string()
+        .optional()
+        .describe(
+          "Payment method for paid tiers. Must match the tier's accepted_payment_methods.",
+        ),
+      payment_proof: z
+        .union([z.string(), z.record(z.string(), z.unknown())])
+        .optional()
+        .describe(
+          "Payment authorization or receipt for non-free tiers. Omit for free provisioning.",
+        ),
       config: z
         .record(z.string(), z.unknown())
         .optional()
         .describe("Offering-specific configuration"),
     },
-    async ({ provider_url, offering_id, tier_id, project_name, region, config }) => {
+    async ({
+      provider_url,
+      offering_id,
+      tier_id,
+      project_name,
+      region,
+      payment_method,
+      payment_proof,
+      config,
+    }) => {
       try {
         const manifest = await fetchManifest(provider_url);
         const url = endpointUrl(provider_url, manifest.endpoints.provision);
+        const acceptedPaymentMethods = resolveAcceptedPaymentMethods(
+          manifest,
+          offering_id,
+          tier_id,
+        );
+        const resolvedPaymentMethod = resolveProvisionPaymentMethod(
+          acceptedPaymentMethods,
+          payment_method as PaymentMethod | undefined,
+        );
+
+        if (!resolvedPaymentMethod) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    error:
+                      "This tier requires an explicit payment_method. Run osp_estimate first to compare pricing and available rails.",
+                    accepted_payment_methods: acceptedPaymentMethods,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        if (!acceptedPaymentMethods.includes(resolvedPaymentMethod)) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    error: `Payment method '${resolvedPaymentMethod}' is not accepted for tier '${tier_id}'.`,
+                    accepted_payment_methods: acceptedPaymentMethods,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        if (resolvedPaymentMethod !== "free" && payment_proof === undefined) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    error: `Payment proof is required when using payment_method '${resolvedPaymentMethod}'.`,
+                    accepted_payment_methods: acceptedPaymentMethods,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
 
         const nonce =
           typeof crypto !== "undefined" && crypto.randomUUID
             ? crypto.randomUUID()
             : `nonce_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+        const request = {
+          offering_id,
+          tier_id,
+          project_name,
+          region,
+          config,
+          nonce,
+          payment_method: resolvedPaymentMethod,
+          payment_proof: payment_proof as PaymentProof | undefined,
+        };
 
         const response = await ospFetch<ProvisionResponse>(url, {
           method: "POST",
@@ -263,15 +574,7 @@ export function createOSPServer(
             "Content-Type": "application/json",
             ...authHeaders,
           },
-          body: JSON.stringify({
-            offering_id,
-            tier_id,
-            project_name,
-            region,
-            config,
-            nonce,
-            payment_method: "free",
-          }),
+          body: JSON.stringify(request),
         });
 
         return {
@@ -285,6 +588,14 @@ export function createOSPServer(
                   dashboard_url: response.dashboard_url,
                   credentials_available: !!response.credentials,
                   cost_estimate: response.cost_estimate,
+                  estimated_ready_seconds: response.estimated_ready_seconds,
+                  poll_url: response.poll_url,
+                  requires_approval: response.status === "gate_pending",
+                  gate_id: response.gate_id,
+                  gate_name: response.gate_name,
+                  approval_url: response.approval_url,
+                  timeout_at: response.timeout_at,
+                  payment_method: resolvedPaymentMethod,
                   message: response.message,
                 },
                 null,
@@ -294,6 +605,10 @@ export function createOSPServer(
           ],
         };
       } catch (err) {
+        if (err instanceof OSPHTTPError && isApprovalRequiredError(err)) {
+          return approvalResultFromError(err);
+        }
+
         return {
           content: [
             {

@@ -28,6 +28,10 @@
       "type": "string",
       "description": "Provider-assigned resource identifier, available once provisioning completes"
     },
+    "escrow_id": {
+      "type": "string",
+      "description": "Escrow identifier for paid tiers that use escrow-backed settlement"
+    },
     "credentials": {
       "oneOf": [
         { "$ref": "#/$defs/CredentialBundle" },
@@ -46,6 +50,11 @@
       "type": "string",
       "format": "uri",
       "description": "URL to poll for provisioning status (for async provisioning)"
+    },
+    "poll_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Canonical polling URL for async provisioning status. Providers MAY temporarily mirror status_url during migration."
     },
     "estimated_ready_seconds": {
       "type": "integer",
@@ -99,6 +108,23 @@
       "description": "Whether this is a sandbox resource. Sandbox resources are free, time-limited, and auto-deprovision after TTL (Section 5.9)"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "provisioning" }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["resource_id", "estimated_ready_seconds"],
+        "anyOf": [
+          { "required": ["status_url"] },
+          { "required": ["poll_url"] }
+        ]
+      }
+    }
+  ],
   "$defs": {
     "CredentialBundle": {
       "type": "object",

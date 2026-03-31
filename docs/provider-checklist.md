@@ -134,6 +134,7 @@ After completing the above, your provider can advertise one of these levels:
 | Level | What's Needed |
 |-------|--------------|
 | **OSP Core** | All **(required)** items above |
+| **OSP Paid Core** | Core + paid tier declaration + structured payment errors + async/idempotent paid provisioning |
 | **OSP Core + Webhooks** | Core + webhook management + webhook delivery with retries |
 | **OSP Core + Events** | Core + audit event stream with 90-day retention |
 | **OSP Core + Escrow** | Core + escrow profiles in tiers + escrow provider integration |

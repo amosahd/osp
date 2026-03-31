@@ -1,0 +1,18 @@
+{
+  "$schema": "https://osp.dev/schemas/provision-request.schema.json",
+  "offering_id": "vercel/hosting",
+  "tier_id": "pro",
+  "project_name": "marketing-site",
+  "region": "us-east-1",
+  "payment_method": "stripe_spt",
+  "payment_proof": {
+    "spt_token": "spt_live_01J8KR3M3B4NZ2H0YQ9S5M7Q2C",
+    "amount": "20.00",
+    "currency": "USD"
+  },
+  "nonce": "stripe_paid_nonce_1711123999000_randomized",
+  "config": {
+    "framework": "nextjs",
+    "production_branch": "main"
+  }
+}

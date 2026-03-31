@@ -99,6 +99,76 @@
       "description": "Client-generated key for request deduplication within 24-hour window"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "payment_method": { "const": "free" }
+        },
+        "required": ["payment_method"]
+      },
+      "then": {
+        "not": {
+          "required": ["payment_proof"]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payment_method": { "const": "sardis_wallet" }
+        },
+        "required": ["payment_method"]
+      },
+      "then": {
+        "required": ["payment_proof"],
+        "properties": {
+          "payment_proof": { "$ref": "#/$defs/SardisWalletPaymentProof" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payment_method": { "const": "stripe_spt" }
+        },
+        "required": ["payment_method"]
+      },
+      "then": {
+        "required": ["payment_proof"],
+        "properties": {
+          "payment_proof": { "$ref": "#/$defs/StripeSPTPaymentProof" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payment_method": { "const": "x402" }
+        },
+        "required": ["payment_method"]
+      },
+      "then": {
+        "required": ["payment_proof"],
+        "properties": {
+          "payment_proof": { "$ref": "#/$defs/X402PaymentProof" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payment_method": {
+            "not": { "const": "free" }
+          }
+        },
+        "required": ["payment_method"]
+      },
+      "then": {
+        "required": ["payment_proof"]
+      }
+    }
+  ],
   "$defs": {
     "SardisWalletPaymentProof": {
       "type": "object",

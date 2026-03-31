@@ -28,6 +28,10 @@
       "type": "string",
       "description": "Provider-assigned resource identifier, available once provisioning completes"
     },
+    "escrow_id": {
+      "type": "string",
+      "description": "Escrow identifier for paid tiers that use escrow-backed settlement"
+    },
     "credentials": {
       "oneOf": [
         { "$ref": "#/$defs/CredentialBundle" },

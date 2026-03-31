@@ -184,6 +184,8 @@ If the provider can create the resource immediately, you get a `200 OK` with cre
 
 Your agent can immediately use the credentials to connect to the service.
 
+If the response includes an `escrow_id`, persist it alongside the `resource_id`. You will need it for later dispute, refund, or settlement-aware status workflows.
+
 ### Asynchronous Provisioning (HTTP 202)
 
 Some services take time to provision. You will receive a `202 Accepted`:

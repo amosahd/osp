@@ -145,6 +145,7 @@ Async response rules:
 - Return the same `resource_id` and polling URL for duplicate requests with the same `idempotency_key`.
 - Accept a new `nonce` on each retry attempt as long as the `idempotency_key` is unchanged.
 - Prefer `poll_url` as the canonical field. You may mirror the same value into `status_url` for compatibility with older agents.
+- If the paid tier uses escrow-backed settlement, include the `escrow_id` in the initial provision response so the agent can track settlement lifecycle.
 - Once the resource reaches a terminal state, return `active`, `failed`, or `deprovisioned` and stop advertising `estimated_ready_seconds`.
 
 ### 2.2 Get Resource Status — `GET /osp/v1/resources/{resource_id}`

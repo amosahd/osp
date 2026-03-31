@@ -5,7 +5,11 @@
   "project_name": "production-analytics-db",
   "region": "eu-central-1",
   "payment_method": "sardis_wallet",
-  "payment_proof": "sardis_tx_01J8KQZP5R4XMWN7VBCG3HT9YD_escrow_69.00_USD_neon.tech_2026-03-27T14:30:00Z",
+  "payment_proof": {
+    "wallet_address": "sardis:wal_prod_analytics_001",
+    "payment_tx": "mnd_01J8KQZP5R4XMWN7VBCG3HT9YD",
+    "escrow_id": "esc_01J8KQZQ4JQ6R23FKN1XQX9V8B"
+  },
   "agent_public_key": "cHJvZHVjdGlvbl9hZ2VudF9lZDI1NTE5X3B1YmxpY19rZXlfYmFzZTY0",
   "nonce": "cGFpZF9ub25jZV8xNzExMTIzOTk5MDAwX3NlY3VyZV9yYW5kb20",
   "config": {

